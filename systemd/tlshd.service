@@ -1,0 +1,12 @@
+[Unit]
+Description=Handshake service for kernel TLS consumers
+Documentation=man:tlshd(8)
+DefaultDependencies=no
+Before=remote-fs-pre.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/tlshd
+
+[Install]
+WantedBy=remote-fs.target

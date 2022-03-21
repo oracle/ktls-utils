@@ -1,0 +1,33 @@
+Change Log - In newest-release-first order
+
+ktls-utils 0.5 - 2022-03-NN
+ * Fix retrieval of TLSH_PRIORITIES
+ * Refactor keyring code
+ * Sketch in x.509 client authentication support
+ * Re-license request from Oracle CorpArch
+ * Enable thorough static code checking
+ * Enable compilation with older versions of GnuTLS
+
+ktls-utils 0.4 - 2022-03-04
+ * Add date and time to build version strings
+ * Document FIPS mode in tlshd(8)
+ * Initial support for PSK handshakes
+ * Initial support for SM4_GCM and SM4_CCM ciphers
+ * Support SOL_TLSH socket options
+
+ktls-utils 0.3 - 2022-02-25
+ * Tell server not to send New Session tickets
+ * Document SSLKEYLOGFILE in tlshd(8)
+ * Move kTLS-specific code to src/tlshd/ktls.c
+ * Suggested logic to distinguish between PSK and x.509
+ * Check for existence of keyutils.h
+
+ktls-utils 0.2 - 2022-02-08
+ * Replace OpenSSL with GnuTLS
+ * AF_TLSH kernel API has been simplified
+ * Fixes to get TLS handshake working
+ * More syslog helpers
+ * Added sample systemd unit
+
+ktls-utils 0.1 - 2021-12-13
+ * Initial code base

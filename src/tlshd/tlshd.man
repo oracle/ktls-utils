@@ -1,0 +1,80 @@
+.\"
+.\" Copyright (c) 2022 Oracle and/or its affiliates.
+.\"
+.\" ktls-utils is free software; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; version 2.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+.\" General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+.\" 02110-1301, USA.
+.\"
+.\" tlshd(8)
+.\"
+.\" Copyright (c) 2021 Oracle and/or its affiliates.
+.TH tlshd 8 "20 Dec 2021"
+.SH NAME
+tlshd \- TLS handshake for kernel TLS sockets
+.SH SYNOPSIS
+.BI "/usr/sbin/tlshd [" options "]"
+.SH DESCRIPTION
+The
+.B tlshd
+program implements a user agent that services TLS handshake requests
+on behalf of kernel TLS consumers.
+Using the
+.BR accept (2)
+system call, it materializes kernel socket endpoints in user space
+and calls a security library to perform TLS handshakes and re-keying.
+When the operation is complete,
+.B tlshd
+notifies the kernel that the socket is ready for use and then closes it.
+.SH OPTIONS
+.TP
+.B \-d " or " \-\-debug
+When specified this option forces audit messages to both
+.I stderr
+and the system log.
+By default, audit messages go only the system log.
+.TP
+.B \-h " or " \-\-help
+When specified tlshd displays a help message then exits immediately.
+.TP
+.B \-l " or " \-\-libdebug
+When specified this option sets the debug level for the TLS library.
+By default, library debugging messages are disabled.
+.TP
+.B \-v " or " \-\-version
+When specified tlshd displays build version information then exits immediately.
+.SH ENVIRONMENT VARIABLES
+The GnuTLS library provides certain capabilities that can be enabled
+by setting environment variables before
+.B tlshd
+is started.
+More information about these variables is available
+in GnuTLS library documentation.
+.TP
+.B SSLKEYLOGFILE
+When set, this variable specifies the pathname of a file
+to which the GnuTLS library appends
+negotiated session keys in the NSS Key Log format.
+The NSS Key Log format can be read by wireshark,
+enabling decryption of recorded sessions.
+.TP
+.B GNUTLS_FORCE_FIPS_MODE
+When set, this variable forces the library into FIPS mode,
+if it was compiled with support for FIPS140-2.
+.SH NOTES
+This software is a prototype.
+It's purpose is for demonstration and as a proof-of-concept.
+USE THIS SOFTWARE AT YOUR OWN RISK.
+.SH SEE ALSO
+.BR ssl (7)
+.SH AUTHOR
+Chuck Lever
