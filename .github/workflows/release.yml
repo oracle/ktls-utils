@@ -1,0 +1,34 @@
+name: "Generate release artifacts"
+
+on:
+  push:
+    tags:
+      - "ktls-utls-*"
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: "Install dependencies"
+      run: |
+        sudo apt-get -y install gnutls-dev
+        sudo apt-get -y install libkeyutils-dev
+        
+    - name: "Instantiate autotools"
+      run: ./autogen.sh
+
+    - name: "Configure build environment"
+      run: ./configure --with-systemd
+      
+    - name: "Build release artifact"
+      run: make distcheck
+      
+    - name: "Archive release artifact"
+      uses: actions/upload-artifact@v3
+      with:
+        path: ktls-utils-*.tar.gz
+        if-no-files-found: error
