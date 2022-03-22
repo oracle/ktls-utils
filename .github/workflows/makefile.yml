@@ -1,0 +1,35 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Install packages
+      run: |
+        sudo apt-get -y install gnutls-dev
+        sudo apt-get -y install libkeyutils-dev
+
+    - name: autogen.sh
+      run: ./autogen.sh
+
+    - name: configure
+      run: ./configure --with-systemd
+      
+    - name: Install dependencies
+      run: make
+      
+    - name: Run check
+      run: make check
+      
+    - name: Run distcheck
+      run: make distcheck
