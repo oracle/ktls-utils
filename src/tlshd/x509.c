@@ -178,8 +178,10 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 		tlshd_log_perror("Failed to fetch TLS peer ID");
 		peerid = TLSH_NO_PEERID;
 	}
-	if (peerid == TLSH_NO_PEERID)
+	if (peerid == TLSH_NO_PEERID) {
 		tlshd_client_anon_x509_handshake(sock, peername);
+		return;
+	}
 
 	ret = gnutls_certificate_allocate_credentials(&xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
