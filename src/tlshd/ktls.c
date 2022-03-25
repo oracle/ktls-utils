@@ -39,7 +39,7 @@
 
 #include "tlshd.h"
 
-#if defined(TLS_CIPHER_AES_GCM_128) && defined(GNUTLS_CIPHER_AES_128_GCM)
+#if defined(TLS_CIPHER_AES_GCM_128)
 static bool tlshd_set_aes_gcm128_info(gnutls_session_t session, int sock,
 				      unsigned read)
 {
@@ -81,7 +81,7 @@ static bool tlshd_set_aes_gcm128_info(gnutls_session_t session, int sock,
 }
 #endif
 
-#if defined(TLS_CIPHER_AES_GCM_256) && defined(GNUTLS_CIPHER_AES_256_GCM)
+#if defined(TLS_CIPHER_AES_GCM_256)
 static bool tlshd_set_aes_gcm256_info(gnutls_session_t session, int sock,
 				      unsigned read)
 {
@@ -123,7 +123,7 @@ static bool tlshd_set_aes_gcm256_info(gnutls_session_t session, int sock,
 }
 #endif
 
-#if defined(TLS_CIPHER_AES_CCM_128) && defined(GNUTLS_CIPHER_AES_128_CCM)
+#if defined(TLS_CIPHER_AES_CCM_128)
 static bool tlshd_set_aes_ccm128_info(gnutls_session_t session, int sock,
 				      unsigned read)
 {
@@ -165,7 +165,7 @@ static bool tlshd_set_aes_ccm128_info(gnutls_session_t session, int sock,
 }
 #endif
 
-#if defined(TLS_CIPHER_CHACHA20_POLY1305) && defined(GNUTLS_CIPHER_CHACHA20_POLY1305)
+#if defined(TLS_CIPHER_CHACHA20_POLY1305)
 static bool tlshd_set_chacha20_poly1305_info(gnutls_session_t session, int sock,
 					     unsigned read)
 {
@@ -203,84 +203,6 @@ static bool tlshd_set_chacha20_poly1305_info(gnutls_session_t session, int sock,
 }
 #endif
 
-#if defined(TLS_CIPHER_SM4_GCM) && defined(GNUTLS_CIPHER_SM4_GCM)
-static bool tlshd_set_sm4_gcm_info(gnutls_session_t session, int sock,
-				   unsigned read)
-{
-	struct tls12_crypto_info_sm4_gcm info = {
-		.info.version		= TLS_1_3_VERSION,
-		.info.cipher_type	= TLS_CIPHER_SM4_GCM,
-	};
-	unsigned char seq_number[8];
-	gnutls_datum_t cipher_key;
-	gnutls_datum_t mac_key;
-	gnutls_datum_t iv;
-	int ret;
-
-	ret = gnutls_record_get_state(session, read, &mac_key, &iv,
-				      &cipher_key, seq_number);
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		return false;
-	}
-
-	if (gnutls_protocol_get_version(session) == GNUTLS_TLS1_2)
-		info.info.version = TLS_1_2_VERSION;
-
-	memcpy(info.iv, iv.data + TLS_CIPHER_SM4_GCM_SALT_SIZE,
-	       TLS_CIPHER_SM4_GCM_IV_SIZE);
-	memcpy(info.key, cipher_key.data, TLS_CIPHER_SM4_GCM_KEY_SIZE);
-	memcpy(info.rec_seq, seq_number, TLS_CIPHER_SM4_GCM_REC_SEQ_SIZE);
-
-	if (setsockopt(sock, SOL_TLS, read ? TLS_RX : TLS_TX,
-		       &info, sizeof(info)) == -1) {
-		tlshd_log_perror("setsockopt");
-		return false;
-	}
-
-	return true;
-}
-#endif
-
-#if defined(TLS_CIPHER_SM4_CCM) && defined(GNUTLS_CIPHER_SM4_CCM)
-static bool tlshd_set_sm4_ccm_info(gnutls_session_t session, int sock,
-				   unsigned read)
-{
-	struct tls12_crypto_info_sm4_gcm info = {
-		.info.version		= TLS_1_3_VERSION,
-		.info.cipher_type	= TLS_CIPHER_SM4_CCM,
-	};
-	unsigned char seq_number[8];
-	gnutls_datum_t cipher_key;
-	gnutls_datum_t mac_key;
-	gnutls_datum_t iv;
-	int ret;
-
-	ret = gnutls_record_get_state(session, read, &mac_key, &iv,
-				      &cipher_key, seq_number);
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		return false;
-	}
-
-	if (gnutls_protocol_get_version(session) == GNUTLS_TLS1_2)
-		info.info.version = TLS_1_2_VERSION;
-
-	memcpy(info.iv, iv.data + TLS_CIPHER_SM4_CCM_SALT_SIZE,
-	       TLS_CIPHER_SM4_CCM_IV_SIZE);
-	memcpy(info.key, cipher_key.data, TLS_CIPHER_SM4_CCM_KEY_SIZE);
-	memcpy(info.rec_seq, seq_number, TLS_CIPHER_SM4_CCM_REC_SEQ_SIZE);
-
-	if (setsockopt(sock, SOL_TLS, read ? TLS_RX : TLS_TX,
-		       &info, sizeof(info)) == -1) {
-		tlshd_log_perror("setsockopt");
-		return false;
-	}
-
-	return true;
-}
-#endif
-
 /**
  * tlshd_initialize_ktls - Initialize socket for use by kTLS
  * @session: TLS session descriptor
@@ -307,41 +229,29 @@ int tlshd_initialize_ktls(gnutls_session_t session)
 	gnutls_transport_get_int2(session, &sockin, &sockout);
 
 	switch (gnutls_cipher_get(session)) {
-#if defined(TLS_CIPHER_AES_GCM_128) && defined(GNUTLS_CIPHER_AES_128_GCM)
+#if defined(TLS_CIPHER_AES_GCM_128)
 	case GNUTLS_CIPHER_AES_128_GCM:
 		tlshd_log_debug("Negotiated cipher: AES_GCM_128");
 		return tlshd_set_aes_gcm128_info(session, sockout, 0) &&
 			tlshd_set_aes_gcm128_info(session, sockin, 1) ? 0 : -EACCES;
 #endif
-#if defined(TLS_CIPHER_AES_GCM_256) && defined(GNUTLS_CIPHER_AES_256_GCM)
+#if defined(TLS_CIPHER_AES_GCM_256)
 	case GNUTLS_CIPHER_AES_256_GCM:
 		tlshd_log_debug("Negotiated cipher: AES_GCM_256");
 		return tlshd_set_aes_gcm256_info(session, sockout, 0) &&
 			tlshd_set_aes_gcm256_info(session, sockin, 1) ? 0 : -EACCES;
 #endif
-#if defined(TLS_CIPHER_AES_CCM_128) && defined(GNUTLS_CIPHER_AES_128_CCM)
+#if defined(TLS_CIPHER_AES_CCM_128)
 	case GNUTLS_CIPHER_AES_128_CCM:
 		tlshd_log_debug("Negotiated cipher: AES_CCM_128");
 		return tlshd_set_aes_ccm128_info(session, sockout, 0) &&
 			tlshd_set_aes_ccm128_info(session, sockin, 1) ? 0 : -EACCES;
 #endif
-#if defined(TLS_CIPHER_CHACHA20_POLY1305) && defined(GNUTLS_CIPHER_CHACHA20_POLY1305)
+#if defined(TLS_CIPHER_CHACHA20_POLY1305)
 	case GNUTLS_CIPHER_CHACHA20_POLY1305:
 		tlshd_log_debug("Negotiated cipher: ChaCha20_Poly1305");
 		return tlshd_set_chacha20_poly1305_info(session, sockout, 0) &&
 			tlshd_set_chacha20_poly1305_info(session, sockin, 1) ? 0 : -EACCES;
-#endif
-#if defined(TLS_CIPHER_SM4_GCM) && defined(GNUTLS_CIPHER_SM4_GCM)
-	case GNUTLS_CIPHER_SM4_GCM:
-		tlshd_log_debug("Negotiated cipher: SM4_GCM");
-		return tlshd_set_sm4_gcm_info(session, sockout, 0) &&
-			tlshd_set_sm4_gcm_info(session, sockin, 1) ? 0 : -EACCES;
-#endif
-#if defined(TLS_CIPHER_SM4_CCM) && defined(GNUTLS_CIPHER_SM4_CCM)
-	case GNUTLS_CIPHER_SM4_CCM:
-		tlshd_log_debug("Negotiated cipher: SM4_CCM");
-		return tlshd_set_sm4_ccm_info(session, sockout, 0) &&
-			tlshd_set_sm4_ccm_info(session, sockin, 1) ? 0 : -EACCES;
 #endif
 	default:
 		tlshd_log_error("tlshd does not support the requested cipher.");
