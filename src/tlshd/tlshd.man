@@ -31,10 +31,11 @@ on behalf of kernel TLS consumers.
 Using the
 .BR accept (2)
 system call, it materializes kernel socket endpoints in user space
-and calls a security library to perform TLS handshakes and re-keying.
-When the operation is complete,
+in order to perform TLS handshakes using a TLS library.
+After each handshake completes,
 .B tlshd
-notifies the kernel that the socket is ready for use and then closes it.
+plants TLS session metadata into the kernel socket to enable
+the use of kTLS to secure subsequent communication on that socket.
 .SH OPTIONS
 .TP
 .B \-d " or " \-\-debug
