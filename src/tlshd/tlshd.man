@@ -50,6 +50,16 @@ When specified tlshd displays a help message then exits immediately.
 When specified this option sets the debug level for the TLS library.
 By default, library debugging messages are disabled.
 .TP
+.B \-n " or " \-\-noverify
+When specified this option prevents
+.B tlshd
+from verifying the server's credential during anonymous handshakes.
+By default,
+.B tlshd
+verifies server credentials during anonymous handshakes.
+.IP
+Do not use this option on secure systems.
+.TP
 .B \-v " or " \-\-version
 When specified tlshd displays build version information then exits immediately.
 .SH ENVIRONMENT VARIABLES

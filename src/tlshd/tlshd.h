@@ -20,6 +20,7 @@
 
 extern int tlshd_debug;
 extern int tlshd_library_debug;
+extern int tlshd_verify_server;
 
 /* handshake.c */
 extern void tlshd_client_handshake(gnutls_session_t session);

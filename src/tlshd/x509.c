@@ -82,8 +82,8 @@ static void tlshd_client_anon_x509_handshake(int sock, const char *peername)
 
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 
-	/* Allow self-signed server certificates */
-	//gnutls_session_set_verify_cert(session, peername, 0);
+	if (tlshd_verify_server)
+		gnutls_session_set_verify_cert(session, peername, 0);
 
 	ret = gnutls_set_default_priority(session);
 	if (ret != GNUTLS_E_SUCCESS) {
