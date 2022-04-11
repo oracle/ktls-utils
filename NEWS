@@ -1,4 +1,4 @@
-ktls-utils 0.5 - 2022-03-NN
+ktls-utils 0.5 - 2022-04-11
  * Fix retrieval of TLSH_PRIORITIES
  * Refactor keyring code
  * Sketch in x.509 client authentication support
