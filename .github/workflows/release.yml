@@ -3,7 +3,7 @@ name: "Generate release artifacts"
 on:
   push:
     tags:
-      - "ktls-utls-*"
+      - "ktls-utils-*"
 
 jobs:
   build:
