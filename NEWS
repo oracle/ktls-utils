@@ -1,7 +1,2 @@
-ktls-utils 0.5 - 2022-04-11
- * Fix retrieval of TLSH_PRIORITIES
- * Refactor keyring code
- * Sketch in x.509 client authentication support
- * Re-license request from Oracle CorpArch
- * Enable thorough static code checking
- * Enable compilation with older versions of GnuTLS
+ktls-utils 0.6 - 2022-05-NN
+ * 
