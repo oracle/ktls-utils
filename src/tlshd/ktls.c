@@ -39,6 +39,35 @@
 
 #include "tlshd.h"
 
+#ifdef HAVE_GNUTLS_TRANSPORT_IS_KTLS_ENABLED
+static bool tlshd_is_ktls_enabled(gnutls_session_t session, unsigned read)
+{
+	int ret;
+
+	ret = gnutls_transport_is_ktls_enabled(session);
+	if (ret == GNUTLS_E_UNIMPLEMENTED_FEATURE)
+		return false;
+
+	if (read) {
+		if (!(ret & GNUTLS_KTLS_RECV))
+			return false;
+		tlshd_log_debug("Library has enabled receive kTLS for this session.");
+	} else {
+		if (!(ret & GNUTLS_KTLS_SEND))
+			return false;
+		tlshd_log_debug("Library has enabled send kTLS for this session.");
+	}
+	return true;
+}
+
+#else
+static bool tlshd_is_ktls_enabled(__attribute__ ((unused)) gnutls_session_t session,
+				  __attribute__ ((unused)) unsigned read)
+{
+	return false;
+}
+#endif
+
 #if defined(TLS_CIPHER_AES_GCM_128)
 static bool tlshd_set_aes_gcm128_info(gnutls_session_t session, int sock,
 				      unsigned read)
@@ -52,6 +81,9 @@ static bool tlshd_set_aes_gcm128_info(gnutls_session_t session, int sock,
 	gnutls_datum_t mac_key;
 	gnutls_datum_t iv;
 	int ret;
+
+	if (tlshd_is_ktls_enabled(session, read))
+		return true;
 
 	ret = gnutls_record_get_state(session, read, &mac_key, &iv,
 				      &cipher_key, seq_number);
@@ -95,6 +127,9 @@ static bool tlshd_set_aes_gcm256_info(gnutls_session_t session, int sock,
 	gnutls_datum_t iv;
 	int ret;
 
+	if (tlshd_is_ktls_enabled(session, read))
+		return true;
+
 	ret = gnutls_record_get_state(session, read, &mac_key, &iv,
 				      &cipher_key, seq_number);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -136,6 +171,9 @@ static bool tlshd_set_aes_ccm128_info(gnutls_session_t session, int sock,
 	gnutls_datum_t mac_key;
 	gnutls_datum_t iv;
 	int ret;
+
+	if (tlshd_is_ktls_enabled(session, read))
+		return true;
 
 	ret = gnutls_record_get_state(session, read, &mac_key, &iv,
 				      &cipher_key, seq_number);
@@ -179,6 +217,9 @@ static bool tlshd_set_chacha20_poly1305_info(gnutls_session_t session, int sock,
 	gnutls_datum_t iv;
 	int ret;
 
+	if (tlshd_is_ktls_enabled(session, read))
+		return true;
+
 	ret = gnutls_record_get_state(session, read, &mac_key, &iv,
 				      &cipher_key, seq_number);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -212,13 +253,6 @@ static bool tlshd_set_chacha20_poly1305_info(gnutls_session_t session, int sock,
 int tlshd_initialize_ktls(gnutls_session_t session)
 {
 	int sockin, sockout;
-
-#ifdef HAVE_GNUTLS_TRANSPORT_IS_KTLS_ENABLED
-	if (gnutls_transport_is_ktls_enabled(session)) {
-		tlshd_log_debug("Library has enabled kTLS for this session.");
-		return 0;
-	}
-#endif
 
 	if (setsockopt(gnutls_transport_get_int(session), SOL_TCP, TCP_ULP,
 		       "tls", sizeof("tls")) == -1) {
