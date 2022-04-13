@@ -67,12 +67,12 @@ extern void tlshd_client_x509_handshake(int sock, const char *peername);
 
 /*
  * New TLSH socket options that will eventually appear in
- * uapi/linux.tls.h.
+ * uapi/linux/tls.h.
  */
 
 #define AF_TLSH			(46)
 
-#define SOL_TLSH		(286)
+#define SOL_TLSH		(287)
 
 /* TLSH socket options */
 #define TLSH_PRIORITIES		(1)	/* Retrieve TLS priorities string */
