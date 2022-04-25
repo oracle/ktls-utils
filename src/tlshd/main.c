@@ -32,6 +32,7 @@
 #include <poll.h>
 #include <string.h>
 #include <getopt.h>
+#include <signal.h>
 #include <libgen.h>
 #include <keyutils.h>
 
@@ -85,6 +86,7 @@ static void tlshd_parse_poll_result(struct pollfd *fds, nfds_t nfds)
 	nfds_t i;
 	int fd;
 
+	signal(SIGCHLD, SIG_IGN);
 	for (i = 0; i < nfds; i++) {
 		if (!(fds[i].revents & POLLIN))
 			continue;
