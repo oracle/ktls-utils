@@ -120,6 +120,50 @@ void tlshd_log_gai_error(int error)
 	syslog(LOG_NOTICE, "%s\n", gai_strerror(error));
 }
 
+struct tlshd_cert_status_bit {
+	unsigned int	bit;
+	char		*name;
+};
+
+static const struct tlshd_cert_status_bit tlshd_cert_status_names[] = {
+	/* { GNUTLS_CERT_INVALID, "invalid" }, */
+	{ GNUTLS_CERT_REVOKED, "revoked" },
+	{ GNUTLS_CERT_SIGNER_NOT_FOUND, "signer not found" },
+	{ GNUTLS_CERT_SIGNER_NOT_CA, "signer not CA" },
+	{ GNUTLS_CERT_INSECURE_ALGORITHM, "uses insecure algorithm" },
+	{ GNUTLS_CERT_NOT_ACTIVATED, "not activated" },
+	{ GNUTLS_CERT_EXPIRED, "expired" },
+	{ GNUTLS_CERT_SIGNATURE_FAILURE, "signature failure" },
+	{ GNUTLS_CERT_REVOCATION_DATA_SUPERSEDED, "revocation data superseded" },
+	{ GNUTLS_CERT_UNEXPECTED_OWNER, "owner unexpected" },
+	{ GNUTLS_CERT_REVOCATION_DATA_ISSUED_IN_FUTURE, "revocation data issued in the future" },
+	{ GNUTLS_CERT_SIGNER_CONSTRAINTS_FAILURE, "signer constraints failure" },
+	{ GNUTLS_CERT_MISMATCH, "mismatch" },
+	{ GNUTLS_CERT_PURPOSE_MISMATCH, "purpose mismatch" },
+	{ GNUTLS_CERT_MISSING_OCSP_STATUS, "has missing OCSP status" },
+	{ GNUTLS_CERT_INVALID_OCSP_STATUS, "has invalid OCSP status" },
+	{ GNUTLS_CERT_UNKNOWN_CRIT_EXTENSIONS, "has unknown crit extensions" },
+	{ 0, NULL }
+};
+
+/**
+ * tlshd_log_cert_verification_error - Report a failed certificate verification
+ * @session: Session with a failed handshake
+ *
+ */
+void tlshd_log_cert_verification_error(gnutls_session_t session)
+{
+	unsigned int status;
+	int i;
+
+	status = gnutls_session_get_verify_cert_status(session);
+
+	for (i = 0; tlshd_cert_status_names[i].name; i++)
+		if (status & tlshd_cert_status_names[i].bit)
+			syslog(LOG_ERR, "Certificate %s.\n",
+			       tlshd_cert_status_names[i].name);
+}
+
 /**
  * tlshd_log_gnutls_error - Emit "library call failed" notification
  * @error: GnuTLS error code to log

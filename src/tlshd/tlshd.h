@@ -52,8 +52,9 @@ void tlshd_log_debug(const char *fmt, ...);
 extern void tlshd_log_error(const char *msg);
 extern void tlshd_log_perror(const char *prefix);
 extern void tlshd_log_gai_error(int error);
-extern void tlshd_log_gnutls_error(int error);
 
+extern void tlshd_log_cert_verification_error(gnutls_session_t session);
+extern void tlshd_log_gnutls_error(int error);
 extern void tlshd_gnutls_log_func(int level, const char *msg);
 extern void tlshd_gnutls_audit_func(gnutls_session_t session, const char *msg);
 

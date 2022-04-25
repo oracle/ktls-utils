@@ -103,7 +103,13 @@ void tlshd_client_handshake(gnutls_session_t session)
 		ret = gnutls_handshake(session);
 	} while (ret < 0 && !gnutls_error_is_fatal(ret));
 	if (ret < 0) {
-		tlshd_log_gnutls_error(ret);
+		switch (ret) {
+		case GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR:
+			tlshd_log_cert_verification_error(session);
+			break;
+		default:
+			tlshd_log_gnutls_error(ret);
+		}
 		return;
 	}
 

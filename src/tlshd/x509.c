@@ -84,14 +84,14 @@ static void tlshd_client_anon_x509_handshake(int sock, const char *peername)
 
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 
-	if (tlshd_verify_server)
-		gnutls_session_set_verify_cert(session, peername, 0);
-
 	ret = gnutls_set_default_priority(session);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		return;
 	}
+
+	if (tlshd_verify_server)
+		gnutls_session_set_verify_cert(session, peername, 0);
 
 	tlshd_client_handshake(session);
 
