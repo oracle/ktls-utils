@@ -69,7 +69,7 @@ void tlshd_log_failure(const char *hostname, const struct sockaddr *sap,
 	char buf[NI_MAXHOST];
 
 	getnameinfo(sap, salen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
-	syslog(LOG_NOTICE, "Handshake with %s (%s) failed\n",
+	syslog(LOG_ERR, "Handshake with %s (%s) failed\n",
 		hostname, buf);
 }
 
