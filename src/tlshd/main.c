@@ -47,8 +47,6 @@
 
 #define TLSH_LISTENER_BACKLOG	(20)
 
-int tlshd_verify_server = 1;
-
 static const char *optstring = "dhl:nv";
 static const struct option longopts[] = {
 	{ "debug",	no_argument,		NULL,	'd' },
