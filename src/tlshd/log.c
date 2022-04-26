@@ -38,6 +38,7 @@
 
 int tlshd_debug;
 int tlshd_library_debug;
+int tlshd_stderr;
 
 /**
  * tlshd_log_success - Emit "handshake successful" notification
@@ -207,7 +208,7 @@ void tlshd_log_init(const char *progname)
 	int option;
 
 	option = LOG_NDELAY;
-	if (tlshd_debug)
+	if (tlshd_stderr)
 		option |= LOG_PERROR;
 	openlog(progname, option, LOG_AUTH);
 

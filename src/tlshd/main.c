@@ -53,6 +53,7 @@ static const struct option longopts[] = {
 	{ "help",	no_argument,		NULL,	'h' },
 	{ "libdebug",	required_argument,	NULL,	'l' },
 	{ "noverify",	no_argument,		NULL,	'n' },
+	{ "stderr",	no_argument,		NULL,	's' },
 	{ "version",	no_argument,		NULL,	'v' },
 	{ NULL,		0,			NULL,	 0 }
 };
@@ -170,6 +171,9 @@ int main(int argc, char **argv)
 			break;
 		case 'n':
 			tlshd_verify_server = 0;
+			break;
+		case 's':
+			tlshd_stderr = 1;
 			break;
 		case 'v':
 			fprintf(stderr, "%s, built from " PACKAGE_STRING

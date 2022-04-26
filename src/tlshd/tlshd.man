@@ -39,10 +39,8 @@ the use of kTLS to secure subsequent communication on that socket.
 .SH OPTIONS
 .TP
 .B \-d " or " \-\-debug
-When specified this option forces audit messages to both
-.I stderr
-and the system log.
-By default, audit messages go only the system log.
+When specified this option enables verbose debugging.
+By default, operation is quiet.
 .TP
 .B \-h " or " \-\-help
 When specified tlshd displays a help message then exits immediately.
@@ -60,6 +58,12 @@ By default,
 verifies server credentials during anonymous handshakes.
 .IP
 Do not use this option on secure systems.
+.TP
+.B \-s " or " \-\-stderr
+When specified this option forces messages to go to both
+.I stderr
+and the system log.
+By default, messages go only to the system log.
 .TP
 .B \-v " or " \-\-version
 When specified tlshd displays build version information then exits immediately.
