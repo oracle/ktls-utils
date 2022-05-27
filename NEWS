@@ -1,9 +1,2 @@
-ktls-utils 0.6 - 2022-05-27
- * Update value of SOL_TLSH constant for kernel v5.18
- * Fix gnutls_transport_is_ktls_enabled()
- * Avoid zombie children
- * Report peer certificate verification failures
- * Split the debug command-line option
-
-A pre-release version of ktls-utils 0.6 was exercised at the
-Spring 2022 NFS bake-a-thon, held April 25 - 29, 2022.
+ktls-utils 0.7 - 2022-06-NN
+ * 
