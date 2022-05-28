@@ -1,4 +1,4 @@
-name: "Generate release artifacts"
+name: "Generate release assets"
 
 on:
   push:
@@ -11,24 +11,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    
+    - name: "Checkout"
+      uses: actions/checkout@v3
+
     - name: "Install dependencies"
       run: |
         sudo apt-get -y install gnutls-dev
         sudo apt-get -y install libkeyutils-dev
-        
+
     - name: "Instantiate autotools"
       run: ./autogen.sh
 
     - name: "Configure build environment"
       run: ./configure --with-systemd
-      
-    - name: "Build release artifact"
-      run: make distcheck
-      
-    - name: "Archive release artifact"
-      uses: actions/upload-artifact@v3
+
+    - name: "Build release asset"
+      run: make dist
+
+    - name: "Create release"
+      uses: actions/create-release@v1
+      id: create_release
       with:
-        path: ktls-utils-*.tar.gz
-        if-no-files-found: error
+        body_path: NEWS
+        release_name: ${{ github.ref }}
+        tag_name: ${{ github.ref }}
+        prerelease: false
+        draft: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: "Upload release assets"
+      uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./${{ github.ref }}.tar.gz"
+        asset_name: ${{ github.ref }}.tar.gz
+        asset_content_type: application/gzip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
