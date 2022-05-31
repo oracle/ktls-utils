@@ -39,6 +39,7 @@ For information on how to contribute to this project, see
 ### Nice-to have for client-side prototype
 
 * support for client authentication (via certificate)
+* support for using private key material stored in the local TPM
 * support for session key renegotiation
 * send proper SSL shutdown message when kernel consumer is finished with an endpoint
 * check for the correct ALPN in the server's certificate
@@ -53,4 +54,4 @@ For information on how to contribute to this project, see
 ### Server-side work
 
 A server-side handshake mechanism is also needed but is not
-part of this prototype.
+yet part of this prototype.
