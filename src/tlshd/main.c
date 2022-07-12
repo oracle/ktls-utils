@@ -47,7 +47,7 @@
 
 #define TLSH_LISTENER_BACKLOG	(20)
 
-static const char *optstring = "dhl:nv";
+static const char *optstring = "dhl:nsv";
 static const struct option longopts[] = {
 	{ "debug",	no_argument,		NULL,	'd' },
 	{ "help",	no_argument,		NULL,	'h' },
