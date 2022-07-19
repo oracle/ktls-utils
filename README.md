@@ -50,6 +50,7 @@ For information on how to contribute to this project, see
 * support for RPC-with-TLS certificate extended key usage
 * support for root device / filesystem with TLS
 * support for sharing TLS sessions across sockets
+* support for multiple PSK identities
 
 ### Server-side work
 
