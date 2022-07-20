@@ -51,6 +51,7 @@ For information on how to contribute to this project, see
 * support for root device / filesystem with TLS
 * support for sharing TLS sessions across sockets
 * support for multiple PSK identities
+* support for multiple trust chains for server verification
 
 ### Server-side work
 
