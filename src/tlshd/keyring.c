@@ -140,8 +140,8 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t privkey)
 		return false;
 	}
 
-	/* XXX: We assume only PEM-encoded keys */
-	ret = gnutls_privkey_import_x509_raw(privkey, &data, GNUTLS_X509_FMT_PEM,
+	/* Handshake upcall passes only DER-encoded keys */
+	ret = gnutls_privkey_import_x509_raw(privkey, &data, GNUTLS_X509_FMT_DER,
 					     NULL, 0);
 	free(tmp);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -149,6 +149,7 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t privkey)
 		return false;
 	}
 
+	tlshd_log_debug("Retrieved private key");
 	return true;
 }
 
@@ -178,14 +179,15 @@ bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert)
 	data.data = tmp;
 	data.size = ret;
 
-	/* XXX: We assume only PEM-encoded certificates */
+	/* Handshake upcall passes only DER-encoded certificates */
 	ret = gnutls_pcert_import_x509_raw(cert, &data,
-					   GNUTLS_X509_FMT_PEM, 0);
+					   GNUTLS_X509_FMT_DER, 0);
 	free(tmp);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		return false;
 	}
 
+	tlshd_log_debug("Retrieved x.509 certificate");
 	return true;
 }
