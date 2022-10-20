@@ -104,6 +104,26 @@ out_free_creds:
 	gnutls_certificate_free_credentials(xcred);
 }
 
+static gnutls_privkey_t tlshd_privkey;
+static gnutls_pcert_st tlshd_cert;
+
+/*
+ * XXX: After this point, tlshd_privkey should be deinited on error.
+ */
+static bool tlshd_x509_client_get_privkey(int sock)
+{
+	key_serial_t privkey;
+	socklen_t optlen;
+
+	optlen = sizeof(privkey);
+	if (getsockopt(sock, SOL_TLSH, TLSH_X509_PRIVKEY, &privkey, &optlen) == -1) {
+		tlshd_log_perror("Failed to fetch TLS x.509 private key");
+		return false;
+	}
+
+	return tlshd_keyring_get_privkey(privkey, tlshd_privkey);
+}
+
 static void tlshd_x509_log_issuers(const gnutls_datum_t *req_ca_rdn, int nreqs)
 {
 	char issuer_dn[256];
@@ -122,9 +142,6 @@ static void tlshd_x509_log_issuers(const gnutls_datum_t *req_ca_rdn, int nreqs)
 			tlshd_log_debug("   [%d]: %s", i, issuer_dn);
 	}
 }
-
-static gnutls_privkey_t tlshd_privkey;
-static gnutls_pcert_st tlshd_cert;
 
 /**
  * tlshd_x509_retrieve_key_cb - Initialize client's x.509 identity
@@ -172,9 +189,9 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 void tlshd_client_x509_handshake(int sock, const char *peername)
 {
 	gnutls_certificate_credentials_t xcred;
-	key_serial_t peerid, cert;
 	gnutls_session_t session;
 	unsigned int flags;
+	key_serial_t cert;
 	socklen_t optlen;
 	int ret;
 
@@ -202,16 +219,7 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 		 *	deinited on error.
 		 */
 		goto out_free_creds;
-	optlen = sizeof(peerid);
-	if (getsockopt(sock, SOL_TLSH, TLSH_PEERID, &peerid, &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS peer ID");
-		goto out_free_creds;
-	}
-	if (!tlshd_keyring_get_privkey(peerid, tlshd_privkey))
-		/*
-		 * XXX: After this point, tlshd_cert should be
-		 *	deinited on error.
-		 */
+	if (!tlshd_x509_client_get_privkey(sock))
 		goto out_free_creds;
 	gnutls_certificate_set_retrieve_function2(xcred,
 						  tlshd_x509_retrieve_key_cb);

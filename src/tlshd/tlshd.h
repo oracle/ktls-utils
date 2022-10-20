@@ -78,13 +78,15 @@ extern void tlshd_client_x509_handshake(int sock, const char *peername);
 
 /* TLSH socket options */
 #define TLSH_PRIORITIES		(1)	/* Retrieve TLS priorities string */
-#define TLSH_PEERID		(2)	/* Retrieve peer identity */
+#define TLSH_PEERID		(2)	/* Retrieve pre-shared key */
 #define TLSH_HANDSHAKE_TYPE	(3)	/* Retrieve handshake type */
 #define TLSH_X509_CERTIFICATE	(4)	/* Retrieve x.509 certificate */
+#define TLSH_X509_PRIVKEY	(5)	/* Retrieve x.509 private key */
 
 #define TLSH_DEFAULT_PRIORITIES	(NULL)
 #define TLSH_NO_PEERID		(0)
 #define TLSH_NO_CERT		(0)
+#define TLSH_NO_KEY		(0)
 
 /* TLSH handshake types */
 enum tlsh_hs_type {
