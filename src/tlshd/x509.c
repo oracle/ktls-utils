@@ -38,7 +38,13 @@
 
 #include "tlshd.h"
 
-static void tlshd_client_anon_x509_handshake(int sock, const char *peername)
+/**
+ * tlshd_client_anon_handshake - encryption-only TLS session
+ * @sock: Connected socket on which to perform the handshake
+ * @peername: remote's domain name (NUL-terminated)
+ *
+ */
+void tlshd_client_anon_handshake(int sock, const char *peername)
 {
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
@@ -172,16 +178,6 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 	socklen_t optlen;
 	int ret;
 
-	optlen = sizeof(peerid);
-	if (getsockopt(sock, SOL_TLSH, TLSH_PEERID, &peerid, &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS peer ID");
-		peerid = TLSH_NO_PEERID;
-	}
-	if (peerid == TLSH_NO_PEERID) {
-		tlshd_client_anon_x509_handshake(sock, peername);
-		return;
-	}
-
 	ret = gnutls_certificate_allocate_credentials(&xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -202,11 +198,20 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 	}
 	if (!tlshd_keyring_get_cert(cert, &tlshd_cert))
 		/*
-		 * XXX: After this point, tlshd_cert should also be
+		 * XXX: After this point, tlshd_cert should be
 		 *	deinited on error.
 		 */
 		goto out_free_creds;
+	optlen = sizeof(peerid);
+	if (getsockopt(sock, SOL_TLSH, TLSH_PEERID, &peerid, &optlen) == -1) {
+		tlshd_log_perror("Failed to fetch TLS peer ID");
+		goto out_free_creds;
+	}
 	if (!tlshd_keyring_get_privkey(peerid, tlshd_privkey))
+		/*
+		 * XXX: After this point, tlshd_cert should be
+		 *	deinited on error.
+		 */
 		goto out_free_creds;
 	gnutls_certificate_set_retrieve_function2(xcred,
 						  tlshd_x509_retrieve_key_cb);

@@ -186,9 +186,13 @@ void tlshd_service_socket(int sock)
 	if (getsockopt(sock, SOL_TLSH, TLSH_HANDSHAKE_TYPE, &type,
 		       &optlen) == -1) {
 		tlshd_log_perror("Failed to fetch TLS handshake type");
-		type = TLSH_TYPE_CLIENTHELLO_X509;
+		gnutls_global_deinit();
+		return;
 	}
 	switch (type) {
+	case TLSH_TYPE_CLIENTHELLO_ANON:
+		tlshd_client_anon_handshake(sock, tlshd_peername);
+		break;
 	case TLSH_TYPE_CLIENTHELLO_X509:
 		tlshd_client_x509_handshake(sock, tlshd_peername);
 		break;

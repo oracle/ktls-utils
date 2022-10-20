@@ -62,6 +62,7 @@ extern void tlshd_gnutls_audit_func(gnutls_session_t session, const char *msg);
 extern void tlshd_client_psk_handshake(int sock, const char *tlshd_peername);
 
 /* x509.c */
+extern void tlshd_client_anon_handshake(int sock, const char *peername);
 extern void tlshd_client_x509_handshake(int sock, const char *peername);
 
 #if !defined(AF_TLSH)
@@ -89,6 +90,7 @@ extern void tlshd_client_x509_handshake(int sock, const char *peername);
 enum tlsh_hs_type {
 	TLSH_TYPE_CLIENTHELLO_X509,
 	TLSH_TYPE_CLIENTHELLO_PSK,
+	TLSH_TYPE_CLIENTHELLO_ANON,
 };
 
 #endif /* !defined(AF_TLSH) */
