@@ -18,7 +18,7 @@ dnl 02110-1301, USA.
 dnl
 
 AC_PREREQ([2.69])
-AC_INIT([ktls-utils], [0.7-pre], [linux-nfs@vger.kernel.org])
+AC_INIT([ktls-utils],[0.7-pre],[linux-nfs@vger.kernel.org])
 AM_INIT_AUTOMAKE
 AM_SILENT_RULES([yes])
 AC_CONFIG_SRCDIR([config.h.in])
@@ -27,15 +27,12 @@ AC_PREFIX_DEFAULT(/usr)
 AC_USE_SYSTEM_EXTENSIONS
 
 AC_LANG(C)
-AC_PROG_CC_STDC
 AC_PROG_CC
 AC_PROG_INSTALL
 
-AC_HEADER_STDC([])
-
 unitdir=/usr/lib/systemd/system
 AC_ARG_WITH(systemd,
-	[AC_HELP_STRING([--with-systemd@<:@=unit-dir-path@:>@],
+	[AS_HELP_STRING([--with-systemd@<:@=unit-dir-path@:>@],
 			[install systemd unit files @<:@Default: no, and path defaults to /usr/lib/systemd/system if not given@:>@])],
 	if test "$withval" != "no" ; then
 		use_systemd=1

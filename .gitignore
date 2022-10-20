@@ -1,7 +1,9 @@
 *.swp
 *.o
 autom4te.cache/
+configure.ac~
 configure
+configure~
 cscope.*
 Makefile
 Makefile.in
