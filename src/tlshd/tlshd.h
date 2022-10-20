@@ -20,7 +20,6 @@
 
 extern int tlshd_debug;
 extern int tlshd_library_debug;
-extern int tlshd_verify_server;
 extern int tlshd_stderr;
 
 /* handshake.c */

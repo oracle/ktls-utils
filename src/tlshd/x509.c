@@ -38,8 +38,6 @@
 
 #include "tlshd.h"
 
-int tlshd_verify_server = 1;
-
 static void tlshd_client_anon_x509_handshake(int sock, const char *peername)
 {
 	gnutls_certificate_credentials_t xcred;
@@ -90,8 +88,7 @@ static void tlshd_client_anon_x509_handshake(int sock, const char *peername)
 		return;
 	}
 
-	if (tlshd_verify_server)
-		gnutls_session_set_verify_cert(session, peername, 0);
+	gnutls_session_set_verify_cert(session, peername, 0);
 
 	tlshd_client_handshake(session);
 

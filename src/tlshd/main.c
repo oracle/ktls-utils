@@ -47,12 +47,11 @@
 
 #define TLSH_LISTENER_BACKLOG	(20)
 
-static const char *optstring = "dhl:nsv";
+static const char *optstring = "dhl:sv";
 static const struct option longopts[] = {
 	{ "debug",	no_argument,		NULL,	'd' },
 	{ "help",	no_argument,		NULL,	'h' },
 	{ "libdebug",	required_argument,	NULL,	'l' },
-	{ "noverify",	no_argument,		NULL,	'n' },
 	{ "stderr",	no_argument,		NULL,	's' },
 	{ "version",	no_argument,		NULL,	'v' },
 	{ NULL,		0,			NULL,	 0 }
@@ -168,9 +167,6 @@ int main(int argc, char **argv)
 			break;
 		case 'l':
 			tlshd_library_debug = atoi(optarg);
-			break;
-		case 'n':
-			tlshd_verify_server = 0;
 			break;
 		case 's':
 			tlshd_stderr = 1;
