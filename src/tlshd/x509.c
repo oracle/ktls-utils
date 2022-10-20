@@ -108,6 +108,23 @@ static gnutls_privkey_t tlshd_privkey;
 static gnutls_pcert_st tlshd_cert;
 
 /*
+ * XXX: After this point, tlshd_cert should be deinited on error.
+ */
+static bool tlshd_x509_client_get_cert(int sock)
+{
+	key_serial_t cert;
+	socklen_t optlen;
+
+	optlen = sizeof(cert);
+	if (getsockopt(sock, SOL_TLSH, TLSH_X509_CERTIFICATE, &cert, &optlen) == -1) {
+		tlshd_log_perror("Failed to fetch TLS x.509 certificate");
+		return false;
+	}
+
+	return tlshd_keyring_get_cert(cert, &tlshd_cert);
+}
+
+/*
  * XXX: After this point, tlshd_privkey should be deinited on error.
  */
 static bool tlshd_x509_client_get_privkey(int sock)
@@ -191,8 +208,6 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
 	unsigned int flags;
-	key_serial_t cert;
-	socklen_t optlen;
 	int ret;
 
 	ret = gnutls_certificate_allocate_credentials(&xcred);
@@ -208,16 +223,7 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 	}
 	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
-	optlen = sizeof(cert);
-	if (getsockopt(sock, SOL_TLSH, TLSH_X509_CERTIFICATE, &cert, &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS x.509 certificate");
-		goto out_free_creds;
-	}
-	if (!tlshd_keyring_get_cert(cert, &tlshd_cert))
-		/*
-		 * XXX: After this point, tlshd_cert should be
-		 *	deinited on error.
-		 */
+	if (!tlshd_x509_client_get_cert(sock))
 		goto out_free_creds;
 	if (!tlshd_x509_client_get_privkey(sock))
 		goto out_free_creds;
