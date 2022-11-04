@@ -61,6 +61,25 @@ Zero, the quietest setting, is the default.
 This option specifies an integer which indicates the debug message level
 for GNU TLS library calls.
 Zero, the quietest setting, is the default.
+.P
+The
+.I [authentication]
+section specifies default authentication material when establishing
+TLS sessions.
+There is one subsection:
+.IR [client] .
+In the
+.I client
+subsection, there are two available options:
+.TP
+.B x509.certificate
+This option specifies the pathname of a file containing
+a PEM-encoded x.509 certificate that is to be presented during
+a ClientHello request when no other certificate is available.
+.TP
+.B x509.private_key
+This option specifies the pathname of a file containing
+a PEM-encoded private key associated with the above certificate.
 .SH NOTES
 This software is a prototype.
 It's purpose is for demonstration and as a proof-of-concept.

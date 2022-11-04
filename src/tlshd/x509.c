@@ -122,8 +122,9 @@ static bool tlshd_x509_client_get_cert(int sock)
 		tlshd_log_perror("Failed to fetch TLS x.509 certificate");
 		return false;
 	}
-
-	return tlshd_keyring_get_cert(cert, &tlshd_cert);
+	if (cert != TLSH_NO_CERT)
+		return tlshd_keyring_get_cert(cert, &tlshd_cert);
+	return tlshd_config_get_client_cert(&tlshd_cert);
 }
 
 /*
@@ -139,8 +140,9 @@ static bool tlshd_x509_client_get_privkey(int sock)
 		tlshd_log_perror("Failed to fetch TLS x.509 private key");
 		return false;
 	}
-
-	return tlshd_keyring_get_privkey(privkey, tlshd_privkey);
+	if (privkey != TLSH_NO_KEY)
+		return tlshd_keyring_get_privkey(privkey, tlshd_privkey);
+	return tlshd_config_get_client_privkey(&tlshd_privkey);
 }
 
 static void tlshd_x509_log_issuers(const gnutls_datum_t *req_ca_rdn, int nreqs)

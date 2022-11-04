@@ -26,6 +26,8 @@ extern GKeyFile *tlshd_configuration;
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
 void tlshd_config_shutdown(void);
+bool tlshd_config_get_client_cert(gnutls_pcert_st *cert);
+bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey);
 
 /* handshake.c */
 extern void tlshd_client_handshake(gnutls_session_t session);

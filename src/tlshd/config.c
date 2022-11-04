@@ -84,3 +84,149 @@ void tlshd_config_shutdown(void)
 {
 	g_key_file_free(tlshd_configuration);
 }
+
+#if HAVE_LINUX_OPENAT2_H
+#include <linux/openat2.h>
+
+static int tlshd_file_open(const char *pathname)
+{
+	static const struct open_how how = {
+		.flags		= O_RDONLY,
+		.resolve	= RESOLVE_NO_SYMLINKS,
+	};
+
+	return syscall(SYS_openat2, 0, pathname, &how, sizeof(how));
+}
+#else
+static int tlshd_file_open(const char *pathname)
+{
+	return open(pathname, O_RDONLY);
+}
+#endif
+
+/*
+ * On success, caller must release buffer returned in @data by calling free(3)
+ */
+static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data)
+{
+	struct stat statbuf;
+	void *buf;
+	bool ret;
+	int fd;
+
+	ret = false;
+
+	fd = tlshd_file_open(pathname);
+	if (fd == -1) {
+		tlshd_log_perror("Failed to open file");
+		goto out;
+	}
+	if (fstat(fd, &statbuf)) {
+		tlshd_log_perror("Failed to stat file");
+		goto out_close;
+	}
+	buf = malloc(statbuf.st_size);
+	if (!buf) {
+		errno = ENOMEM;
+		tlshd_log_perror("Failed to allocate buffer");
+		goto out_close;
+	}
+	if (read(fd, buf, statbuf.st_size) == -1) {
+		tlshd_log_perror("Failed to read file");
+		free(buf);
+		goto out_close;
+	}
+	data->data = buf;
+	data->size = statbuf.st_size;
+	ret = true;
+
+out_close:
+	close(fd);
+out:
+	return ret;
+}
+
+/**
+ * tlshd_config_get_client_cert - Get cert for ClientHello from .conf
+ * @cert: OUT: in-memory certificate
+ *
+ * Return values:
+ *   %true: certificate retrieved successfully
+ *   %false: certificate not retrieved
+ */
+bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
+{
+	GError *error = NULL;
+	gnutls_datum_t data;
+	gchar *pathname;
+	int ret;
+
+	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
+					"x509.certificate", &error);
+	if (!pathname) {
+		tlshd_log_gerror("Default certificate not found", error);
+		g_error_free(error);
+		return false;
+	}
+
+	if (!tlshd_config_read_datum(pathname, &data))
+		return false;
+
+	/* Config file supports only PEM-encoded certificates */
+	ret = gnutls_pcert_import_x509_raw(cert, &data,
+					   GNUTLS_X509_FMT_PEM, 0);
+	free(data.data);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return false;
+	}
+
+	tlshd_log_debug("Retrieved x.509 certificate from %s", pathname);
+	return true;
+}
+
+/**
+ * tlshd_config_get_client_privkey - Get private key for ClientHello from .conf
+ * @privkey: OUT: in-memory private key
+ *
+ * Return values:
+ *   %true: private key retrieved successfully
+ *   %false: private key not retrieved
+ */
+bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
+{
+	GError *error = NULL;
+	gnutls_datum_t data;
+	gchar *pathname;
+	int ret;
+
+	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
+					"x509.private_key", &error);
+	if (!pathname) {
+		tlshd_log_gerror("Default private key not found", error);
+		g_error_free(error);
+		return false;
+	}
+
+	if (!tlshd_config_read_datum(pathname, &data))
+		return false;
+
+	ret = gnutls_privkey_init(privkey);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		free(data.data);
+		return false;
+	}
+
+	/* Config file supports only PEM-encoded keys */
+	ret = gnutls_privkey_import_x509_raw(*privkey, &data,
+					     GNUTLS_X509_FMT_PEM, NULL, 0);
+	free(data.data);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return false;
+	}
+
+	tlshd_log_debug("Retrieved private key from %s", pathname);
+	return true;
+}
