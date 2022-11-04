@@ -37,6 +37,8 @@
 
 #include <linux/tls.h>
 
+#include <glib.h>
+
 #include "tlshd.h"
 
 #ifdef HAVE_GNUTLS_TRANSPORT_IS_KTLS_ENABLED

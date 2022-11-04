@@ -38,18 +38,15 @@ plants TLS session metadata into the kernel socket to enable
 the use of kTLS to secure subsequent communication on that socket.
 .SH OPTIONS
 .TP
-.B \-d " or " \-\-debug
-When specified this option enables verbose debugging.
-By default, operation is quiet.
+.B \-c " or " \-\-config
+When specified this option sets the location for
+.BR tlshd 's
+config file.
 .TP
 .B \-h " or " \-\-help
 When specified
 .B tlshd
 displays a help message then exits immediately.
-.TP
-.B \-l " or " \-\-libdebug
-When specified this option sets the debug level for the TLS library.
-By default, library debugging messages are disabled.
 .TP
 .B \-s " or " \-\-stderr
 When specified this option forces messages to go to both
@@ -84,6 +81,7 @@ This software is a prototype.
 It's purpose is for demonstration and as a proof-of-concept.
 USE THIS SOFTWARE AT YOUR OWN RISK.
 .SH SEE ALSO
+.BR tlshd.conf (5),
 .BR ssl (7)
 .SH AUTHOR
 Chuck Lever

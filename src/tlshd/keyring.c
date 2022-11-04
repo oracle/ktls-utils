@@ -34,6 +34,8 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
 
+#include <glib.h>
+
 #include "tlshd.h"
 
 /**

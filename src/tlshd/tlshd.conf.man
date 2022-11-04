@@ -1,0 +1,71 @@
+.\"
+.\" Copyright (c) 2022 Oracle and/or its affiliates.
+.\"
+.\" ktls-utils is free software; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; version 2.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+.\" General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+.\" 02110-1301, USA.
+.\"
+.\" tlshd(8)
+.\"
+.\" Copyright (c) 2022 Oracle and/or its affiliates.
+.TH tlshd 8 "20 Oct 2022"
+.SH NAME
+tlshd.conf \- tlshd configuration file
+.SH SYNOPSIS
+.B /etc/tlshd.conf
+.SH DESCRIPTION
+The
+.B tlshd
+program implements a user agent that services TLS handshake requests
+on behalf of kernel TLS consumers.
+Its configuration file contains information that the program reads
+when it starts up.
+The file is designed to be human readable and contains a list of keywords
+with values that provide various types of information.
+The configuration file is considered a trusted source of information.
+.P
+The
+.B tlshd
+program reads this file once when it is launched.
+Thus changes made in this file take effect only when the
+.B tlshd
+program is restarted.
+If this file does not exist, the
+.B tlshd
+program exits immediately.
+.SH OPTIONS
+The configuration file is split into sections.
+.P
+The
+.I [main]
+section specifies run-time settings for the
+.B tlshd
+program.
+In this section, there are two available options:
+.TP
+.B debug
+This option specifies an integer which indicates the debug message level.
+Zero, the quietest setting, is the default.
+.TP
+.B libdebug
+This option specifies an integer which indicates the debug message level
+for GNU TLS library calls.
+Zero, the quietest setting, is the default.
+.SH NOTES
+This software is a prototype.
+It's purpose is for demonstration and as a proof-of-concept.
+USE THIS SOFTWARE AT YOUR OWN RISK.
+.SH SEE ALSO
+.BR tlshd (8)
+.SH AUTHOR
+Chuck Lever

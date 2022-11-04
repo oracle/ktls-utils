@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <poll.h>
 #include <string.h>
+#include <bsd/string.h>
 #include <getopt.h>
 #include <signal.h>
 #include <libgen.h>
@@ -43,15 +44,16 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
 
+#include <glib.h>
+
 #include "tlshd.h"
 
 #define TLSH_LISTENER_BACKLOG	(20)
 
-static const char *optstring = "dhl:sv";
+static const char *optstring = "c:h:sv";
 static const struct option longopts[] = {
-	{ "debug",	no_argument,		NULL,	'd' },
+	{ "config",	required_argument,	NULL,	'c' },
 	{ "help",	no_argument,		NULL,	'h' },
-	{ "libdebug",	required_argument,	NULL,	'l' },
 	{ "stderr",	no_argument,		NULL,	's' },
 	{ "version",	no_argument,		NULL,	'v' },
 	{ NULL,		0,			NULL,	 0 }
@@ -153,20 +155,20 @@ out_close0:
 
 int main(int argc, char **argv)
 {
+	static gchar config_file[PATH_MAX + 1] = "/etc/tlshd.conf";
 	char *progname;
 	int c;
 
-	tlshd_debug = 0;
 	tlshd_library_debug = 0;
 	progname = basename(argv[0]);
 	while ((c = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
 		switch (c) {
-		case 'd':
-			/* Eventually this option will set a debug level */
-			tlshd_debug = 1;
-			break;
-		case 'l':
-			tlshd_library_debug = atoi(optarg);
+		case 'c':
+			if (strlcpy(config_file, optarg, sizeof(config_file)) >=
+					sizeof(config_file)) {
+				fprintf(stderr, "Invalid config file\n");
+				return EXIT_FAILURE;
+			}
 			break;
 		case 's':
 			tlshd_stderr = 1;
@@ -178,14 +180,21 @@ int main(int argc, char **argv)
 			return EXIT_SUCCESS;
 		case 'h':
 		default:
-			fprintf(stderr, "usage: %s [-dT]\n", progname);
+			fprintf(stderr, "usage: %s [-chsv]\n", progname);
 		}
 	}
 
 	tlshd_log_init(progname);
 
+	if (!tlshd_config_init(config_file)) {
+		tlshd_log_shutdown();
+		tlshd_log_close();
+		return EXIT_FAILURE;
+	}
+
 	tlshd_poll();
 
+	tlshd_config_shutdown();
 	tlshd_log_shutdown();
 	tlshd_log_close();
 	return EXIT_SUCCESS;

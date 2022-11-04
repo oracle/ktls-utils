@@ -38,6 +38,8 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
 
+#include <glib.h>
+
 #include "tlshd.h"
 
 static char tlshd_peername[NI_MAXHOST];

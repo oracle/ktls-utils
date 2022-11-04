@@ -21,6 +21,11 @@
 extern int tlshd_debug;
 extern int tlshd_library_debug;
 extern int tlshd_stderr;
+extern GKeyFile *tlshd_configuration;
+
+/* config.c */
+bool tlshd_config_init(const gchar *pathname);
+void tlshd_config_shutdown(void);
 
 /* handshake.c */
 extern void tlshd_client_handshake(gnutls_session_t session);
@@ -57,6 +62,8 @@ extern void tlshd_log_cert_verification_error(gnutls_session_t session);
 extern void tlshd_log_gnutls_error(int error);
 extern void tlshd_gnutls_log_func(int level, const char *msg);
 extern void tlshd_gnutls_audit_func(gnutls_session_t session, const char *msg);
+
+void tlshd_log_gerror(const char *msg, GError *error);
 
 /* psk.c */
 extern void tlshd_client_psk_handshake(int sock, const char *tlshd_peername);

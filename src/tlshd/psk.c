@@ -35,6 +35,8 @@
 #include <gnutls/abstract.h>
 #include <linux/tls.h>
 
+#include <glib.h>
+
 #include "tlshd.h"
 
 static key_serial_t tlshd_peerid;

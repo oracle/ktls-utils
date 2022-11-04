@@ -34,6 +34,8 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
 
+#include <glib.h>
+
 #include "tlshd.h"
 
 int tlshd_debug;
@@ -196,6 +198,14 @@ void tlshd_gnutls_audit_func(__attribute__ ((unused)) gnutls_session_t session,
 			     const char *msg)
 {
 	syslog(LOG_INFO, "audit: %s", msg);
+}
+
+/**
+ * tlshd_log_gerror - Emit glib2 "library call failed" notification
+ */
+void tlshd_log_gerror(const char *msg, GError *error)
+{
+	syslog(LOG_ERR, "%s: %s", msg, error->message);
 }
 
 /**

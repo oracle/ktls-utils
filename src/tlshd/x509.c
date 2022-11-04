@@ -36,6 +36,8 @@
 #include <gnutls/x509.h>
 #include <linux/tls.h>
 
+#include <glib.h>
+
 #include "tlshd.h"
 
 /**
