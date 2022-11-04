@@ -16,13 +16,14 @@
 # 02110-1301, USA.
 #
 
-man8_MANS	= tlshd.man
-EXTRA_DIST	= $(man8_MANS)
+man8_MANS		= tlshd.man
+EXTRA_DIST		= $(man8_MANS)
 
-sbin_PROGRAMS	= tlshd
-tlshd_CFLAGS	= -Werror -Wall -Wextra
-tlshd_SOURCES	= handshake.c keyring.c ktls.c log.c main.c psk.c \
-		  tlshd.h x509.c
-tlshd_LDADD	= -lgnutls -lkeyutils
+sbin_PROGRAMS		= tlshd
+tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
+			   $(LIBKEYUTILS_CFLAGS)
+tlshd_SOURCES		= handshake.c keyring.c ktls.c log.c main.c psk.c \
+			  tlshd.h x509.c
+tlshd_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS)
 
-MAINTAINERCLEANFILES = Makefile.in cscope.out
+MAINTAINERCLEANFILES	= Makefile.in cscope.out
