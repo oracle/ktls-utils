@@ -1,7 +1,10 @@
 Change Log - In newest-release-first order
 
-ktls-utils 0.7 - 2022-06-NN
- *
+ktls-utils 0.7 - 2022-11-10
+ * Remove the -n command line option
+ * Support client-side peer authentication
+ * Support upcall API changes in v6.0 prototype kernel
+ * Add /etc/tlshd.conf with support for default cert and private key
 
 ktls-utils 0.6 - 2022-05-27
  * Update value of SOL_TLSH constant for kernel v5.18

@@ -1,4 +1,4 @@
-# Release Notes for ktls-utils 0.6
+# Release Notes for ktls-utils 0.7
 
 Note well: This is experimental prototype software. It's purpose is
 purely as a demonstration and proof-of-concept. USE AT YOUR OWN RISK.
@@ -38,7 +38,6 @@ For information on how to contribute to this project, see
 
 ### Nice-to have for client-side prototype
 
-* support for client authentication (via certificate)
 * support for using private key material stored in the local TPM
 * support for session key renegotiation
 * send proper SSL shutdown message when kernel consumer is finished with an endpoint
