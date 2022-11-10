@@ -30,24 +30,28 @@ jobs:
     - name: "Build release asset"
       run: make dist
 
+    - name: "Version"
+      run: |
+        echo "ktls_utils_version=`./configure --version | awk '{print $3;; exit}'`" >> $GITHUB_ENV
+
     - name: "Create release"
-      uses: actions/create-release@v1
+      uses: actions/create-release@latest
       id: create_release
       with:
         body_path: NEWS
-        release_name: ${{ github.ref }}
+        release_name: v${{ env.ktls_utils_version }}
         tag_name: ${{ github.ref }}
         prerelease: false
         draft: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: "Upload release assets"
-      uses: actions/upload-release-asset@v1
+    - name: "Upload release tarball"
+      uses: actions/upload-release-asset@latest
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./${{ github.ref }}.tar.gz"
-        asset_name: ${{ github.ref }}.tar.gz
+        asset_path: ktls-utils-${{ env.ktls_utils_version }}.tar.gz
+        asset_name: ktls-utils-${{ env.ktls_utils_version }}.tar.gz
         asset_content_type: application/gzip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
