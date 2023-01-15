@@ -1,4 +1,4 @@
-# Release Notes for ktls-utils 0.7
+# Release Notes for ktls-utils 0.8-pre
 
 Note well: This is experimental prototype software. It's purpose is
 purely as a demonstration and proof-of-concept. USE AT YOUR OWN RISK.
@@ -63,6 +63,6 @@ Please consult the [security guide](./SECURITY.md) for our responsible security 
 
 ## License
 
-Copyright (c) 2022 Oracle and/or its affiliates.
+Copyright (c) 2023 Oracle and/or its affiliates.
 
 Released under the GNU GENERAL PUBLIC LICENSE
