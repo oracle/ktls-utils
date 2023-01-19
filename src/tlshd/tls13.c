@@ -324,6 +324,110 @@ out_free_creds:
 	gnutls_psk_free_client_credentials(psk_cred);
 }
 
+/*
+ * XXX: After this point, tlshd_cert should be deinited on error.
+ */
+static bool tlshd_x509_server_get_cert(struct tlshd_handshake_parms *parms)
+{
+	if (parms->x509_cert != HANDSHAKE_NO_CERT)
+		return tlshd_keyring_get_cert(parms->x509_cert, &tlshd_cert);
+	return tlshd_config_get_server_cert(&tlshd_cert);
+}
+
+/*
+ * XXX: After this point, tlshd_privkey should be deinited on error.
+ */
+static bool tlshd_x509_server_get_privkey(struct tlshd_handshake_parms *parms)
+{
+	if (parms->x509_privkey != HANDSHAKE_NO_PRIVKEY)
+		return tlshd_keyring_get_privkey(parms->x509_privkey,
+						 tlshd_privkey);
+	return tlshd_config_get_server_privkey(&tlshd_privkey);
+}
+
+static int tlshd_certificate_verify_function(gnutls_session_t session)
+{
+	const char *hostname;
+	unsigned int status;
+	gnutls_datum_t out;
+	int type, ret;
+
+	hostname = gnutls_session_get_ptr(session);
+
+	ret = gnutls_certificate_verify_peers3(session, hostname, &status);
+	switch (ret) {
+	case GNUTLS_E_SUCCESS:
+		break;
+	case GNUTLS_E_NO_CERTIFICATE_FOUND:
+		tlshd_log_debug("The peer presented no certificate.\n");
+		return 0;
+	default:
+		tlshd_log_gnutls_error(ret);
+		return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+        type = gnutls_certificate_type_get(session);
+        gnutls_certificate_verification_status_print(status, type, &out, 0);
+        tlshd_log_debug("%s", out.data);
+        gnutls_free(out.data);
+
+        if (status)
+                return GNUTLS_E_CERTIFICATE_ERROR;
+
+	/* We might also examine extended key usage information here, if we want
+	 * to get picky. Kernel would have to tell us what to look for. */
+
+	/* XXX: Mark the peer authenticated. Netlink? */
+	return 0;
+}
+
+static void tlshd_server_handshake(struct tlshd_handshake_parms *parms)
+{
+	gnutls_certificate_credentials_t xcred;
+	gnutls_session_t session;
+	int ret;
+
+	ret = gnutls_certificate_allocate_credentials(&xcred);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return;
+	}
+
+	ret = gnutls_certificate_set_x509_system_trust(xcred);
+	if (ret < 0) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
+	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
+
+	if (!tlshd_x509_server_get_cert(parms))
+		goto out_free_creds;
+	if (!tlshd_x509_server_get_privkey(parms))
+		goto out_free_creds;
+	gnutls_certificate_set_retrieve_function2(xcred,
+						  tlshd_x509_retrieve_key_cb);
+
+	ret = gnutls_init(&session, GNUTLS_SERVER);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
+	gnutls_transport_set_int(session, parms->sockfd);
+
+	gnutls_server_name_set(session, GNUTLS_NAME_DNS,
+			       parms->peername, strlen(parms->peername));
+	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
+	gnutls_certificate_set_verify_function(xcred, tlshd_certificate_verify_function);
+	gnutls_certificate_server_set_request(session, GNUTLS_CERT_REQUEST);
+
+	tlshd_start_tls_handshake(session, parms);
+
+	gnutls_deinit(session);
+
+out_free_creds:
+	gnutls_certificate_free_credentials(xcred);
+}
+
 /**
  * tlshd_tls13_handler - process a TLS v1.3 handshake request
  * @parms: requested handshake parameters
@@ -362,6 +466,9 @@ void tlshd_tls13_handler(struct tlshd_handshake_parms *parms)
 			tlshd_log_debug("Unrecognized auth type (%d)",
 					parms->auth_type);
 		}
+		break;
+	case HANDSHAKE_NL_TLS_TYPE_SERVERHELLO:
+		tlshd_server_handshake(parms);
 		break;
 	default:
 		tlshd_log_debug("Unrecognized handshake type (%d)",
