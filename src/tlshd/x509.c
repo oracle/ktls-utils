@@ -41,6 +41,59 @@
 
 #include "tlshd.h"
 
+static void tlshd_start_tls_handshake(gnutls_session_t session)
+{
+	char priorities[2048];
+	socklen_t optlen;
+	char *desc;
+	int ret;
+
+	optlen = sizeof(priorities);
+	memset(priorities, 0, optlen);
+	if (getsockopt(gnutls_transport_get_int(session),
+		       SOL_TLSH, TLSH_PRIORITIES, priorities, &optlen) == -1)
+		tlshd_log_perror("Failed to fetch TLS priority string");
+	if (strlen(priorities)) {
+		const char *err_pos;
+
+		tlshd_log_debug("Using TLS priorities string %s\n", priorities);
+		ret = gnutls_priority_set_direct(session, priorities,
+						 &err_pos);
+		if (ret != GNUTLS_E_SUCCESS) {
+			tlshd_log_gnutls_error(ret);
+			return;
+		}
+	} else {
+		tlshd_log_debug("Using default TLS priorities\n");
+		ret = gnutls_set_default_priority(session);
+		if (ret != GNUTLS_E_SUCCESS) {
+			tlshd_log_gnutls_error(ret);
+			return;
+		}
+	}
+
+	gnutls_handshake_set_timeout(session, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+	do {
+		ret = gnutls_handshake(session);
+	} while (ret < 0 && !gnutls_error_is_fatal(ret));
+	if (ret < 0) {
+		switch (ret) {
+		case GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR:
+			tlshd_log_cert_verification_error(session);
+			break;
+		default:
+			tlshd_log_gnutls_error(ret);
+		}
+		return;
+	}
+
+	desc = gnutls_session_get_desc(session);
+	tlshd_log_debug("Session description: %s", desc);
+	gnutls_free(desc);
+
+	tlshd_completion_status = tlshd_initialize_ktls(session);
+}
+
 /**
  * tlshd_client_anon_handshake - encryption-only TLS session
  * @sock: Connected socket on which to perform the handshake
@@ -99,7 +152,7 @@ void tlshd_client_anon_handshake(int sock, const char *peername)
 
 	gnutls_session_set_verify_cert(session, peername, 0);
 
-	tlshd_client_handshake(session);
+	tlshd_start_tls_handshake(session);
 
 	gnutls_deinit(session);
 
@@ -251,7 +304,7 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 	gnutls_session_set_verify_cert(session, peername, 0);
 
-	tlshd_client_handshake(session);
+	tlshd_start_tls_handshake(session);
 
 	gnutls_deinit(session);
 
@@ -315,7 +368,7 @@ void tlshd_client_psk_handshake(int sock, const char *peername)
 			       peername, strlen(peername));
 	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
 
-	tlshd_client_handshake(session);
+	tlshd_start_tls_handshake(session);
 
 	gnutls_deinit(session);
 

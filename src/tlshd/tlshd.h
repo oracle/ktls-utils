@@ -22,6 +22,7 @@ extern int tlshd_debug;
 extern int tlshd_library_debug;
 extern int tlshd_stderr;
 extern GKeyFile *tlshd_configuration;
+extern int tlshd_completion_status;
 
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
@@ -30,7 +31,6 @@ bool tlshd_config_get_client_cert(gnutls_pcert_st *cert);
 bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey);
 
 /* handshake.c */
-extern void tlshd_client_handshake(gnutls_session_t session);
 extern void tlshd_service_socket(int sock);
 
 /* keyring.c */
