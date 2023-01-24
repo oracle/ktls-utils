@@ -67,7 +67,7 @@ extern void tlshd_gnutls_audit_func(gnutls_session_t session, const char *msg);
 
 void tlshd_log_gerror(const char *msg, GError *error);
 
-/* x509.c */
+/* tls13.c */
 extern void tlshd_client_anon_handshake(int sock, const char *peername);
 extern void tlshd_client_x509_handshake(int sock, const char *peername);
 extern void tlshd_client_psk_handshake(int sock, const char *tlshd_peername);
