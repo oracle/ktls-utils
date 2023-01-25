@@ -94,13 +94,8 @@ static bool tlshd_set_aes_gcm128_info(gnutls_session_t session, int sock,
 		return false;
 	}
 
-	/* TLSv1.2 generates iv in the kernel */
-	if (gnutls_protocol_get_version(session) == GNUTLS_TLS1_2) {
-		info.info.version = TLS_1_2_VERSION;
-		memcpy(info.iv, seq_number, TLS_CIPHER_AES_GCM_128_IV_SIZE);
-	} else
-		memcpy(info.iv, iv.data + TLS_CIPHER_AES_GCM_128_SALT_SIZE,
-		       TLS_CIPHER_AES_GCM_128_IV_SIZE);
+	memcpy(info.iv, iv.data + TLS_CIPHER_AES_GCM_128_SALT_SIZE,
+	       TLS_CIPHER_AES_GCM_128_IV_SIZE);
 	memcpy(info.salt, iv.data, TLS_CIPHER_AES_GCM_128_SALT_SIZE);
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_AES_GCM_128_KEY_SIZE);
 	memcpy(info.rec_seq, seq_number, TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE);
@@ -139,13 +134,8 @@ static bool tlshd_set_aes_gcm256_info(gnutls_session_t session, int sock,
 		return false;
 	}
 
-	/* TLSv1.2 generates iv in the kernel */
-	if (gnutls_protocol_get_version(session) == GNUTLS_TLS1_2) {
-		info.info.version = TLS_1_2_VERSION;
-		memcpy(info.iv, seq_number, TLS_CIPHER_AES_GCM_256_IV_SIZE);
-	} else
-		memcpy(info.iv, iv.data + TLS_CIPHER_AES_GCM_256_SALT_SIZE,
-		       TLS_CIPHER_AES_GCM_256_IV_SIZE);
+	memcpy(info.iv, iv.data + TLS_CIPHER_AES_GCM_256_SALT_SIZE,
+	       TLS_CIPHER_AES_GCM_256_IV_SIZE);
 	memcpy(info.salt, iv.data, TLS_CIPHER_AES_GCM_256_SALT_SIZE);
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_AES_GCM_256_KEY_SIZE);
 	memcpy(info.rec_seq, seq_number, TLS_CIPHER_AES_GCM_256_REC_SEQ_SIZE);
@@ -184,13 +174,8 @@ static bool tlshd_set_aes_ccm128_info(gnutls_session_t session, int sock,
 		return false;
 	}
 
-	/* TLSv1.2 generates iv in the kernel */
-	if (gnutls_protocol_get_version(session) == GNUTLS_TLS1_2) {
-		info.info.version = TLS_1_2_VERSION;
-		memcpy(info.iv, seq_number, TLS_CIPHER_AES_CCM_128_IV_SIZE);
-	} else
-		memcpy(info.iv, iv.data + TLS_CIPHER_AES_CCM_128_SALT_SIZE,
-		       TLS_CIPHER_AES_CCM_128_IV_SIZE);
+	memcpy(info.iv, iv.data + TLS_CIPHER_AES_CCM_128_SALT_SIZE,
+	       TLS_CIPHER_AES_CCM_128_IV_SIZE);
 	memcpy(info.salt, iv.data, TLS_CIPHER_AES_CCM_128_SALT_SIZE);
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_AES_CCM_128_KEY_SIZE);
 	memcpy(info.rec_seq, seq_number, TLS_CIPHER_AES_CCM_128_REC_SEQ_SIZE);
@@ -228,9 +213,6 @@ static bool tlshd_set_chacha20_poly1305_info(gnutls_session_t session, int sock,
 		tlshd_log_gnutls_error(ret);
 		return false;
 	}
-
-	if (gnutls_protocol_get_version(session) == GNUTLS_TLS1_2)
-		info.info.version = TLS_1_2_VERSION;
 
 	memcpy(info.iv, iv.data, TLS_CIPHER_CHACHA20_POLY1305_IV_SIZE);
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_CHACHA20_POLY1305_KEY_SIZE);
