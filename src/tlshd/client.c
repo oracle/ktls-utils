@@ -71,9 +71,6 @@ static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
 	flags = GNUTLS_CLIENT;
-#if defined(GNUTLS_NO_TICKETS)
-	flags |= GNUTLS_NO_TICKETS;
-#endif
 	ret = gnutls_init(&session, flags);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -248,9 +245,6 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 						  tlshd_x509_retrieve_key_cb);
 
 	flags = GNUTLS_CLIENT;
-#if defined(GNUTLS_NO_TICKETS)
-	flags |= GNUTLS_NO_TICKETS;
-#endif
 	ret = gnutls_init(&session, flags);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -303,9 +297,6 @@ static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_psk_set_client_credentials_function(psk_cred,
 						   tlshd_psk_retrieve_key_cb);
 	flags = GNUTLS_CLIENT;
-#if defined(GNUTLS_NO_TICKETS)
-	flags |= GNUTLS_NO_TICKETS;
-#endif
 	ret = gnutls_init(&session, flags);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -346,23 +337,6 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
 
 	tlshd_log_debug("System config file: %s", gnutls_get_system_config_file());
-
-#if defined(HAVE_GNUTLS_PROTOCOL_SET_ENABLED)
-	/*
-	 * Both NVMe-TLS and RPC-with-TLS require the use of TLSv1.3.
-	 * However, some current prototype implementations are limited
-	 * to TLSv1.2 because not all OSes have support for TLSv1.3 yet.
-	 *
-	 * For security reasons, this min version must be set to NO LOWER
-	 * THAN TLSv1.2. This setting must be increased to v1.3 when tlshd
-	 * matriculates to product quality.
-	 */
-	gnutls_protocol_set_enabled(GNUTLS_SSL3,   0);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_0, 0);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_1, 0);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_2, 1);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_3, 1);
-#endif /* HAVE_GNUTLS_PROTOCOL_SET_ENABLED */
 
 	switch (parms->auth_type) {
 	case HANDSHAKE_GENL_TLS_AUTH_UNAUTH:
