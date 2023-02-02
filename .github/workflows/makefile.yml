@@ -17,7 +17,7 @@ jobs:
     - name: Install packages
       run: |
         sudo apt-get update
-        sudo apt-get -y install gnutls-dev libkeyutils-dev
+        sudo apt-get -y install gnutls-dev libkeyutils-dev libnl-3-dev libnl-genl-3-dev
 
     - name: autogen.sh
       run: ./autogen.sh
