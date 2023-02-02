@@ -37,9 +37,10 @@
 #include <libgen.h>
 #include <keyutils.h>
 
-#include <arpa/inet.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
+#include <netlink/netlink.h>
+#include <netlink/socket.h>
+#include <netlink/msg.h>
+
 
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
@@ -47,8 +48,6 @@
 #include <glib.h>
 
 #include "tlshd.h"
-
-#define TLSH_LISTENER_BACKLOG	(20)
 
 static const char *optstring = "c:h:sv";
 static const struct option longopts[] = {
@@ -59,98 +58,52 @@ static const struct option longopts[] = {
 	{ NULL,		0,			NULL,	 0 }
 };
 
-static int tlshd_make_listener(struct sockaddr *sap, socklen_t saplen)
+static void tlshd_wait_for_events(void)
 {
-	int sock;
+	struct nl_sock *nls;
+	int err;
 
-	sock = socket(AF_TLSH, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
-	if (sock == -1) {
-		tlshd_log_perror("socket");
-		return -1;
-	}
-	if (bind(sock, sap, saplen)) {
-		tlshd_log_perror("bind");
-		return -1;
-	}
-	if (listen(sock, TLSH_LISTENER_BACKLOG)) {
-		tlshd_log_perror("listen");
-		return -1;
+	nls = nl_socket_alloc();
+	if (!nls) {
+		tlshd_log_debug("%s: Failed to allocate netlink socket.", __func__);
+		return;
 	}
 
-	return sock;
-}
+	err = nl_connect(nls, NETLINK_HANDSHAKE);
+	if (err != NLE_SUCCESS) {
+		tlshd_log_nl_error("nl_connect", err);
+		goto out_free;
+	}
 
-static void tlshd_parse_poll_result(struct pollfd *fds, nfds_t nfds)
-{
-	pid_t pid;
-	nfds_t i;
-	int fd;
+	nl_socket_disable_seq_check(nls);
+	err = nl_socket_add_membership(nls, HANDSHAKE_NLGRP_TLS_13);
+	if (err < 0) {
+		tlshd_log_nl_error("nl_socket_add_membership", err);
+		goto out_close;
+	}
 
-	signal(SIGCHLD, SIG_IGN);
-	for (i = 0; i < nfds; i++) {
-		if (!(fds[i].revents & POLLIN))
-			continue;
-
-		fd = accept(fds[i].fd, NULL, NULL);
-		if (fd == -1) {
-			/*
-			 * Linux accept(2) passes already-pending network
-			 * errors on the new socket as an error code from
-			 * accept(2).
-			 */
-			tlshd_log_perror("accept");
-			continue;
+	while (true) {
+		err = nl_recvmsgs_default(nls);
+		if (err < 0) {
+			tlshd_log_nl_error("nl_recvmsgs", err);
+			break;
 		}
 
-		pid = fork();
-		if (!pid) {
-			tlshd_service_socket(fd);
+		tlshd_log_debug("%s: Event received... (%d)\n", __func__, err);
+		if (!fork()) {
+			tlshd_service_socket();
+			tlshd_log_debug("%s: Child exiting...\n", __func__);
 			tlshd_log_close();
 			exit(EXIT_SUCCESS);
 		}
+	};
+	tlshd_log_debug("%s: exiting event loop...\n", __func__);
 
-		close(fd);
-	}
-}
-
-static void tlshd_poll(void)
-{
-	union {
-		struct sockaddr_in	sin;
-		struct sockaddr_in6	sin6;
-		struct sockaddr		sa;
-	} u;
-	struct pollfd fds[2];
-
-	u.sin.sin_family = AF_INET;
-	u.sin.sin_addr.s_addr = INADDR_ANY;
-	fds[0].fd = tlshd_make_listener(&u.sa, sizeof(u.sin));
-	if (fds[0].fd == -1)
-		return;
-
-	u.sin6.sin6_family = AF_INET6;
-	u.sin6.sin6_addr = in6addr_any;
-	fds[1].fd = tlshd_make_listener(&u.sa, sizeof(u.sin6));
-	if (fds[0].fd == -1)
-		goto out_close0;
-
-	while (1) {
-		unsigned long i;
-
-		for (i = 0; i < ARRAY_SIZE(fds); i++) {
-			fds[i].events = POLLIN;
-			fds[i].revents = 0;
-		}
-		if (poll(fds, ARRAY_SIZE(fds), -1) == -1) {
-			tlshd_log_perror("poll");
-			break;
-		}
-		tlshd_parse_poll_result(fds, ARRAY_SIZE(fds));
-	}
-
-	close(fds[1].fd);
-out_close0:
-	close(fds[0].fd);
+	nl_socket_drop_membership(nls, HANDSHAKE_NLGRP_TLS_13);
+out_close:
+	nl_close(nls);
+out_free:
+	nl_socket_free(nls);
 }
 
 int main(int argc, char **argv)
@@ -192,7 +145,7 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	tlshd_poll();
+	tlshd_wait_for_events();
 
 	tlshd_config_shutdown();
 	tlshd_log_shutdown();

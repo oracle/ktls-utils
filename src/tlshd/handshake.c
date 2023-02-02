@@ -66,25 +66,26 @@ static void tlshd_handshake_complete(void)
 
 /**
  * tlshd_service_socket - Service a kernel socket needing a key operation
- * @sock: socket descriptor of kernel socket to service
- *
- * This function notifies the kernel when the library has finished.
  *
  * For the moment, tlshd handles only client-side sockets.
  */
-void tlshd_service_socket(int sock)
+void tlshd_service_socket(void)
 {
+	struct tlshd_handshake_parms parms;
 	int ret;
 
-	tlshd_completion_status = -EACCES;
+	tlshd_completion_status = -EIO;
 	atexit(tlshd_handshake_complete);
+
+	if (tlshd_nl_get_handshake_parms(&parms) < 0)
+		return;
 
 	memset(&tlshd_peeraddr, 0, sizeof(tlshd_peeraddr));
 	tlshd_peeraddr_len = sizeof(tlshd_peeraddr);
-	if (getpeername(sock, (struct sockaddr *)&tlshd_peeraddr,
+	if (getpeername(parms.sockfd, (struct sockaddr *)&tlshd_peeraddr,
 			&tlshd_peeraddr_len) == -1) {
 		tlshd_log_perror("getpeername");
-		return;
+		goto out;
 	}
 
 	ret = getnameinfo((struct sockaddr *)&tlshd_peeraddr, tlshd_peeraddr_len,
@@ -92,8 +93,14 @@ void tlshd_service_socket(int sock)
 			  NI_NAMEREQD);
 	if (ret) {
 		tlshd_log_gai_error(ret);
-		return;
+		goto out;
 	}
+	parms.peername = tlshd_peername;
 
-	tlshd_tls13_handler(sock, tlshd_peername);
+	tlshd_tls13_handler(&parms);
+
+out:
+	free(parms.priorities);
+
+	tlshd_nl_done(&parms);
 }
