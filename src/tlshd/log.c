@@ -34,6 +34,8 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
 
+#include <netlink/errno.h>
+
 #include <glib.h>
 
 #include "tlshd.h"
@@ -205,10 +207,24 @@ void tlshd_gnutls_audit_func(__attribute__ ((unused)) gnutls_session_t session,
 
 /**
  * tlshd_log_gerror - Emit glib2 "library call failed" notification
+ * @msg: message to log
+ * @error: error information
+ *
  */
 void tlshd_log_gerror(const char *msg, GError *error)
 {
 	syslog(LOG_ERR, "%s: %s", msg, error->message);
+}
+
+/**
+ * tlshd_log_nl_error - Log a netlink error
+ * @msg: message to log
+ * @err: error number
+ *
+ */
+void tlshd_log_nl_error(const char *msg, int err)
+{
+	syslog(LOG_ERR, "%s: %s", msg, nl_geterror(err));
 }
 
 /**
@@ -220,7 +236,7 @@ void tlshd_log_init(const char *progname)
 {
 	int option;
 
-	option = LOG_NDELAY;
+	option = LOG_NDELAY | LOG_PID;
 	if (tlshd_stderr)
 		option |= LOG_PERROR;
 	openlog(progname, option, LOG_AUTH);
