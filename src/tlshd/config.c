@@ -38,6 +38,8 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
 
+#include <netlink/netlink.h>
+
 #include <glib.h>
 
 #include "tlshd.h"
@@ -76,6 +78,8 @@ bool tlshd_config_init(const gchar *pathname)
 					     "debug", NULL);
 	tlshd_library_debug = g_key_file_get_integer(tlshd_configuration,
 						     "main", "libdebug", NULL);
+	nl_debug = g_key_file_get_integer(tlshd_configuration, "main",
+					  "nl_debug", NULL);
 
 	return true;
 }
