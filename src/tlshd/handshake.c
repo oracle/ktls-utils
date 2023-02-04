@@ -42,7 +42,7 @@
 
 #include "tlshd.h"
 
-static char tlshd_peername[NI_MAXHOST];
+static char tlshd_peername[NI_MAXHOST] = "unknown";
 static struct sockaddr_storage tlshd_peeraddr;
 static socklen_t tlshd_peeraddr_len;
 
