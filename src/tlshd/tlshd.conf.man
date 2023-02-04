@@ -61,6 +61,11 @@ Zero, the quietest setting, is the default.
 This option specifies an integer which indicates the debug message level
 for GNU TLS library calls.
 Zero, the quietest setting, is the default.
+.TP
+.B nl_debug
+This option specifies an integer which indicates the debug message level
+for netlink operations.
+Zero, the quietest setting, is the default.
 .P
 The
 .I [authentication]

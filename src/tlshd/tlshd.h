@@ -69,6 +69,7 @@ extern void tlshd_gnutls_log_func(int level, const char *msg);
 extern void tlshd_gnutls_audit_func(gnutls_session_t session, const char *msg);
 
 void tlshd_log_gerror(const char *msg, GError *error);
+void tlshd_log_nl_error(const char *msg, int err);
 
 #if !defined(AF_TLSH)
 
