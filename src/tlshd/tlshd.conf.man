@@ -62,6 +62,11 @@ This option specifies an integer which indicates the debug message level
 for TLS library calls.
 Zero, the quietest setting, is the default.
 .TP
+.B nl_debug
+This option specifies an integer which indicates the debug message level
+for netlink operations.
+Zero, the quietest setting, is the default.
+.TP
 .B keyrings
 This option specifies a semicolon-separated list of auxiliary keyrings
 that might contain handshake authentication tokens.
