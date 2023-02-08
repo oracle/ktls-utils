@@ -116,7 +116,7 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
 
 	if (!fork()) {
 		/* child */
-		tlshd_service_socket(0);
+		tlshd_service_socket();
 		exit(EXIT_SUCCESS);
 	}
 
