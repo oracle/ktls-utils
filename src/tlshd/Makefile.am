@@ -25,8 +25,8 @@ EXTRA_DIST		= $(man5_MANS) $(man8_MANS)
 sbin_PROGRAMS		= tlshd
 tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
 			   $(LIBKEYUTILS_CFLAGS) $(GLIB_CFLAGS)
-tlshd_SOURCES		= config.c handshake.c keyring.c ktls.c log.c main.c \
-			  tlshd.h x509.c
+tlshd_SOURCES		= client.c config.c handshake.c keyring.c ktls.c log.c \
+			  main.c tlshd.h
 tlshd_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS) $(GLIB_LIBS)
 
 MAINTAINERCLEANFILES	= Makefile.in cscope.out

@@ -23,6 +23,11 @@ extern int tlshd_library_debug;
 extern int tlshd_stderr;
 extern GKeyFile *tlshd_configuration;
 
+/* client.c */
+extern void tlshd_client_anon_handshake(int sock, const char *peername);
+extern void tlshd_client_x509_handshake(int sock, const char *peername);
+extern void tlshd_client_psk_handshake(int sock, const char *tlshd_peername);
+
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
 void tlshd_config_shutdown(void);
@@ -66,11 +71,6 @@ extern void tlshd_gnutls_log_func(int level, const char *msg);
 extern void tlshd_gnutls_audit_func(gnutls_session_t session, const char *msg);
 
 void tlshd_log_gerror(const char *msg, GError *error);
-
-/* x509.c */
-extern void tlshd_client_anon_handshake(int sock, const char *peername);
-extern void tlshd_client_x509_handshake(int sock, const char *peername);
-extern void tlshd_client_psk_handshake(int sock, const char *tlshd_peername);
 
 #if !defined(AF_TLSH)
 
