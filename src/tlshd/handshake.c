@@ -126,12 +126,13 @@ void tlshd_start_tls_handshake(gnutls_session_t session)
  * tlshd_service_socket - Service a kernel socket needing a key operation
  * @sock: socket descriptor of kernel socket to service
  *
- * This function notifies the kernel when the library has finished.
- *
  * For the moment, tlshd handles only client-side sockets.
  */
 void tlshd_service_socket(int sock)
 {
+	struct tlshd_handshake_parms parms = {
+		.sockfd		= sock,
+	};
 	int ret;
 
 	tlshd_completion_status = -EACCES;
@@ -139,7 +140,7 @@ void tlshd_service_socket(int sock)
 
 	memset(&tlshd_peeraddr, 0, sizeof(tlshd_peeraddr));
 	tlshd_peeraddr_len = sizeof(tlshd_peeraddr);
-	if (getpeername(sock, (struct sockaddr *)&tlshd_peeraddr,
+	if (getpeername(parms.sockfd, (struct sockaddr *)&tlshd_peeraddr,
 			&tlshd_peeraddr_len) == -1) {
 		tlshd_log_perror("getpeername");
 		return;
@@ -152,6 +153,7 @@ void tlshd_service_socket(int sock)
 		tlshd_log_gai_error(ret);
 		return;
 	}
+	parms.peername = tlshd_peername;
 
-	tlshd_clienthello_handshake(sock, tlshd_peername);
+	tlshd_clienthello_handshake(&parms);
 }
