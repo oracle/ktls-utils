@@ -16,6 +16,8 @@
  * 02110-1301, USA.
  */
 
+#include <linux/netlink.h>
+
 #define ARRAY_SIZE(a)		(sizeof(a) / sizeof((a)[0]))
 
 extern int tlshd_debug;
@@ -23,10 +25,18 @@ extern int tlshd_library_debug;
 extern int tlshd_stderr;
 extern GKeyFile *tlshd_configuration;
 
+struct nl_sock;
+
 struct tlshd_handshake_parms {
 	char		*peername;
 	int		sockfd;
-
+	int		handshake_type;
+	int		auth_type;
+	char		*priorities;
+	key_serial_t	x509_cert;
+	key_serial_t	x509_privkey;
+	key_serial_t	peerid;
+	int		msg_status;
 	int		session_status;
 };
 
@@ -78,6 +88,16 @@ extern void tlshd_gnutls_audit_func(gnutls_session_t session, const char *msg);
 
 void tlshd_log_gerror(const char *msg, GError *error);
 void tlshd_log_nl_error(const char *msg, int err);
+
+/* netlink.c */
+extern void tlshd_genl_dispatch(void);
+extern int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms);
+extern void tlshd_genl_done(struct tlshd_handshake_parms *parms);
+
+#define TLS_DEFAULT_PRIORITIES	(NULL)
+#define TLS_NO_PEERID		(0)
+#define TLS_NO_CERT		(0)
+#define TLS_NO_PRIVKEY		(0)
 
 #if !defined(AF_TLSH)
 
