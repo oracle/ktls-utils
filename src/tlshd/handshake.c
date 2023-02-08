@@ -104,7 +104,6 @@ out_free:
 /**
  * tlshd_service_socket - Service a kernel socket needing a key operation
  *
- * For the moment, tlshd handles only client-side sockets.
  */
 void tlshd_service_socket(void)
 {
@@ -137,6 +136,9 @@ void tlshd_service_socket(void)
 	switch (parms.handshake_type) {
 	case HANDSHAKE_MSG_TYPE_CLIENTHELLO:
 		tlshd_clienthello_handshake(&parms);
+		break;
+	case HANDSHAKE_MSG_TYPE_SERVERHELLO:
+		tlshd_serverhello_handshake(&parms);
 		break;
 	default:
 		tlshd_log_debug("Unrecognized handshake type (%d)",
