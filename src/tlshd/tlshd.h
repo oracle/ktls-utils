@@ -53,7 +53,7 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey);
 /* handshake.c */
 extern void tlshd_start_tls_handshake(gnutls_session_t session,
 				      struct tlshd_handshake_parms *parms);
-extern void tlshd_service_socket(int sock);
+extern void tlshd_service_socket(void);
 
 /* keyring.c */
 extern bool tlshd_keyring_get_psk_username(key_serial_t serial,
@@ -103,35 +103,3 @@ extern void tlshd_genl_done(struct tlshd_handshake_parms *parms);
 #define TLS_NO_PEERID		(0)
 #define TLS_NO_CERT		(0)
 #define TLS_NO_PRIVKEY		(0)
-
-#if !defined(AF_TLSH)
-
-/*
- * New TLSH socket options that will eventually appear in
- * uapi/linux/tls.h.
- */
-
-#define AF_TLSH			(46)
-
-#define SOL_TLSH		(287)
-
-/* TLSH socket options */
-#define TLSH_PRIORITIES		(1)	/* Retrieve TLS priorities string */
-#define TLSH_PEERID		(2)	/* Retrieve pre-shared key */
-#define TLSH_HANDSHAKE_TYPE	(3)	/* Retrieve handshake type */
-#define TLSH_X509_CERTIFICATE	(4)	/* Retrieve x.509 certificate */
-#define TLSH_X509_PRIVKEY	(5)	/* Retrieve x.509 private key */
-
-#define TLSH_DEFAULT_PRIORITIES	(NULL)
-#define TLSH_NO_PEERID		(0)
-#define TLSH_NO_CERT		(0)
-#define TLSH_NO_KEY		(0)
-
-/* TLSH handshake types */
-enum tlsh_hs_type {
-	TLSH_TYPE_CLIENTHELLO_X509,
-	TLSH_TYPE_CLIENTHELLO_PSK,
-	TLSH_TYPE_CLIENTHELLO_ANON,
-};
-
-#endif /* !defined(AF_TLSH) */
