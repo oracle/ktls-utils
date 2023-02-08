@@ -23,8 +23,13 @@ extern int tlshd_library_debug;
 extern int tlshd_stderr;
 extern GKeyFile *tlshd_configuration;
 
+struct tlshd_handshake_parms {
+	char		*peername;
+	int		sockfd;
+};
+
 /* client.c */
-extern void tlshd_clienthello_handshake(int sock, const char *peername);
+extern void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms);
 
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
