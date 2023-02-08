@@ -65,11 +65,11 @@ static void tlshd_handshake_complete(void)
 }
 
 /**
- * tlshd_client_handshake - Drive the handshake interaction
+ * tlshd_start_tls_handshake - Drive the handshake interaction
  * @session: TLS session to initialize
  *
  */
-void tlshd_client_handshake(gnutls_session_t session)
+void tlshd_start_tls_handshake(gnutls_session_t session)
 {
 	char priorities[2048];
 	socklen_t optlen;
