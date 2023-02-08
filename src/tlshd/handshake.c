@@ -42,14 +42,13 @@
 
 #include "tlshd.h"
 
-static int tlshd_completion_status;
-
 /**
  * tlshd_start_tls_handshake - Drive the handshake interaction
  * @session: TLS session to initialize
  *
  */
-void tlshd_start_tls_handshake(gnutls_session_t session)
+void tlshd_start_tls_handshake(gnutls_session_t session,
+			       struct tlshd_handshake_parms *parms)
 {
 	char priorities[2048];
 	socklen_t optlen;
@@ -92,6 +91,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session)
 		default:
 			tlshd_log_gnutls_error(ret);
 		}
+		parms->session_status = EACCES;
 		return;
 	}
 
@@ -99,7 +99,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session)
 	tlshd_log_debug("Session description: %s", desc);
 	gnutls_free(desc);
 
-	tlshd_completion_status = tlshd_initialize_ktls(session);
+	parms->session_status = tlshd_initialize_ktls(session);
 }
 
 /**
@@ -113,13 +113,12 @@ void tlshd_service_socket(int sock)
 	static char peername[NI_MAXHOST] = "unknown";
 	struct tlshd_handshake_parms parms = {
 		.sockfd		= sock,
+		.session_status	= EIO,
 	};
 	static struct sockaddr_storage ss;
 	static socklen_t peeraddr_len;
 	struct sockaddr *peeraddr = (struct sockaddr *)&ss;
 	int ret;
-
-	tlshd_completion_status = -EACCES;
 
 	memset(&ss, 0, sizeof(ss));
 	peeraddr_len = sizeof(ss);
@@ -139,7 +138,7 @@ void tlshd_service_socket(int sock)
 	tlshd_clienthello_handshake(&parms);
 
 out:
-	if (tlshd_completion_status) {
+	if (parms.session_status) {
 		tlshd_log_failure(peername, peeraddr, peeraddr_len);
 		return;
 	}
