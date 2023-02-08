@@ -40,6 +40,7 @@
 #include <glib.h>
 
 #include "tlshd.h"
+#include "netlink.h"
 
 static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 {
@@ -109,17 +110,8 @@ static gnutls_pcert_st tlshd_cert;
  */
 static bool tlshd_x509_client_get_cert(struct tlshd_handshake_parms *parms)
 {
-	key_serial_t cert;
-	socklen_t optlen;
-
-	optlen = sizeof(cert);
-	if (getsockopt(parms->sockfd, SOL_TLSH, TLSH_X509_CERTIFICATE,
-		       &cert, &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS x.509 certificate");
-		return false;
-	}
-	if (cert != TLSH_NO_CERT)
-		return tlshd_keyring_get_cert(cert, &tlshd_cert);
+	if (parms->x509_cert != TLS_NO_CERT)
+		return tlshd_keyring_get_cert(parms->x509_cert, &tlshd_cert);
 	return tlshd_config_get_client_cert(&tlshd_cert);
 }
 
@@ -128,17 +120,9 @@ static bool tlshd_x509_client_get_cert(struct tlshd_handshake_parms *parms)
  */
 static bool tlshd_x509_client_get_privkey(struct tlshd_handshake_parms *parms)
 {
-	key_serial_t privkey;
-	socklen_t optlen;
-
-	optlen = sizeof(privkey);
-	if (getsockopt(parms->sockfd, SOL_TLSH, TLSH_X509_PRIVKEY,
-		       &privkey, &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS x.509 private key");
-		return false;
-	}
-	if (privkey != TLSH_NO_KEY)
-		return tlshd_keyring_get_privkey(privkey, tlshd_privkey);
+	if (parms->x509_privkey != TLS_NO_PRIVKEY)
+		return tlshd_keyring_get_privkey(parms->x509_privkey,
+						 tlshd_privkey);
 	return tlshd_config_get_client_privkey(&tlshd_privkey);
 }
 
@@ -306,15 +290,9 @@ static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
 	unsigned int flags;
-	socklen_t optlen;
 	int ret;
 
-	optlen = sizeof(tlshd_peerid);
-	if (getsockopt(parms->sockfd, SOL_TLSH, TLSH_PEERID, &tlshd_peerid,
-		       &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS peer ID");
-		return;
-	}
+	tlshd_peerid = parms->peerid;
 
 	ret = gnutls_psk_allocate_client_credentials(&psk_cred);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -354,8 +332,7 @@ out_free_creds:
  */
 void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 {
-	socklen_t optlen;
-	int type, ret;
+	int ret;
 
 	ret = gnutls_global_init();
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -387,25 +364,19 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_protocol_set_enabled(GNUTLS_TLS1_3, 1);
 #endif /* HAVE_GNUTLS_PROTOCOL_SET_ENABLED */
 
-	optlen = sizeof(type);
-	if (getsockopt(parms->sockfd, SOL_TLSH, TLSH_HANDSHAKE_TYPE, &type,
-		       &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS handshake type");
-		gnutls_global_deinit();
-		return;
-	}
-	switch (type) {
-	case TLSH_TYPE_CLIENTHELLO_ANON:
+	switch (parms->auth_type) {
+	case HANDSHAKE_AUTH_UNAUTH:
 		tlshd_client_anon_handshake(parms);
 		break;
-	case TLSH_TYPE_CLIENTHELLO_X509:
+	case HANDSHAKE_AUTH_X509:
 		tlshd_client_x509_handshake(parms);
 		break;
-	case TLSH_TYPE_CLIENTHELLO_PSK:
+	case HANDSHAKE_AUTH_PSK:
 		tlshd_client_psk_handshake(parms);
 		break;
 	default:
-		tlshd_log_debug("Unrecognized handshake type (%d)", type);
+		tlshd_log_debug("Unrecognized auth type (%d)",
+				parms->auth_type);
 	}
 
 	gnutls_global_deinit();

@@ -71,11 +71,14 @@ void tlshd_log_success(const char *hostname, const struct sockaddr *sap,
 void tlshd_log_failure(const char *hostname, const struct sockaddr *sap,
 		       socklen_t salen)
 {
-	char buf[NI_MAXHOST];
+	if (salen) {
+		char buf[NI_MAXHOST];
 
-	getnameinfo(sap, salen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
-	syslog(LOG_ERR, "Handshake with %s (%s) failed\n",
-		hostname, buf);
+		getnameinfo(sap, salen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
+		syslog(LOG_ERR, "Handshake with '%s' (%s) failed\n",
+		       hostname, buf);
+	} else
+		syslog(LOG_ERR, "Handshake request failed\n");
 }
 
 /**
