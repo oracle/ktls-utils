@@ -71,11 +71,9 @@ The
 .I [authentication]
 section specifies default authentication material when establishing
 TLS sessions.
-There is one subsection:
-.IR [client] .
-In the
-.I client
-subsection, there are two available options:
+There are two subsections:
+.IR [client] and [server] .
+In each of these subsections, there are two available options:
 .TP
 .B x509.certificate
 This option specifies the pathname of a file containing
