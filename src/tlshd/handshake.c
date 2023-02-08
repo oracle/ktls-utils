@@ -41,6 +41,7 @@
 #include <glib.h>
 
 #include "tlshd.h"
+#include "netlink.h"
 
 /**
  * tlshd_start_tls_handshake - Drive the handshake interaction
@@ -67,7 +68,6 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 			goto out_free;
 		}
 	} else {
-		tlshd_log_debug("Using default TLS priorities\n");
 		ret = gnutls_set_default_priority(session);
 		if (ret != GNUTLS_E_SUCCESS) {
 			tlshd_log_gnutls_error(ret);
@@ -103,23 +103,23 @@ out_free:
 
 /**
  * tlshd_service_socket - Service a kernel socket needing a key operation
- * @sock: socket descriptor of kernel socket to service
  *
  * For the moment, tlshd handles only client-side sockets.
  */
-void tlshd_service_socket(int sock)
+void tlshd_service_socket(void)
 {
 	static char peername[NI_MAXHOST] = "unknown";
-	struct tlshd_handshake_parms parms = {
-		.sockfd		= sock,
-		.session_status	= EIO,
-	};
+	struct tlshd_handshake_parms parms;
 	static struct sockaddr_storage ss;
 	static socklen_t peeraddr_len;
 	struct sockaddr *peeraddr = (struct sockaddr *)&ss;
 	int ret;
 
 	memset(&ss, 0, sizeof(ss));
+	peeraddr_len = 0;
+	if (tlshd_genl_get_handshake_parms(&parms) != 0)
+		goto out;
+
 	peeraddr_len = sizeof(ss);
 	if (getpeername(parms.sockfd, peeraddr, &peeraddr_len) == -1) {
 		tlshd_log_perror("getpeername");
@@ -134,9 +134,20 @@ void tlshd_service_socket(int sock)
 	}
 	parms.peername = peername;
 
-	tlshd_clienthello_handshake(&parms);
+	switch (parms.handshake_type) {
+	case HANDSHAKE_MSG_TYPE_CLIENTHELLO:
+		tlshd_clienthello_handshake(&parms);
+		break;
+	default:
+		tlshd_log_debug("Unrecognized handshake type (%d)",
+				parms.handshake_type);
+	}
 
 out:
+	tlshd_genl_done(&parms);
+
+	free(parms.peerids);
+
 	if (parms.session_status) {
 		tlshd_log_failure(peername, peeraddr, peeraddr_len);
 		return;
