@@ -99,7 +99,7 @@ void tlshd_client_anon_handshake(int sock, const char *peername)
 
 	gnutls_session_set_verify_cert(session, peername, 0);
 
-	tlshd_client_handshake(session);
+	tlshd_start_tls_handshake(session);
 
 	gnutls_deinit(session);
 
@@ -251,7 +251,7 @@ void tlshd_client_x509_handshake(int sock, const char *peername)
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 	gnutls_session_set_verify_cert(session, peername, 0);
 
-	tlshd_client_handshake(session);
+	tlshd_start_tls_handshake(session);
 
 	gnutls_deinit(session);
 
@@ -315,7 +315,7 @@ void tlshd_client_psk_handshake(int sock, const char *peername)
 			       peername, strlen(peername));
 	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
 
-	tlshd_client_handshake(session);
+	tlshd_start_tls_handshake(session);
 
 	gnutls_deinit(session);
 
