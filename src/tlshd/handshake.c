@@ -132,8 +132,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session)
  */
 void tlshd_service_socket(int sock)
 {
-	socklen_t optlen;
-	int type, ret;
+	int ret;
 
 	tlshd_completion_status = -EACCES;
 	atexit(tlshd_handshake_complete);
@@ -154,56 +153,5 @@ void tlshd_service_socket(int sock)
 		return;
 	}
 
-	ret = gnutls_global_init();
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		return;
-	}
-
-	if (tlshd_library_debug)
-		gnutls_global_set_log_level(tlshd_library_debug);
-	gnutls_global_set_log_function(tlshd_gnutls_log_func);
-	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
-
-	tlshd_log_debug("System config file: %s", gnutls_get_system_config_file());
-
-#if defined(HAVE_GNUTLS_PROTOCOL_SET_ENABLED)
-	/*
-	 * Both NVMe-TLS and RPC-with-TLS require the use of TLSv1.3.
-	 * However, some current prototype implementations are limited
-	 * to TLSv1.2 because not all OSes have support for TLSv1.3 yet.
-	 *
-	 * For security reasons, this min version must be set to NO LOWER
-	 * THAN TLSv1.2. This setting must be increased to v1.3 when tlshd
-	 * matriculates to product quality.
-	 */
-	gnutls_protocol_set_enabled(GNUTLS_SSL3,   0);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_0, 0);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_1, 0);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_2, 1);
-	gnutls_protocol_set_enabled(GNUTLS_TLS1_3, 1);
-#endif /* HAVE_GNUTLS_PROTOCOL_SET_ENABLED */
-
-	optlen = sizeof(type);
-	if (getsockopt(sock, SOL_TLSH, TLSH_HANDSHAKE_TYPE, &type,
-		       &optlen) == -1) {
-		tlshd_log_perror("Failed to fetch TLS handshake type");
-		gnutls_global_deinit();
-		return;
-	}
-	switch (type) {
-	case TLSH_TYPE_CLIENTHELLO_ANON:
-		tlshd_client_anon_handshake(sock, tlshd_peername);
-		break;
-	case TLSH_TYPE_CLIENTHELLO_X509:
-		tlshd_client_x509_handshake(sock, tlshd_peername);
-		break;
-	case TLSH_TYPE_CLIENTHELLO_PSK:
-		tlshd_client_psk_handshake(sock, tlshd_peername);
-		break;
-	default:
-		tlshd_log_debug("Unrecognized handshake type (%d)", type);
-	}
-
-	gnutls_global_deinit();
+	tlshd_clienthello_handshake(sock, tlshd_peername);
 }

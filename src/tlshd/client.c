@@ -41,13 +41,7 @@
 
 #include "tlshd.h"
 
-/**
- * tlshd_client_anon_handshake - encryption-only TLS session
- * @sock: Connected socket on which to perform the handshake
- * @peername: remote's domain name (NUL-terminated)
- *
- */
-void tlshd_client_anon_handshake(int sock, const char *peername)
+static void tlshd_client_anon_handshake(int sock, const char *peername)
 {
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
@@ -202,13 +196,7 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 	return 0;
 }
 
-/**
- * tlshd_client_x509_handshake - authenticated x.509 TLS session
- * @sock: Connected socket on which to perform the handshake
- * @peername: remote's domain name (NUL-terminated)
- *
- */
-void tlshd_client_x509_handshake(int sock, const char *peername)
+static void tlshd_client_x509_handshake(int sock, const char *peername)
 {
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
@@ -271,13 +259,7 @@ static int tlshd_psk_retrieve_key_cb(__attribute__ ((unused))gnutls_session_t se
 	return 0;
 }
 
-/**
- * tlshd_client_psk_handshake - PSK-authenticated TLS session
- * @sock: Connected socket on which to perform the handshake
- * @peername: remote's domain name (NUL-terminated)
- *
- */
-void tlshd_client_psk_handshake(int sock, const char *peername)
+static void tlshd_client_psk_handshake(int sock, const char *peername)
 {
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
@@ -321,4 +303,69 @@ void tlshd_client_psk_handshake(int sock, const char *peername)
 
 out_free_creds:
 	gnutls_psk_free_client_credentials(psk_cred);
+}
+
+/**
+ * tlshd_clienthello_handshake - send a TLSv1.3 ClientHello
+ * @sock: Connected socket on which to perform the handshake
+ * @peername: remote's domain name (NUL-terminated)
+ *
+ */
+void tlshd_clienthello_handshake(int sock, const char *peername)
+{
+	socklen_t optlen;
+	int type, ret;
+
+	ret = gnutls_global_init();
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return;
+	}
+
+	if (tlshd_library_debug)
+		gnutls_global_set_log_level(tlshd_library_debug);
+	gnutls_global_set_log_function(tlshd_gnutls_log_func);
+	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
+
+	tlshd_log_debug("System config file: %s", gnutls_get_system_config_file());
+
+#if defined(HAVE_GNUTLS_PROTOCOL_SET_ENABLED)
+	/*
+	 * Both NVMe-TLS and RPC-with-TLS require the use of TLSv1.3.
+	 * However, some current prototype implementations are limited
+	 * to TLSv1.2 because not all OSes have support for TLSv1.3 yet.
+	 *
+	 * For security reasons, this min version must be set to NO LOWER
+	 * THAN TLSv1.2. This setting must be increased to v1.3 when tlshd
+	 * matriculates to product quality.
+	 */
+	gnutls_protocol_set_enabled(GNUTLS_SSL3,   0);
+	gnutls_protocol_set_enabled(GNUTLS_TLS1_0, 0);
+	gnutls_protocol_set_enabled(GNUTLS_TLS1_1, 0);
+	gnutls_protocol_set_enabled(GNUTLS_TLS1_2, 1);
+	gnutls_protocol_set_enabled(GNUTLS_TLS1_3, 1);
+#endif /* HAVE_GNUTLS_PROTOCOL_SET_ENABLED */
+
+	optlen = sizeof(type);
+	if (getsockopt(sock, SOL_TLSH, TLSH_HANDSHAKE_TYPE, &type,
+		       &optlen) == -1) {
+		tlshd_log_perror("Failed to fetch TLS handshake type");
+		gnutls_global_deinit();
+		return;
+	}
+	switch (type) {
+	case TLSH_TYPE_CLIENTHELLO_ANON:
+		tlshd_client_anon_handshake(sock, peername);
+		break;
+	case TLSH_TYPE_CLIENTHELLO_X509:
+		tlshd_client_x509_handshake(sock, peername);
+		break;
+	case TLSH_TYPE_CLIENTHELLO_PSK:
+		tlshd_client_psk_handshake(sock, peername);
+		break;
+	default:
+		tlshd_log_debug("Unrecognized handshake type (%d)", type);
+	}
+
+	gnutls_global_deinit();
 }
