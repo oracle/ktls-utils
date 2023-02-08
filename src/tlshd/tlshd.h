@@ -24,9 +24,7 @@ extern int tlshd_stderr;
 extern GKeyFile *tlshd_configuration;
 
 /* client.c */
-extern void tlshd_client_anon_handshake(int sock, const char *peername);
-extern void tlshd_client_x509_handshake(int sock, const char *peername);
-extern void tlshd_client_psk_handshake(int sock, const char *tlshd_peername);
+extern void tlshd_clienthello_handshake(int sock, const char *peername);
 
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
