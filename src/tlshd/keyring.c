@@ -29,6 +29,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <netdb.h>
 #include <keyutils.h>
 
 #include <gnutls/gnutls.h>
@@ -192,6 +193,58 @@ bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert)
 
 	tlshd_log_debug("Retrieved x.509 certificate");
 	return true;
+}
+
+/**
+ * tlshd_keyring_create_cert - Create key containing peer's certificate
+ * @cert: Initialized x.509 certificate
+ * @peername: hostname of the remote peer
+ *
+ * Returns a positive key serial number on success; otherwise
+ * TLS_NO_PEERID.
+ */
+key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
+				       const char *peername)
+{
+	char description[NI_MAXHOST + 10];
+	key_serial_t serial;
+	gnutls_datum_t out;
+	int len, ret;
+
+	len = snprintf(description, sizeof(description) - 1,
+		       "TLS x509 %s", peername);
+	if (len < 0 || (size_t)len >= sizeof(description)) {
+		tlshd_log_error("Failed to construct key description.");
+		return TLS_NO_PEERID;
+	}
+
+	ret = gnutls_x509_crt_export2(cert, GNUTLS_X509_FMT_DER, &out);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return TLS_NO_PEERID;
+	}
+
+	serial  = add_key("asymmetric", description, out.data, out.size,
+			  KEY_SPEC_USER_KEYRING);
+	if (serial == -1) {
+		tlshd_log_perror("add_key");
+		gnutls_free(out.data);
+		return TLS_NO_PEERID;
+	}
+
+	/*
+	 *  NB: This is root's keyring, since mount.nfs runs setuid root.
+	 *	That means only programs running as root should be able
+	 *	to access this key.
+	 */
+	if (keyctl_setperm(serial, KEY_USR_READ) == -1) {
+		tlshd_log_perror("keyctl_setperm");
+		gnutls_free(out.data);
+		return TLS_NO_PEERID;
+	}
+
+	gnutls_free(out.data);
+	return serial;
 }
 
 /**
