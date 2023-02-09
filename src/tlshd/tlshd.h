@@ -63,7 +63,8 @@ extern bool tlshd_keyring_get_psk_key(key_serial_t serial,
 extern bool tlshd_keyring_get_privkey(key_serial_t serial,
 				      gnutls_privkey_t privkey);
 extern bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert);
-extern void tlshd_keyring_init_session_keyring(void);
+extern key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
+					      const char *peername);
 extern key_serial_t tlshd_keyring_lookup(const char *keyring);
 extern int tlshd_keyring_link_session(key_serial_t serial);
 
