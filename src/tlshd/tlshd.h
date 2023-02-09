@@ -98,35 +98,3 @@ extern void tlshd_genl_done(struct tlshd_handshake_parms *parms);
 #define TLS_NO_PEERID		(0)
 #define TLS_NO_CERT		(0)
 #define TLS_NO_PRIVKEY		(0)
-
-#if !defined(AF_TLSH)
-
-/*
- * New TLSH socket options that will eventually appear in
- * uapi/linux/tls.h.
- */
-
-#define AF_TLSH			(46)
-
-#define SOL_TLSH		(287)
-
-/* TLSH socket options */
-#define TLSH_PRIORITIES		(1)	/* Retrieve TLS priorities string */
-#define TLSH_PEERID		(2)	/* Retrieve pre-shared key */
-#define TLSH_HANDSHAKE_TYPE	(3)	/* Retrieve handshake type */
-#define TLSH_X509_CERTIFICATE	(4)	/* Retrieve x.509 certificate */
-#define TLSH_X509_PRIVKEY	(5)	/* Retrieve x.509 private key */
-
-#define TLSH_DEFAULT_PRIORITIES	(NULL)
-#define TLSH_NO_PEERID		(0)
-#define TLSH_NO_CERT		(0)
-#define TLSH_NO_KEY		(0)
-
-/* TLSH handshake types */
-enum tlsh_hs_type {
-	TLSH_TYPE_CLIENTHELLO_X509,
-	TLSH_TYPE_CLIENTHELLO_PSK,
-	TLSH_TYPE_CLIENTHELLO_ANON,
-};
-
-#endif /* !defined(AF_TLSH) */
