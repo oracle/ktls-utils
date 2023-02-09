@@ -300,6 +300,7 @@ void tlshd_genl_done_status(struct tlshd_handshake_parms *parms)
 {
 	struct nlmsghdr *hdr;
 	struct nl_sock *nls;
+	struct nlattr *args;
 	struct nl_msg *msg;
 	int family_id, err;
 
@@ -339,6 +340,31 @@ void tlshd_genl_done_status(struct tlshd_handshake_parms *parms)
 		goto out_free;
 	}
 
+	if (parms->session_peerid == TLS_NO_PEERID)
+		goto sendit;
+
+	args = nla_nest_start(msg, HANDSHAKE_GENL_ATTR_DONE);
+	if (!args) {
+		tlshd_log_error("Failed to set up nested attribute.");
+		goto out_free;
+	}
+
+	err = nla_put_u32(msg, HANDSHAKE_GENL_ATTR_TLS_REMOTE_PEERID,
+			  parms->session_peerid);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put peer id", err);
+		nla_nest_cancel(msg, args);
+		goto out_free;
+	}
+
+	err = nla_nest_end(msg, args);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_nest_end", err);
+		nla_nest_cancel(msg, args);
+		goto out_free;
+	}
+
+sendit:
 	nl_socket_disable_auto_ack(nls);
 	err = nl_send_auto(nls, msg);
 	if (err < 0) {

@@ -42,6 +42,8 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+static key_serial_t tlshd_session_peerid = TLS_NO_PEERID;
+
 static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_certificate_credentials_t xcred;
@@ -189,8 +191,10 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
  */
 static int tlshd_client_x509_verify_function(gnutls_session_t session)
 {
+	const gnutls_datum_t *peercerts;
+	unsigned int status, list_size;
+	gnutls_x509_crt_t cert;
 	const char *hostname;
-	unsigned int status;
 	gnutls_datum_t out;
 	int type, ret;
 
@@ -213,6 +217,21 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for
 	 * via a netlink attribute. */
+
+	peercerts = gnutls_certificate_get_peers(session, &list_size);
+	if (!peercerts)
+		list_size = 0;
+	tlshd_log_debug("Peer provided %d certificates.\n", list_size);
+	if (!peercerts || list_size == 0)
+                return GNUTLS_E_CERTIFICATE_ERROR;
+
+	/*
+	 * For now, grab only the first certificate on the peer's list.
+	 */
+	gnutls_x509_crt_init(&cert);
+	gnutls_x509_crt_import(cert, &peercerts[0], GNUTLS_X509_FMT_DER);
+	tlshd_session_peerid = tlshd_keyring_create_cert(cert, hostname);
+	gnutls_x509_crt_deinit(cert);
 
 	return GNUTLS_E_SUCCESS;
 }
@@ -352,6 +371,8 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 		tlshd_log_debug("Unrecognized auth type (%d)",
 				parms->auth_type);
 	}
+
+	parms->session_peerid = tlshd_session_peerid;
 
 	gnutls_global_deinit();
 }

@@ -38,7 +38,9 @@ struct tlshd_handshake_parms {
 	key_serial_t	x509_privkey;
 	key_serial_t	peerid;
 	int		msg_status;
+
 	int		session_status;
+	key_serial_t	session_peerid;
 };
 
 /* client.c */
