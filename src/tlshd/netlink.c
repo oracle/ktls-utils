@@ -223,6 +223,7 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.peerid			= TLS_NO_PEERID,
 	.msg_status		= 0,
 	.session_status		= -EIO,
+	.session_peerid		= TLS_NO_PEERID,
 };
 
 /**
@@ -304,6 +305,25 @@ out_close:
 	return ret;
 }
 
+/* To do: handle returning more than one peer id */
+static int tlshd_genl_put_session_peerid(struct nl_msg *msg,
+					 struct tlshd_handshake_parms *parms)
+{
+	int err;
+
+	if (parms->session_peerid == TLS_NO_PEERID)
+		return 0;
+
+	err = nla_put_u32(msg, HANDSHAKE_A_DONE_REMOTE_PEERID,
+			  parms->session_peerid);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put peer id", err);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 /**
  * tlshd_genl_done - Indicate anon handshake has completed successfully
  * @parms: buffer filled in with parameters
@@ -354,7 +374,14 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 		tlshd_log_nl_error("nla_put sockfd", err);
 		goto out_free;
 	}
+	if (parms->session_status)
+		goto sendit;
 
+	err = tlshd_genl_put_session_peerid(msg, parms);
+	if (err < 0)
+		goto out_free;
+
+sendit:
 	nl_socket_disable_auto_ack(nls);
 	err = nl_send_auto(nls, msg);
 	if (err < 0) {
