@@ -42,6 +42,9 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+static unsigned int tlshd_num_remote_peerids;
+static key_serial_t tlshd_remote_peerid[10];
+
 static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_certificate_credentials_t xcred;
@@ -189,8 +192,9 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
  */
 static int tlshd_client_x509_verify_function(gnutls_session_t session)
 {
+	const gnutls_datum_t *peercerts;
+	unsigned int i, status;
 	const char *hostname;
-	unsigned int status;
 	gnutls_datum_t out;
 	int type, ret;
 
@@ -213,6 +217,27 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for
 	 * via a netlink attribute. */
+
+	peercerts = gnutls_certificate_get_peers(session,
+						 &tlshd_num_remote_peerids);
+	if (!peercerts || tlshd_num_remote_peerids == 0) {
+		tlshd_log_debug("The peer cert list is empty.\n");
+                return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+	tlshd_log_debug("The peer offered %d certificate(s).\n",
+			tlshd_num_remote_peerids);
+
+	if (tlshd_num_remote_peerids > ARRAY_SIZE(tlshd_remote_peerid))
+		tlshd_num_remote_peerids= ARRAY_SIZE(tlshd_remote_peerid);
+	for (i = 0; i < tlshd_num_remote_peerids; i++) {
+		gnutls_x509_crt_t cert;
+
+		gnutls_x509_crt_init(&cert);
+		gnutls_x509_crt_import(cert, &peercerts[i], GNUTLS_X509_FMT_DER);
+		tlshd_remote_peerid[i] = tlshd_keyring_create_cert(cert, hostname);
+		gnutls_x509_crt_deinit(cert);
+	}
 
 	return GNUTLS_E_SUCCESS;
 }
@@ -363,7 +388,6 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 
 	tlshd_log_debug("System config file: %s", gnutls_get_system_config_file());
 
-
 	switch (parms->auth_mode) {
 	case HANDSHAKE_AUTH_UNAUTH:
 		tlshd_client_anon_handshake(parms);
@@ -377,6 +401,10 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 	default:
 		tlshd_log_debug("Unrecognized auth mode (%d)",
 				parms->auth_mode);
+	}
+	if (tlshd_num_remote_peerids) {
+		parms->num_remote_peerids = tlshd_num_remote_peerids;
+		parms->remote_peerid = tlshd_remote_peerid;
 	}
 
 	gnutls_global_deinit();
