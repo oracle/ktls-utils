@@ -196,6 +196,44 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 	return 0;
 }
 
+/**
+ * tlshd_client_x509_verify_function - Verify remote's x.509 certificate
+ * @session: session in the midst of a handshake
+ *
+ * Return values:
+ *   %GNUTLS_E_SUCCESS: Incoming certificate has been successfully verified
+ *   %GNUTLS_E_CERTIFICATE_ERROR: certificate verification failed
+ */
+static int tlshd_client_x509_verify_function(gnutls_session_t session)
+{
+	const char *hostname;
+	unsigned int status;
+	gnutls_datum_t out;
+	int type, ret;
+
+	hostname = gnutls_session_get_ptr(session);
+
+	ret = gnutls_certificate_verify_peers3(session, hostname, &status);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+        type = gnutls_certificate_type_get(session);
+        gnutls_certificate_verification_status_print(status, type, &out, 0);
+        tlshd_log_debug("%s", out.data);
+        gnutls_free(out.data);
+
+        if (status)
+                return GNUTLS_E_CERTIFICATE_ERROR;
+
+	/* To do: Examine extended key usage information here, if we want
+	 * to get picky. Kernel would have to tell us what to look for
+	 * via a netlink attribute. */
+
+	return GNUTLS_E_SUCCESS;
+}
+
 static void tlshd_client_x509_handshake(int sock, const char *peername)
 {
 	gnutls_certificate_credentials_t xcred;
@@ -237,6 +275,8 @@ static void tlshd_client_x509_handshake(int sock, const char *peername)
 	gnutls_server_name_set(session, GNUTLS_NAME_DNS,
 			       peername, strlen(peername));
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
+	gnutls_certificate_set_verify_function(xcred,
+					       tlshd_client_x509_verify_function);
 	gnutls_session_set_verify_cert(session, peername, 0);
 
 	tlshd_start_tls_handshake(session);
