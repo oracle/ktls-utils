@@ -63,6 +63,8 @@ extern bool tlshd_keyring_get_psk_key(key_serial_t serial,
 extern bool tlshd_keyring_get_privkey(key_serial_t serial,
 				      gnutls_privkey_t privkey);
 extern bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert);
+extern key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
+					      const char *peername);
 
 /* ktls.c */
 extern int tlshd_initialize_ktls(gnutls_session_t session);
