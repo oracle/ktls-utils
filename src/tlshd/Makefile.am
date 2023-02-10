@@ -28,6 +28,6 @@ tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
 tlshd_SOURCES		= config.c handshake.c keyring.c ktls.c log.c main.c \
 			  netlink.c tlshd.h tls13.c
 tlshd_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS) $(GLIB_LIBS) \
-			  $(LIBBSD_LIBS) $(LIBNL3_LIBS) -lnl-genl-3
+			  $(LIBNL3_LIBS) -lnl-genl-3
 
 MAINTAINERCLEANFILES	= Makefile.in cscope.out

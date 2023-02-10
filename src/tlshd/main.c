@@ -31,7 +31,6 @@
 #include <errno.h>
 #include <poll.h>
 #include <string.h>
-#include <bsd/string.h>
 #include <getopt.h>
 #include <signal.h>
 #include <libgen.h>
@@ -111,17 +110,20 @@ int main(int argc, char **argv)
 	static gchar config_file[PATH_MAX + 1] = "/etc/tlshd.conf";
 	char *progname;
 	int c;
+	size_t len;
 
 	tlshd_library_debug = 0;
 	progname = basename(argv[0]);
 	while ((c = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
 		switch (c) {
 		case 'c':
-			if (strlcpy(config_file, optarg, sizeof(config_file)) >=
-					sizeof(config_file)) {
+			len = sizeof(config_file) - 1;
+			if (strlen(optarg) >= len) {
 				fprintf(stderr, "Invalid config file\n");
 				return EXIT_FAILURE;
 			}
+			strncpy(config_file, optarg, len);
+			config_file[len] = '\0';
 			break;
 		case 's':
 			tlshd_stderr = 1;
