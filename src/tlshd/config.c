@@ -92,6 +92,10 @@ void tlshd_config_shutdown(void)
 #if HAVE_LINUX_OPENAT2_H
 #include <linux/openat2.h>
 
+#ifndef SYS_openat2
+#define SYS_openat2 __NR_openat2
+#endif
+
 static int tlshd_file_open(const char *pathname)
 {
 	static const struct open_how how = {
