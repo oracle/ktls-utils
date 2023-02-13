@@ -54,6 +54,8 @@ static GKeyFile *tlshd_configuration;
  */
 bool tlshd_config_init(const gchar *pathname)
 {
+	gchar **keyrings;
+	gsize i, length;
 	GError *error;
 
 	tlshd_configuration = g_key_file_new();
@@ -76,6 +78,19 @@ bool tlshd_config_init(const gchar *pathname)
 					     "debug", NULL);
 	tlshd_library_debug = g_key_file_get_integer(tlshd_configuration,
 						     "main", "libdebug", NULL);
+
+	keyrings = g_key_file_get_string_list(tlshd_configuration, "main",
+					      "keyrings", &length, NULL);
+	if (keyrings) {
+		for (i = 0; i < length; i++) {
+			key_serial_t serial;
+
+			serial = tlshd_keyring_lookup(keyrings[i]);
+			if (serial)
+				tlshd_keyring_link_session(serial);
+		}
+		g_strfreev(keyrings);
+	}
 
 	return true;
 }

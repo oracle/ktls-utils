@@ -193,3 +193,86 @@ bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert)
 	tlshd_log_debug("Retrieved x.509 certificate");
 	return true;
 }
+
+/**
+ * tlshd_keyring_lookup - Convert a keyring name into a keyring id
+ * @keyring: keyring name or number
+ *
+ * Returns the keyring serial number, or 0 if not found.
+ */
+key_serial_t tlshd_keyring_lookup(const char *keyring)
+{
+	long keyring_id = 0;
+	char buf[1024];
+	char *eptr = NULL;
+
+	if (!keyring)
+		return 0;
+	keyring_id = strtol(keyring, &eptr, 0);
+	if (keyring == eptr) {
+		FILE *fp;
+		char typebuf[256];
+		int ndesc, n, id;
+
+		fp = fopen("/proc/keys", "r");
+		if (!fp) {
+			tlshd_log_perror("open");
+			tlshd_log_error("Failed to open '/proc/keys'\n");
+			return 0;
+		}
+		keyring_id = 0;
+		while (fgets(buf, sizeof(buf), fp)) {
+			char *cp = strchr(buf, '\n');
+			if (!cp)
+				*cp = '\0';
+			n = sscanf(buf, "%x %*s %*u %*s %*x %*d %*d keyring %s %n",
+				   &id, typebuf, &ndesc);
+			if (n != 2)
+				continue;
+			if (!strncmp(keyring, typebuf, strlen(keyring))) {
+				keyring_id = id;
+				break;
+			}
+		}
+		fclose(fp);
+	}
+	if (!keyring_id) {
+		tlshd_log_debug("Failed to lookup keyring '%s'", keyring);
+		return 0;
+	}
+	return keyring_id;
+}
+
+/**
+ * tlshd_keyring_link_session - Link a keyring into the session keyring
+ * @serial: serial number of the keyring to be linked
+ *
+ * Returns 0 on success and -1 on error.
+ */
+int tlshd_keyring_link_session(key_serial_t serial)
+{
+	char buf[1024];
+	int ret;
+
+	if (serial == 0) {
+		tlshd_log_error("No keyring specified");
+		errno = -EINVAL;
+		return -1;
+	}
+	ret = keyctl_describe(serial, buf, sizeof(buf));
+	if (ret < 0) {
+		tlshd_log_debug("Failed to lookup keyring (%lx) error %d\n",
+				serial, errno);
+		errno = -ENOKEY;
+		return -1;
+	}
+	ret = keyctl_link(serial, KEY_SPEC_SESSION_KEYRING);
+	if (ret < 0) {
+		tlshd_log_debug("Failed to link keyring %s (%lx) error %d\n",
+				buf, serial, errno);
+		return -1;
+	}
+
+	tlshd_log_debug("Keyring '%s' linked into our session keyring.\n", buf);
+	return 0;
+}
