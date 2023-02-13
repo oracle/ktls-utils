@@ -48,10 +48,11 @@
 
 #include "tlshd.h"
 
-static const char *optstring = "c:h:sv";
+static const char *optstring = "c:h:k:sv";
 static const struct option longopts[] = {
 	{ "config",	required_argument,	NULL,	'c' },
 	{ "help",	no_argument,		NULL,	'h' },
+	{ "keyring",	required_argument,	NULL,	'k' },
 	{ "stderr",	no_argument,		NULL,	's' },
 	{ "version",	no_argument,		NULL,	'v' },
 	{ NULL,		0,			NULL,	 0 }
@@ -109,6 +110,7 @@ int main(int argc, char **argv)
 {
 	static gchar config_file[PATH_MAX + 1] = "/etc/tlshd.conf";
 	char *progname;
+	const char *keyring = ".tls";
 	int c;
 	size_t len;
 
@@ -133,9 +135,12 @@ int main(int argc, char **argv)
 				" on " __DATE__ " " __TIME__ "\n",
 				progname);
 			return EXIT_SUCCESS;
+		case 'k':
+			keyring = optarg;
+			break;
 		case 'h':
 		default:
-			fprintf(stderr, "usage: %s [-chsv]\n", progname);
+			fprintf(stderr, "usage: %s [-chskv]\n", progname);
 		}
 	}
 
@@ -147,8 +152,15 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	if (tlshd_link_keyring(keyring) < 0) {
+		tlshd_log_shutdown();
+		tlshd_log_close();
+		return EXIT_FAILURE;
+	}
+
 	tlshd_wait_for_events();
 
+	tlshd_unlink_keyring();
 	tlshd_config_shutdown();
 	tlshd_log_shutdown();
 	tlshd_log_close();

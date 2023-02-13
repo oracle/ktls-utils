@@ -25,6 +25,7 @@ extern int tlshd_library_debug;
 extern int tlshd_stderr;
 extern GKeyFile *tlshd_configuration;
 extern int tlshd_completion_status;
+extern long tlshd_keyring;
 
 struct tlshd_handshake_parms {
 	char		*peername;
@@ -58,6 +59,8 @@ extern bool tlshd_keyring_get_psk_key(key_serial_t serial,
 extern bool tlshd_keyring_get_privkey(key_serial_t serial,
 				      gnutls_privkey_t privkey);
 extern bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert);
+extern int tlshd_link_keyring(const char *keyring);
+extern void tlshd_unlink_keyring(void);
 
 /* ktls.c */
 extern int tlshd_initialize_ktls(gnutls_session_t session);
