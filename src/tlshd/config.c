@@ -45,6 +45,7 @@
 #include "tlshd.h"
 
 GKeyFile *tlshd_configuration;
+key_serial_t tlshd_keyring_id;
 
 /**
  * tlshd_config_init - Read tlshd's config file
@@ -57,6 +58,7 @@ GKeyFile *tlshd_configuration;
 bool tlshd_config_init(const gchar *pathname)
 {
 	GError *error;
+	char *keyring;
 
 	tlshd_configuration = g_key_file_new();
 
@@ -80,12 +82,22 @@ bool tlshd_config_init(const gchar *pathname)
 						     "main", "libdebug", NULL);
 	nl_debug = g_key_file_get_integer(tlshd_configuration, "main",
 					  "nl_debug", NULL);
+	keyring = g_key_file_get_string(tlshd_configuration, "main",
+					"keyring", NULL);
+	if (keyring) {
+		key_serial_t keyring_id;
 
+		keyring_id = tlshd_lookup_keyring(keyring);
+		if (tlshd_link_keyring(keyring_id) < 0)
+			return false;
+		tlshd_keyring_id = keyring_id;
+	}
 	return true;
 }
 
 void tlshd_config_shutdown(void)
 {
+	tlshd_unlink_keyring(tlshd_keyring_id);
 	g_key_file_free(tlshd_configuration);
 }
 

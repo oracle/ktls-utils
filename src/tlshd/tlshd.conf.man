@@ -66,6 +66,12 @@ Zero, the quietest setting, is the default.
 This option specifies an integer which indicates the debug message level
 for netlink operations.
 Zero, the quietest setting, is the default.
+.TP
+.B keyring
+This option specifies the keyring to use for retrieving keys. The specified
+keyring will be linked into the session keyring for the user agent.
+Keyrings can be specified either by a name or by the keyring id.
+Should not be specified if no keyring is required.
 .P
 The
 .I [authentication]

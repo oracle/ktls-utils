@@ -24,6 +24,8 @@ extern int tlshd_debug;
 extern int tlshd_library_debug;
 extern int tlshd_stderr;
 extern GKeyFile *tlshd_configuration;
+extern char *tlshd_keyring;
+extern key_serial_t tlshd_keyring_id;
 
 struct nl_sock;
 
@@ -70,6 +72,9 @@ extern bool tlshd_keyring_get_privkey(key_serial_t serial,
 extern bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert);
 extern key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
 					      const char *peername);
+extern key_serial_t tlshd_lookup_keyring(const char *keyring);
+extern int tlshd_link_keyring(key_serial_t keyring_id);
+extern void tlshd_unlink_keyring(key_serial_t keyring_id);
 
 /* ktls.c */
 extern int tlshd_initialize_ktls(gnutls_session_t session);
