@@ -241,7 +241,7 @@ void tlshd_nl_done(struct tlshd_handshake_parms *parms)
 		goto out_free;
 	}
 
-	args = nla_nest_start(msg, HANDSHAKE_NL_ATTR_DONE_ARGS);
+	args = nla_nest_start(msg, HANDSHAKE_NL_ATTR_DONE_ARGS | NLA_F_NESTED );
 	if (!args) {
 		tlshd_log_error("Failed to set up nested attribute.");
 		goto out_free;
