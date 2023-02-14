@@ -356,6 +356,10 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
 
 	tlshd_log_debug("System config file: %s", gnutls_get_system_config_file());
+	if (parms->keyring != TLS_NO_KEYRING) {
+		if (tlshd_link_keyring(parms->keyring) < 0)
+			parms->keyring = TLS_NO_KEYRING;
+	}
 
 	switch (parms->auth_type) {
 	case HANDSHAKE_GENL_TLS_AUTH_UNAUTH:
@@ -373,6 +377,8 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 	}
 
 	parms->session_peerid = tlshd_session_peerid;
+	if (parms->keyring != TLS_NO_KEYRING)
+		tlshd_unlink_keyring(parms->keyring);
 
 	gnutls_global_deinit();
 }
