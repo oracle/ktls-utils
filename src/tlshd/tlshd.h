@@ -33,6 +33,7 @@ struct tlshd_handshake_parms {
 	int		protocol;
 	int		handshake_type;
 	int		auth_type;
+	int		timeout;
 	char		*priorities;
 	key_serial_t	x509_cert;
 	key_serial_t	x509_privkey;
@@ -111,3 +112,4 @@ extern void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms);
 #define TLS_NO_PEERID		(0)
 #define TLS_NO_CERT		(0)
 #define TLS_NO_PRIVKEY		(0)
+#define TLS_NO_TIMEOUT		(0)

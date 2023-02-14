@@ -52,6 +52,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 			       struct tlshd_handshake_parms *parms)
 {
 	char *desc;
+	unsigned int timeout;
 	int ret;
 
 	if (parms->priorities) {
@@ -73,7 +74,11 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 		}
 	}
 
-	gnutls_handshake_set_timeout(session, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+	if (parms->timeout == TLS_NO_TIMEOUT)
+		timeout = GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT;
+	else
+		timeout = parms->timeout * 1000;
+	gnutls_handshake_set_timeout(session, timeout);
 	do {
 		ret = gnutls_handshake(session);
 	} while (ret < 0 && !gnutls_error_is_fatal(ret));

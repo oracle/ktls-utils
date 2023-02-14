@@ -145,6 +145,7 @@ tlshd_genl_tls_accept_policy[HANDSHAKE_GENL_ATTR_TLS_ACCEPT_MAX + 1] = {
 	[HANDSHAKE_GENL_ATTR_TLS_X509_CERT]	= { .type = NLA_U32, },
 	[HANDSHAKE_GENL_ATTR_TLS_X509_PRIVKEY]	= { .type = NLA_U32, },
 	[HANDSHAKE_GENL_ATTR_TLS_PSK]		= { .type = NLA_U32, },
+	[HANDSHAKE_GENL_ATTR_TLS_TIMEOUT]	= { .type = NLA_U32, },
 };
 
 static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
@@ -200,6 +201,9 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	parms->peerid = TLS_NO_PEERID;
 	if (resp[HANDSHAKE_GENL_ATTR_TLS_PSK])
 		parms->peerid = nla_get_u32(resp[HANDSHAKE_GENL_ATTR_TLS_PSK]);
+	parms->timeout = TLS_NO_TIMEOUT;
+	if (resp[HANDSHAKE_GENL_ATTR_TLS_TIMEOUT])
+		parms->timeout = nla_get_u32(resp[HANDSHAKE_GENL_ATTR_TLS_TIMEOUT]);
 
 	return NL_SKIP;
 }
