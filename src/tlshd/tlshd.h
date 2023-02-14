@@ -32,6 +32,7 @@ struct tlshd_handshake_parms {
 	int		sockfd;
 	int		protocol;
 	int		handshake_type;
+	int		timeout;
 	int		auth_type;
 	char		*priorities;
 	key_serial_t	x509_cert;
@@ -138,6 +139,7 @@ enum handshake_nl_attrs {
 	HANDSHAKE_NL_ATTR_TLS_PSK,
 	HANDSHAKE_NL_ATTR_TLS_SESS_STATUS,
 	HANDSHAKE_NL_ATTR_TLS_PEERID,
+	HANDSHAKE_NL_ATTR_TLS_TIMEOUT,
 
 	__HANDSHAKE_NL_ATTR_MAX
 };

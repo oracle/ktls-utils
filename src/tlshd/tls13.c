@@ -67,7 +67,7 @@ static void tlshd_start_tls_handshake(gnutls_session_t session,
 		}
 	}
 
-	gnutls_handshake_set_timeout(session, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+	gnutls_handshake_set_timeout(session, parms->timeout);
 	do {
 		ret = gnutls_handshake(session);
 	} while (ret < 0 && !gnutls_error_is_fatal(ret));

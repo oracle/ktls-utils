@@ -95,6 +95,9 @@ static int tlshd_nl_valid_handler(struct nl_msg *msg, void *arg)
 	parms->peerid = HANDSHAKE_NO_PEERID;
 	if (tb[HANDSHAKE_NL_ATTR_TLS_PSK])
 		parms->peerid = nla_get_u32(tb[HANDSHAKE_NL_ATTR_TLS_PSK]);
+	parms->timeout = GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT;
+	if (tb[HANDSHAKE_NL_ATTR_TLS_TIMEOUT])
+		parms->timeout = nla_get_u32(tb[HANDSHAKE_NL_ATTR_TLS_TIMEOUT]) * 1000;
 
 	return NL_SKIP;
 }
