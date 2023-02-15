@@ -283,41 +283,49 @@ out_free_creds:
 	gnutls_certificate_free_credentials(xcred);
 }
 
-static key_serial_t tlshd_peerid;
-
-static int tlshd_psk_retrieve_key_cb(__attribute__ ((unused))gnutls_session_t session,
-				     char **username, gnutls_datum_t *key)
-{
-	if (!tlshd_keyring_get_psk_username(tlshd_peerid, username))
-		return -1;
-	if (!tlshd_keyring_get_psk_key(tlshd_peerid, key))
-		return -1;
-	return 0;
-}
-
 static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
+	key_serial_t peerid;
+	gnutls_datum_t key;
 	unsigned int flags;
 	socklen_t optlen;
+	char *identity;
 	int ret;
 
-	optlen = sizeof(tlshd_peerid);
-	if (getsockopt(parms->sockfd, SOL_TLSH, TLSH_PEERID, &tlshd_peerid,
+	optlen = sizeof(peerid);
+	if (getsockopt(parms->sockfd, SOL_TLSH, TLSH_PEERID, &peerid,
 		       &optlen) == -1) {
 		tlshd_log_perror("Failed to fetch TLS peer ID");
+		return;
+	}
+
+	if (!tlshd_keyring_get_psk_username(peerid, &identity)) {
+		tlshd_log_error("Failed to get key identity");
+		return;
+	}
+
+	if (!tlshd_keyring_get_psk_key(peerid, &key)) {
+		tlshd_log_error("Failed to read key");
+		free(identity);
 		return;
 	}
 
 	ret = gnutls_psk_allocate_client_credentials(&psk_cred);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		free(identity);
 		return;
 	}
 
-	gnutls_psk_set_client_credentials_function(psk_cred,
-						   tlshd_psk_retrieve_key_cb);
+	ret = gnutls_psk_set_client_credentials(psk_cred, identity, &key,
+						GNUTLS_PSK_KEY_RAW);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
+
 	flags = GNUTLS_CLIENT;
 	ret = gnutls_init(&session, flags);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -325,17 +333,16 @@ static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 		goto out_free_creds;
 	}
 	gnutls_transport_set_int(session, parms->sockfd);
-
-	gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-			       parms->peername, strlen(parms->peername));
 	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
 
+	tlshd_log_debug("start ClientHello handshake");
 	tlshd_start_tls_handshake(session, parms);
 
 	gnutls_deinit(session);
 
 out_free_creds:
 	gnutls_psk_free_client_credentials(psk_cred);
+	free(identity);
 }
 
 /**
