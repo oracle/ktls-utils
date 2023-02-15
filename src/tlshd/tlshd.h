@@ -90,7 +90,9 @@ extern void tlshd_log_success(const char *hostname,
 extern void tlshd_log_failure(const char *hostname,
 			      const struct sockaddr *sap, socklen_t salen);
 
-void tlshd_log_debug(const char *fmt, ...);
+#define tlshd_log_debug(fmt, ...) \
+    __tlshd_log_debug("(%d) (%s): " fmt, getpid(), __func__, ##__VA_ARGS__)
+void __tlshd_log_debug(const char *fmt, ...);
 extern void tlshd_log_error(const char *msg);
 extern void tlshd_log_perror(const char *prefix);
 extern void tlshd_log_gai_error(int error);

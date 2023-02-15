@@ -74,8 +74,8 @@ void tlshd_log_failure(const char *hostname, const struct sockaddr *sap,
 	char buf[NI_MAXHOST];
 
 	getnameinfo(sap, salen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
-	syslog(LOG_ERR, "Handshake with %s (%s) failed\n",
-		hostname, buf);
+	syslog(LOG_ERR, "(%d) Handshake with %s (%s) failed\n",
+	       getpid(), hostname, buf);
 }
 
 /**
@@ -83,7 +83,7 @@ void tlshd_log_failure(const char *hostname, const struct sockaddr *sap,
  * @fmt - printf-style format string
  *
  */
-void tlshd_log_debug(const char *fmt, ...)
+void __tlshd_log_debug(const char *fmt, ...)
 {
 	va_list args;
 
@@ -102,7 +102,7 @@ void tlshd_log_debug(const char *fmt, ...)
  */
 void tlshd_log_error(const char *msg)
 {
-	syslog(LOG_ERR, "%s\n", msg);
+	syslog(LOG_ERR, "(%d) %s\n", getpid(), msg);
 }
 
 /**
@@ -112,7 +112,7 @@ void tlshd_log_error(const char *msg)
  */
 void tlshd_log_perror(const char *prefix)
 {
-	syslog(LOG_NOTICE, "%s: %s\n", prefix, strerror(errno));
+	syslog(LOG_NOTICE, "(%d) %s: %s\n", getpid(), prefix, strerror(errno));
 }
 
 /**
@@ -122,7 +122,7 @@ void tlshd_log_perror(const char *prefix)
  */
 void tlshd_log_gai_error(int error)
 {
-	syslog(LOG_NOTICE, "%s\n", gai_strerror(error));
+	syslog(LOG_NOTICE, "(%d) %s\n", getpid(), gai_strerror(error));
 }
 
 struct tlshd_cert_status_bit {
@@ -176,7 +176,8 @@ void tlshd_log_cert_verification_error(gnutls_session_t session)
  */
 void tlshd_log_gnutls_error(int error)
 {
-	syslog(LOG_NOTICE, "gnutls: %s (%d)\n", gnutls_strerror(error), error);
+	syslog(LOG_NOTICE, "(%d) gnutls: %s (%d)\n",
+	       getpid(), gnutls_strerror(error), error);
 }
 
 /**
@@ -187,7 +188,8 @@ void tlshd_log_gnutls_error(int error)
  */
 void tlshd_gnutls_log_func(int level, const char *msg)
 {
-	syslog(LOG_DEBUG, "gnutls(%d): %s", level, msg);
+	syslog(LOG_DEBUG, "(%d) gnutls(%d): %s",
+	       getpid(), level, msg);
 }
 
 /**
@@ -199,7 +201,7 @@ void tlshd_gnutls_log_func(int level, const char *msg)
 void tlshd_gnutls_audit_func(__attribute__ ((unused)) gnutls_session_t session,
 			     const char *msg)
 {
-	syslog(LOG_INFO, "audit: %s", msg);
+	syslog(LOG_INFO, "(%d) audit: %s", getpid(), msg);
 }
 
 /**
@@ -210,7 +212,7 @@ void tlshd_gnutls_audit_func(__attribute__ ((unused)) gnutls_session_t session,
  */
 void tlshd_log_gerror(const char *msg, GError *error)
 {
-	syslog(LOG_ERR, "%s: %s", msg, error->message);
+	syslog(LOG_ERR, "(%d) %s: %s", getpid(), msg, error->message);
 }
 
 /**
@@ -221,7 +223,7 @@ void tlshd_log_gerror(const char *msg, GError *error)
  */
 void tlshd_log_nl_error(const char *msg, int err)
 {
-	syslog(LOG_ERR, "%s: %s", msg, nl_geterror(err));
+	syslog(LOG_ERR, "(%d) %s: %s", getpid(), msg, nl_geterror(err));
 }
 
 /**
