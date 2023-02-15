@@ -286,53 +286,62 @@ out_free_creds:
 	gnutls_certificate_free_credentials(xcred);
 }
 
-static key_serial_t tlshd_peerid;
-
-static int tlshd_psk_retrieve_key_cb(__attribute__ ((unused))gnutls_session_t session,
-				     char **username, gnutls_datum_t *key)
-{
-	if (!tlshd_keyring_get_psk_username(tlshd_peerid, username))
-		return -1;
-	if (!tlshd_keyring_get_psk_key(tlshd_peerid, key))
-		return -1;
-	return 0;
-}
-
 static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
+	gnutls_datum_t key;
+	char *identity;
 	unsigned int flags;
 	int ret;
 
-	tlshd_peerid = parms->peerid;
+	if (!tlshd_keyring_get_psk_username(parms->peerid, &identity)) {
+		tlshd_log_error("Failed to get key identity");
+		parms->session_status = -ENOENT;
+		return;
+	}
+
+	if (!tlshd_keyring_get_psk_key(parms->peerid, &key)) {
+		tlshd_log_error("Failed to read key");
+		free(identity);
+		parms->session_status = -ENOKEY;
+		return;
+	}
 
 	ret = gnutls_psk_allocate_client_credentials(&psk_cred);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		free(identity);
+		parms->session_status = -ENOMEM;
 		return;
 	}
 
-	gnutls_psk_set_client_credentials_function(psk_cred,
-						   tlshd_psk_retrieve_key_cb);
+	ret = gnutls_psk_set_client_credentials(psk_cred, identity, &key,
+						GNUTLS_PSK_KEY_RAW);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		parms->session_status = -EAGAIN;
+		goto out_free_creds;
+	}
+
 	flags = GNUTLS_CLIENT;
 	ret = gnutls_init(&session, flags);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		parms->session_status = -EAGAIN;
 		goto out_free_creds;
 	}
 	gnutls_transport_set_int(session, parms->sockfd);
-
-	gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-			       parms->peername, strlen(parms->peername));
 	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
 
+	tlshd_log_debug("start ClientHello handshake");
 	tlshd_start_tls_handshake(session, parms);
 
 	gnutls_deinit(session);
 
 out_free_creds:
 	gnutls_psk_free_client_credentials(psk_cred);
+	free(identity);
 }
 
 /**
