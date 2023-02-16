@@ -63,12 +63,14 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 						 &err_pos);
 		if (ret != GNUTLS_E_SUCCESS) {
 			tlshd_log_gnutls_error(ret);
+			parms->session_status = -EINVAL;
 			return;
 		}
 	} else {
 		ret = gnutls_set_default_priority(session);
 		if (ret != GNUTLS_E_SUCCESS) {
 			tlshd_log_gnutls_error(ret);
+			parms->session_status = -EINVAL;
 			return;
 		}
 	}
