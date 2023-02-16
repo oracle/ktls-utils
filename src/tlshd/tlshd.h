@@ -108,7 +108,6 @@ extern int tlshd_genl_sock_open(struct nl_sock **sock);
 extern int tlshd_genl_mcgrp_join(struct nl_sock *nls);
 extern void tlshd_genl_sock_close(struct nl_sock *nls);
 extern int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms);
-extern void tlshd_genl_done_status(struct tlshd_handshake_parms *parms);
 extern void tlshd_genl_done(struct tlshd_handshake_parms *parms);
 
 /* server.c */

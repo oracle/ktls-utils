@@ -149,12 +149,9 @@ void tlshd_service_socket(void)
 out:
 	free(parms.priorities);
 
-	if (parms.session_status) {
-		tlshd_genl_done_status(&parms);
-		tlshd_log_failure(peername, peeraddr, peeraddr_len);
-		return;
-	}
-
 	tlshd_genl_done(&parms);
-	tlshd_log_success(peername, peeraddr, peeraddr_len);
+	if (parms.session_status)
+		tlshd_log_failure(peername, peeraddr, peeraddr_len);
+	else
+		tlshd_log_success(peername, peeraddr, peeraddr_len);
 }

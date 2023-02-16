@@ -300,11 +300,11 @@ out_close:
 }
 
 /**
- * tlshd_genl_done_status - Indicate handshake has failed
+ * tlshd_genl_done - Indicate anon handshake has completed successfully
  * @parms: buffer filled in with parameters
  *
  */
-void tlshd_genl_done_status(struct tlshd_handshake_parms *parms)
+void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 {
 	struct nlmsghdr *hdr;
 	struct nl_sock *nls;
@@ -363,95 +363,6 @@ void tlshd_genl_done_status(struct tlshd_handshake_parms *parms)
 		tlshd_log_nl_error("nla_put peer id", err);
 		nla_nest_cancel(msg, args);
 		goto out_free;
-	}
-
-	err = nla_nest_end(msg, args);
-	if (err < 0) {
-		tlshd_log_nl_error("nla_nest_end", err);
-		nla_nest_cancel(msg, args);
-		goto out_free;
-	}
-
-sendit:
-	nl_socket_disable_auto_ack(nls);
-	err = nl_send_auto(nls, msg);
-	if (err < 0) {
-		tlshd_log_nl_error("nl_send_auto", err);
-		goto out_free;
-	}
-
-out_free:
-	nlmsg_free(msg);
-out_close:
-	tlshd_genl_sock_close(nls);
-}
-
-/**
- * tlshd_genl_done - Indicate anon handshake has completed successfully
- * @parms: buffer filled in with parameters
- *
- */
-void tlshd_genl_done(struct tlshd_handshake_parms *parms)
-{
-	struct nlmsghdr *hdr;
-	struct nl_sock *nls;
-	struct nlattr *args;
-	struct nl_msg *msg;
-	int family_id, err;
-
-	err = tlshd_genl_sock_open(&nls);
-	if (err)
-		return;
-
-	family_id = genl_ctrl_resolve(nls, HANDSHAKE_GENL_NAME);
-	if (family_id < 0) {
-		tlshd_log_nl_error("genl_ctrl_resolve", err);
-		goto out_close;
-	}
-
-	msg = nlmsg_alloc();
-	if (!msg) {
-		tlshd_log_error("Failed to allocate message buffer.");
-		goto out_close;
-	}
-
-	hdr = genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, family_id,
-			  0, 0, HANDSHAKE_GENL_CMD_DONE, 0);
-	if (!hdr) {
-		tlshd_log_error("Failed to set up message header.");
-		goto out_free;
-	}
-
-	err = nla_put_u32(msg, HANDSHAKE_GENL_ATTR_SOCKFD, parms->sockfd);
-	if (err < 0) {
-		tlshd_log_nl_error("nla_put sockfd", err);
-		goto out_free;
-	}
-
-	err = nla_put_u32(msg, HANDSHAKE_GENL_ATTR_SESS_STATUS,
-			  parms->session_status);
-	if (err) {
-		tlshd_log_nl_error("nla_put sess_status", err);
-		goto out_free;
-	}
-
-	if (parms->session_peerid == TLS_NO_PEERID)
-		goto sendit;
-
-	args = nla_nest_start(msg, HANDSHAKE_GENL_ATTR_DONE);
-	if (!args) {
-		tlshd_log_error("Failed to set up nested attribute.");
-		goto out_free;
-	}
-
-	if (parms->session_peerid != TLS_NO_PEERID) {
-		err = nla_put_u32(msg, HANDSHAKE_GENL_ATTR_TLS_REMOTE_PEERID,
-				  parms->session_peerid);
-		if (err < 0) {
-			tlshd_log_nl_error("nla_put peer id", err);
-			nla_nest_cancel(msg, args);
-			goto out_free;
-		}
 	}
 
 	err = nla_nest_end(msg, args);
