@@ -189,12 +189,7 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session)
 	return GNUTLS_E_SUCCESS;
 }
 
-/**
- * tlshd_serverhello_handshake - send a TLSv1.3 ServerHello
- * @parms: handshake parameters
- *
- */
-void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms)
+static void tlshd_server_x509_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
@@ -213,10 +208,12 @@ void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms)
 	}
 	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
-	if (!tlshd_x509_server_get_cert(parms))
+	if (!tlshd_x509_server_get_cert(parms)) {
 		goto out_free_creds;
-	if (!tlshd_x509_server_get_privkey(parms))
+	}
+	if (!tlshd_x509_server_get_privkey(parms)) {
 		goto out_free_creds;
+	}
 	gnutls_certificate_set_retrieve_function2(xcred,
 						  tlshd_x509_retrieve_key_cb);
 
@@ -236,13 +233,111 @@ void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms)
 
 	tlshd_start_tls_handshake(session, parms);
 
+	gnutls_deinit(session);
+
+out_free_creds:
+	gnutls_certificate_free_credentials(xcred);
+}
+
+/**
+ * tlshd_server_psk_cb - Validate remote's username
+ * @session: session in the midst of a handshake
+ * @username: remote's username
+ * @key: PSK matching @username
+ *
+ * Searches for a key with description @username in the session
+ * keyring, and stores the PSK data in @key if found.
+ *
+ * Return values:
+ *   %0: Matching key has been stored in @key
+ *   %-1: Error during lookup, @key is not updated
+ */
+static int tlshd_server_psk_cb(__attribute__ ((unused))gnutls_session_t session,
+			       const char *username, gnutls_datum_t *key)
+{
+	key_serial_t psk;
+
+	psk = keyctl_search(KEY_SPEC_SESSION_KEYRING, "psk", username, 0);
+	if (psk < 0) {
+		tlshd_log_error("failed to search key");
+		return -1;
+	}
+	if (!tlshd_keyring_get_psk_key(psk, key)) {
+		tlshd_log_error("failed to load key");
+		return -1;
+	}
+	return 0;
+}
+
+static void tlshd_server_psk_handshake(struct tlshd_handshake_parms *parms)
+{
+	gnutls_psk_server_credentials_t psk_cred;
+	gnutls_session_t session;
+	int ret;
+
+	ret = gnutls_psk_allocate_server_credentials(&psk_cred);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return;
+	}
+
+	gnutls_psk_set_server_credentials_function(psk_cred,
+						   tlshd_server_psk_cb);
+
+	ret = gnutls_init(&session, GNUTLS_SERVER);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
+	gnutls_transport_set_int(session, parms->sockfd);
+
+	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
+
+	tlshd_start_tls_handshake(session, parms);
+
+	gnutls_deinit(session);
+
+out_free_creds:
+	gnutls_psk_free_server_credentials(psk_cred);
+}
+
+/**
+ * tlshd_serverhello_handshake - send a TLSv1.3 ServerHello
+ * @parms: handshake parameters
+ *
+ */
+void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms)
+{
+	int ret;
+
+	ret = gnutls_global_init();
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return;
+	}
+
+	if (tlshd_library_debug)
+		gnutls_global_set_log_level(tlshd_library_debug);
+	gnutls_global_set_log_function(tlshd_gnutls_log_func);
+	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
+
+	tlshd_log_debug("System config file: %s", gnutls_get_system_config_file());
+
+	switch (parms->auth_mode) {
+	case HANDSHAKE_AUTH_X509:
+		tlshd_server_x509_handshake(parms);
+		break;
+	case HANDSHAKE_AUTH_PSK:
+		tlshd_server_psk_handshake(parms);
+		break;
+	default:
+		tlshd_log_debug("Unrecognized auth mode (%d)",
+				parms->auth_mode);
+	}
 	if (tlshd_num_remote_peerids) {
 		parms->num_remote_peerids = tlshd_num_remote_peerids;
 		parms->remote_peerid = tlshd_remote_peerid;
 	}
 
-	gnutls_deinit(session);
-
-out_free_creds:
-	gnutls_certificate_free_credentials(xcred);
+	gnutls_global_deinit();
 }
