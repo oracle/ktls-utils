@@ -155,7 +155,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	int err;
 
 	err = genlmsg_parse(nlmsg_hdr(msg), 0, tb, HANDSHAKE_GENL_ATTR_MAX,
-			    tlshd_genl_policy);
+			    (struct nla_policy *)tlshd_genl_policy);
 	if (err < 0) {
 		tlshd_log_nl_error("genlmsg_parse", err);
 		return NL_STOP;
@@ -174,7 +174,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 
 	err = nla_parse_nested(resp, HANDSHAKE_GENL_ATTR_TLS_ACCEPT_MAX,
 			       tb[HANDSHAKE_GENL_ATTR_ACCEPT],
-			       tlshd_genl_tls_accept_policy);
+			       (struct nla_policy *)tlshd_genl_tls_accept_policy);
 	if (err < 0) {
 		tlshd_log_nl_error("nla_parse_nested", err);
 		return NL_STOP;
