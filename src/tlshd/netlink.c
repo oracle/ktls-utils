@@ -103,7 +103,7 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
 	int err;
 
 	err = genlmsg_parse(nlmsg_hdr(msg), 0, tb, HANDSHAKE_A_ACCEPT_MAX,
-			    tlshd_accept_nl_policy);
+			    (struct nla_policy *)tlshd_accept_nl_policy);
 	if (err < 0) {
 		tlshd_log_nl_error("genlmsg_parse", err);
 		return NL_SKIP;
@@ -204,7 +204,7 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 	}
 
 	err = nla_parse_nested(tb, HANDSHAKE_A_X509_MAX, head,
-			       tlshd_x509_nl_policy);
+			       (struct nla_policy *)tlshd_x509_nl_policy);
 	if (err < 0)
 		return;
 
@@ -223,7 +223,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	tlshd_log_debug("Parsing a valid netlink message\n");
 
 	err = genlmsg_parse(nlmsg_hdr(msg), 0, tb, HANDSHAKE_A_ACCEPT_MAX,
-			    tlshd_accept_nl_policy);
+			    (struct nla_policy *)tlshd_accept_nl_policy);
 	if (err < 0) {
 		tlshd_log_nl_error("genlmsg_parse", err);
 		return NL_STOP;
