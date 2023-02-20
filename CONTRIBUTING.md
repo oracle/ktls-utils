@@ -24,6 +24,10 @@ Details like these are incredibly useful:
 * Any modifications you've made relevant to the bug
 * Anything unusual about your environment or deployment
 
+If you think you've found a security
+vulnerability, do not raise a GitHub issue and follow the instructions in our
+[security policy](./SECURITY.md).
+
 ## Contributing code
 
 We welcome your code contributions. Before submitting code via a pull request,
