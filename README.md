@@ -29,8 +29,8 @@ and see [INSTALL](INSTALL) for build instructions.
 
 ## Contributing
 
-For information on how to contribute to this project, see
-[CONTRIBUTING.md](CONTRIBUTING.md). Work that remains:
+This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md).
+Work that remains:
 
 ### Required for client-side prototype
 
@@ -56,3 +56,13 @@ For information on how to contribute to this project, see
 
 A server-side handshake mechanism is also needed but is not
 yet part of this prototype.
+
+## Security
+
+Please consult the [security guide](./SECURITY.md) for our responsible security vulnerability disclosure process
+
+## License
+
+Copyright (c) 2022 Oracle and/or its affiliates.
+
+Released under the GNU GENERAL PUBLIC LICENSE
