@@ -9,7 +9,7 @@ Please read through this document before submitting an issue or pull
 request to ensure we have all the necessary information to
 effectively respond to your bug report or contribution.
 
-## Reporting Bugs/Feature Requests
+## Opening issues
 
 We welcome you to use the GitHub issue tracker to report bugs or
 suggest features.
@@ -24,7 +24,28 @@ Details like these are incredibly useful:
 * Any modifications you've made relevant to the bug
 * Anything unusual about your environment or deployment
 
-## Contributing via Pull Requests
+## Contributing code
+
+We welcome your code contributions. Before submitting code via a pull request,
+you will need to have signed the [Oracle Contributor Agreement][OCA] (OCA) and
+your commits need to include the following line using the name and e-mail
+address you used to sign the OCA:
+
+```text
+Signed-off-by: Your Name <you@example.org>
+```
+
+This can be automatically added to pull requests by committing with `--sign-off`
+or `-s`, e.g.
+
+```text
+git commit --signoff
+```
+
+Only pull requests from committers that can be verified as having signed the OCA
+can be accepted.
+
+## Pull request process
 
 Contributions via pull requests are much appreciated.
 Before sending us a pull request, please ensure that:
@@ -55,3 +76,11 @@ GitHub provides additional document on
 
 See the [COPYING](COPYING) file for our project's licensing. We will
 ask you to confirm the licensing of your contribution.
+
+## Code of conduct
+
+Follow the [Golden Rule](https://en.wikipedia.org/wiki/Golden_Rule). If you'd
+like more specific guidelines, see the [Contributor Covenant Code of Conduct][COC].
+
+[OCA]: https://oca.opensource.oracle.com
+[COC]: https://www.contributor-covenant.org/version/1/4/code-of-conduct/
