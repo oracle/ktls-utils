@@ -42,27 +42,7 @@
 
 #include "tlshd.h"
 
-static char tlshd_peername[NI_MAXHOST] = "unknown";
-static struct sockaddr_storage tlshd_peeraddr;
-static socklen_t tlshd_peeraddr_len;
-
 static int tlshd_completion_status;
-
-/*
- * Notify the kernel that the user space handshake process has completed
- * and the socket is ready to be used or that the handshake failed.
- */
-static void tlshd_handshake_complete(void)
-{
-	if (tlshd_completion_status) {
-		tlshd_log_failure(tlshd_peername,
-				  (struct sockaddr *)&tlshd_peeraddr, tlshd_peeraddr_len);
-		return;
-	}
-
-	tlshd_log_success(tlshd_peername,
-			  (struct sockaddr *)&tlshd_peeraddr, tlshd_peeraddr_len);
-}
 
 /**
  * tlshd_start_tls_handshake - Drive the handshake interaction
@@ -130,30 +110,38 @@ void tlshd_start_tls_handshake(gnutls_session_t session)
  */
 void tlshd_service_socket(int sock)
 {
+	static char peername[NI_MAXHOST] = "unknown";
 	struct tlshd_handshake_parms parms = {
 		.sockfd		= sock,
 	};
+	static struct sockaddr_storage ss;
+	static socklen_t peeraddr_len;
+	struct sockaddr *peeraddr = (struct sockaddr *)&ss;
 	int ret;
 
 	tlshd_completion_status = -EACCES;
-	atexit(tlshd_handshake_complete);
 
-	memset(&tlshd_peeraddr, 0, sizeof(tlshd_peeraddr));
-	tlshd_peeraddr_len = sizeof(tlshd_peeraddr);
-	if (getpeername(parms.sockfd, (struct sockaddr *)&tlshd_peeraddr,
-			&tlshd_peeraddr_len) == -1) {
+	memset(&ss, 0, sizeof(ss));
+	peeraddr_len = sizeof(ss);
+	if (getpeername(parms.sockfd, peeraddr, &peeraddr_len) == -1) {
 		tlshd_log_perror("getpeername");
-		return;
+		goto out;
 	}
 
-	ret = getnameinfo((struct sockaddr *)&tlshd_peeraddr, tlshd_peeraddr_len,
-			  tlshd_peername, sizeof(tlshd_peername), NULL, 0,
-			  NI_NAMEREQD);
+	ret = getnameinfo(peeraddr, peeraddr_len, peername, sizeof(peername),
+			  NULL, 0, NI_NAMEREQD);
 	if (ret) {
 		tlshd_log_gai_error(ret);
-		return;
+		goto out;
 	}
-	parms.peername = tlshd_peername;
+	parms.peername = peername;
 
 	tlshd_clienthello_handshake(&parms);
+
+out:
+	if (tlshd_completion_status) {
+		tlshd_log_failure(peername, peeraddr, peeraddr_len);
+		return;
+	}
+	tlshd_log_success(peername, peeraddr, peeraddr_len);
 }
