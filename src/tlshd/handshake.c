@@ -146,6 +146,8 @@ out:
 	tlshd_genl_done(&parms);
 
 	free(parms.priorities);
+	if (parms.peerids)
+		free(parms.peerids);
 	if (parms.session_status) {
 		tlshd_log_failure(peername, peeraddr, peeraddr_len);
 		return;

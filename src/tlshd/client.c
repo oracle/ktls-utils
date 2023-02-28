@@ -291,17 +291,25 @@ static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
 	gnutls_datum_t key;
+	key_serial_t peerid;
 	char *identity;
 	unsigned int flags;
-	int ret;
+	int ret, num_peerid = 0;
 
-	if (!tlshd_keyring_get_psk_username(parms->peerid, &identity)) {
+	if (!parms->peerids) {
+		tlshd_log_error("No key identities");
+		parms->session_status = -ENOKEY;
+		return;
+	}
+retry:
+	peerid = parms->peerids[num_peerid];
+	if (!tlshd_keyring_get_psk_username(peerid, &identity)) {
 		tlshd_log_error("Failed to get key identity");
 		parms->session_status = -ENOENT;
 		return;
 	}
 
-	if (!tlshd_keyring_get_psk_key(parms->peerid, &key)) {
+	if (!tlshd_keyring_get_psk_key(peerid, &key)) {
 		tlshd_log_error("Failed to read key");
 		free(identity);
 		parms->session_status = -ENOKEY;
@@ -338,10 +346,16 @@ static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 	tlshd_start_tls_handshake(session, parms);
 
 	gnutls_deinit(session);
+	if (parms->session_status == -EACCES &&
+	    num_peerid < parms->num_peerids) {
+		num_peerid++;
+		goto retry;
+	}
 
 out_free_creds:
 	gnutls_psk_free_client_credentials(psk_cred);
 	free(identity);
+	tlshd_session_peerid = peerid;
 }
 
 /**

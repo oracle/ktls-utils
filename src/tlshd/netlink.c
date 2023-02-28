@@ -92,8 +92,9 @@ tlshd_accept_nl_policy[HANDSHAKE_A_ACCEPT_MAX + 1] = {
 	[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE]	= { .type = NLA_U32, },
 	[HANDSHAKE_A_ACCEPT_AUTH]		= { .type = NLA_U32, },
 	[HANDSHAKE_A_ACCEPT_GNUTLS_PRIORITIES]	= { .type = NLA_NUL_STRING, },
-	[HANDSHAKE_A_ACCEPT_MY_PEERID]		= { .type = NLA_U32, },
+	[HANDSHAKE_A_ACCEPT_PEERID_LIST]	= { .type = NLA_NESTED, },
 	[HANDSHAKE_A_ACCEPT_MY_PRIVKEY]		= { .type = NLA_U32, },
+	[HANDSHAKE_A_ACCEPT_MY_PEERID]		= { .type = NLA_U32, },
 };
 
 static int tlshd_genl_event_handler(struct nl_msg *msg,
@@ -198,15 +199,51 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 
 	switch (parms->auth_type) {
 	case HANDSHAKE_AUTH_X509:
-		if (tb[HANDSHAKE_A_ACCEPT_MY_PEERID])
-			parms->x509_cert = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MY_PEERID]);
+		if (tb[HANDSHAKE_A_ACCEPT_PEERID_LIST]) {
+			struct nlattr *nla_peerid = NULL;
+			int remaining;
+
+			nla_for_each_nested(tb[HANDSHAKE_A_ACCEPT_PEERID_LIST],
+					    nla_peerid, remaining) {
+				if (!nla_peerid)
+					continue;
+				if (nla_type(nla_peerid) != HANDSHAKE_A_ACCEPT_MY_PEERID)
+					continue;
+				if (parms->x509_cert != TLS_NO_PEERID)
+					break;
+				parms->x509_cert = nla_get_u32(nla_peerid);
+			}
+		}
 		if (tb[HANDSHAKE_A_ACCEPT_MY_PRIVKEY])
 			parms->x509_privkey =
 				nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MY_PRIVKEY]);
 		break;
 	case HANDSHAKE_AUTH_PSK:
-		if (tb[HANDSHAKE_A_ACCEPT_MY_PEERID])
-			parms->peerid = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MY_PEERID]);
+		if (tb[HANDSHAKE_A_ACCEPT_PEERID_LIST]) {
+			struct nlattr *nla_peerid = NULL;
+			int remaining, num_peerid = 0;
+
+			nla_for_each_nested(tb[HANDSHAKE_A_ACCEPT_PEERID_LIST],
+					    nla_peerid, remaining) {
+				key_serial_t *peerid_list, peerid;
+
+				if (!nla_peerid)
+					continue;
+				if (nla_type(nla_peerid) != HANDSHAKE_A_ACCEPT_MY_PEERID)
+					continue;
+				peerid = nla_get_u32(nla_peerid);
+				peerid_list = gnutls_malloc(sizeof(key_serial_t) * (num_peerid + 1));
+				if (!peerid_list)
+					return NL_STOP;
+				memcpy(peerid_list, parms->peerids,
+				       sizeof(key_serial_t) * num_peerid);
+				peerid_list[num_peerid] = peerid;
+				free(parms->peerids);
+				parms->peerids = peerid_list;
+				num_peerid++;
+				parms->num_peerids = num_peerid;
+			}
+		}
 		break;
 	}
 
@@ -220,7 +257,8 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.priorities		= TLS_DEFAULT_PRIORITIES,
 	.x509_cert		= TLS_NO_CERT,
 	.x509_privkey		= TLS_NO_PRIVKEY,
-	.peerid			= TLS_NO_PEERID,
+	.peerids		= NULL,
+	.num_peerids		= 0,
 	.msg_status		= 0,
 	.session_status		= -EIO,
 	.session_peerid		= TLS_NO_PEERID,
