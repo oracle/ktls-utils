@@ -57,6 +57,7 @@ extern int tlshd_keyring_link_session(key_serial_t serial);
 
 /* ktls.c */
 extern int tlshd_initialize_ktls(gnutls_session_t session);
+extern char *tlshd_make_priorities_string(void);
 
 /* log.c */
 extern void tlshd_log_init(const char *progname);

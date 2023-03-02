@@ -50,32 +50,28 @@
 void tlshd_start_tls_handshake(gnutls_session_t session,
 			       struct tlshd_handshake_parms *parms)
 {
-	char priorities[2048];
-	socklen_t optlen;
+	char *priorities;
 	char *desc;
 	int ret;
 
-	optlen = sizeof(priorities);
-	memset(priorities, 0, optlen);
-	if (getsockopt(gnutls_transport_get_int(session),
-		       SOL_TLSH, TLSH_PRIORITIES, priorities, &optlen) == -1)
-		tlshd_log_perror("Failed to fetch TLS priority string");
-	if (strlen(priorities)) {
+	priorities = tlshd_make_priorities_string();
+	if (priorities) {
 		const char *err_pos;
 
-		tlshd_log_debug("Using TLS priorities string %s\n", priorities);
+		tlshd_log_debug("Using GnuTLS priorities string %s\n",
+				priorities);
 		ret = gnutls_priority_set_direct(session, priorities,
 						 &err_pos);
 		if (ret != GNUTLS_E_SUCCESS) {
 			tlshd_log_gnutls_error(ret);
-			return;
+			goto out_free;
 		}
 	} else {
 		tlshd_log_debug("Using default TLS priorities\n");
 		ret = gnutls_set_default_priority(session);
 		if (ret != GNUTLS_E_SUCCESS) {
 			tlshd_log_gnutls_error(ret);
-			return;
+			goto out_free;
 		}
 	}
 
@@ -92,7 +88,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 			tlshd_log_gnutls_error(ret);
 		}
 		parms->session_status = EACCES;
-		return;
+		goto out_free;
 	}
 
 	desc = gnutls_session_get_desc(session);
@@ -100,6 +96,9 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 	gnutls_free(desc);
 
 	parms->session_status = tlshd_initialize_ktls(session);
+
+out_free:
+	free(priorities);
 }
 
 /**

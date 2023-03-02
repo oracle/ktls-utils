@@ -295,3 +295,49 @@ int tlshd_initialize_ktls(gnutls_session_t session)
 
 	return EIO;
 }
+
+/**
+ * tlshd_make_priorities_string - Build GnuTLS "priorities" string
+ *
+ * Returns a buffer containing a NUL-terminated string that must
+ * be freed with free(3).
+ */
+char *tlshd_make_priorities_string(void)
+{
+	char *result;
+
+	result = malloc(1024);
+	if (!result)
+		return result;
+
+	result[0] = '\0';
+
+	strcat(result, "SECURE256:+SECURE128:-COMP-ALL");
+
+	/* All kernel TLS consumers require TLS v1.3 or newer. */
+	strcat(result, ":-VERS-ALL:+VERS-TLS1.3:%NO_TICKETS");
+
+	/*
+	 * Handshakes must negotiate only ciphers that are supported
+	 * by kTLS. The list below contains the ciphers that are
+	 * common to both kTLS and GnuTLS (Linux v6.2, GnuTLS 3.8.0).
+	 *
+	 * List is ordered from cryptographically strongest to weakest.
+	 */
+	strcat(result, ":-CIPHER-ALL");
+
+#if defined(TLS_CIPHER_CHACHA20_POLY1305)
+	strcat(result, ":+CHACHA20-POLY1305");
+#endif
+#if defined(TLS_CIPHER_AES_GCM_256)
+	strcat(result, ":+AES-256-GCM");
+#endif
+#if defined(TLS_CIPHER_AES_GCM_128)
+	strcat(result, ":+AES-128-GCM");
+#endif
+#if defined(TLS_CIPHER_AES_CCM_128)
+	strcat(result, ":+AES-128-CCM");
+#endif
+
+	return result;
+}
