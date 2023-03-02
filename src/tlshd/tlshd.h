@@ -21,7 +21,6 @@
 extern int tlshd_debug;
 extern int tlshd_library_debug;
 extern int tlshd_stderr;
-extern GKeyFile *tlshd_configuration;
 
 /* client.c */
 extern void tlshd_clienthello_handshake(int sock, const char *peername);

@@ -42,7 +42,7 @@
 
 #include "tlshd.h"
 
-GKeyFile *tlshd_configuration;
+static GKeyFile *tlshd_configuration;
 
 /**
  * tlshd_config_init - Read tlshd's config file
