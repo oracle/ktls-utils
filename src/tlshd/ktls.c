@@ -298,11 +298,12 @@ int tlshd_initialize_ktls(gnutls_session_t session)
 
 /**
  * tlshd_make_priorities_string - Build GnuTLS "priorities" string
+ * @use_psk: Add Pre-Shared Key (PSK) priorities
  *
  * Returns a buffer containing a NUL-terminated string that must
  * be freed with free(3).
  */
-char *tlshd_make_priorities_string(void)
+char *tlshd_make_priorities_string(bool use_psk)
 {
 	char *result;
 
@@ -338,6 +339,9 @@ char *tlshd_make_priorities_string(void)
 #if defined(TLS_CIPHER_AES_CCM_128)
 	strcat(result, ":+AES-128-CCM");
 #endif
+
+	if (use_psk)
+		strcat(result, ":+PSK:+DHE-PSK:+ECDHE-PSK");
 
 	return result;
 }
