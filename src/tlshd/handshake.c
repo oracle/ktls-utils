@@ -54,8 +54,9 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 	char *priorities;
 	char *desc;
 	int ret;
+	bool use_psk = (parms->auth_mode == HANDSHAKE_AUTH_PSK);
 
-	priorities = tlshd_make_priorities_string();
+	priorities = tlshd_make_priorities_string(use_psk);
 	if (priorities) {
 		const char *err_pos;
 
