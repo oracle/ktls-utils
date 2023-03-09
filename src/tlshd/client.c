@@ -338,6 +338,11 @@ static void tlshd_client_psk_handshake_one(struct tlshd_handshake_parms *parms,
 
 	tlshd_log_debug("start ClientHello handshake");
 	tlshd_start_tls_handshake(session, parms);
+	if (!parms->session_status) {
+		/* PSK is using a single identity for both client and server */
+		tlshd_remote_peerid[0] = peerid;
+		tlshd_num_remote_peerids = 1;
+	}
 
 	gnutls_deinit(session);
 

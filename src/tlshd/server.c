@@ -266,6 +266,9 @@ static int tlshd_server_psk_cb(__attribute__ ((unused))gnutls_session_t session,
 		tlshd_log_error("failed to load key");
 		return -1;
 	}
+	/* PSK is using a single identity for both client and server */
+	tlshd_remote_peerid[0] = psk;
+	tlshd_num_remote_peerids = 1;
 	return 0;
 }
 
