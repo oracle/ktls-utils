@@ -332,7 +332,8 @@ static void tlshd_client_psk_handshake_one(struct tlshd_handshake_parms *parms,
 
 	tlshd_log_debug("start ClientHello handshake");
 	tlshd_start_tls_handshake(session, parms);
-
+	if (!parms->session_status)
+		tlshd_session_peerid = peerid;
 	gnutls_deinit(session);
 
 out_free_creds:
