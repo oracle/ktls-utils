@@ -229,20 +229,23 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		return NL_STOP;
 	}
 
+	if (tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE])
+		parms->handshake_type = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE]);
+	if (tb[HANDSHAKE_A_ACCEPT_AUTH_MODE])
+		parms->auth_mode = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_AUTH_MODE]);
 	if (tb[HANDSHAKE_A_ACCEPT_STATUS]) {
 		parms->msg_status = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_STATUS]);
-		if (parms->msg_status)
+		if (parms->msg_status) {
+			tlshd_log_debug("netlink message status %d\n",
+					parms->msg_status);
 			return NL_STOP;
+		}
 	}
 
 	if (tb[HANDSHAKE_A_ACCEPT_SOCKFD])
 		parms->sockfd = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_SOCKFD]);
-	if (tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE])
-		parms->handshake_type = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE]);
 	if (tb[HANDSHAKE_A_ACCEPT_TIMEOUT])
 		parms->timeout_ms = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_TIMEOUT]);
-	if (tb[HANDSHAKE_A_ACCEPT_AUTH_MODE])
-		parms->auth_mode = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_AUTH_MODE]);
 
 	tlshd_parse_peer_identity(parms, tb[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]);
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);
