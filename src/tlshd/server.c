@@ -260,6 +260,7 @@ static int tlshd_server_psk_cb(__attribute__ ((unused))gnutls_session_t session,
 		tlshd_log_error("failed to load key");
 		return -1;
 	}
+	tlshd_session_peerid = psk;
 	return 0;
 }
 
