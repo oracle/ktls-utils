@@ -401,6 +401,10 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 		goto out_free;
 	}
 
+	/* No key is always an error */
+	if (parms->session_peerid == TLS_NO_PEERID && !parms->session_status)
+		parms->session_status = ENOKEY;
+
 	err = nla_put_u32(msg, HANDSHAKE_A_DONE_STATUS,
 			  parms->session_status);
 	if (err) {
@@ -413,14 +417,12 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 		tlshd_log_nl_error("nla_put sockfd", err);
 		goto out_free;
 	}
-	if (parms->session_status)
-		goto sendit;
+	if (!parms->session_status) {
+		err = tlshd_genl_put_session_peerid(msg, parms);
+		if (err < 0)
+			goto out_free;
+	}
 
-	err = tlshd_genl_put_session_peerid(msg, parms);
-	if (err < 0)
-		goto out_free;
-
-sendit:
 	nl_socket_disable_auto_ack(nls);
 	err = nl_send_auto(nls, msg);
 	if (err < 0) {
