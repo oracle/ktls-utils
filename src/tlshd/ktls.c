@@ -40,6 +40,7 @@
 #include <glib.h>
 
 #include "tlshd.h"
+#include "netlink.h"
 
 #ifdef HAVE_GNUTLS_TRANSPORT_IS_KTLS_ENABLED
 static bool tlshd_is_ktls_enabled(gnutls_session_t session, unsigned read)
@@ -295,11 +296,12 @@ int tlshd_initialize_ktls(gnutls_session_t session)
 
 /**
  * tlshd_make_priorities_string - Build GnuTLS "priorities" string
+ * @parms: handshake parameters
  *
  * Returns a buffer containing a NUL-terminated string that must
  * be freed with free(3).
  */
-char *tlshd_make_priorities_string(void)
+char *tlshd_make_priorities_string(struct tlshd_handshake_parms *parms)
 {
 	char *result;
 
@@ -335,6 +337,12 @@ char *tlshd_make_priorities_string(void)
 #if defined(TLS_CIPHER_AES_CCM_128)
 	strcat(result, ":+AES-128-CCM");
 #endif
+
+	switch (parms->auth_mode) {
+	case HANDSHAKE_AUTH_PSK:
+		strcat(result, ":+PSK:+DHE-PSK:+ECDHE-PSK");
+		break;
+	}
 
 	return result;
 }

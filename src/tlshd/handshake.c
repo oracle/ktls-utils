@@ -46,6 +46,7 @@
 /**
  * tlshd_start_tls_handshake - Drive the handshake interaction
  * @session: TLS session to initialize
+ * @parms: handshake parameters
  *
  */
 void tlshd_start_tls_handshake(gnutls_session_t session,
@@ -55,7 +56,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 	char *desc;
 	int ret;
 
-	priorities = tlshd_make_priorities_string();
+	priorities = tlshd_make_priorities_string(parms);
 	if (priorities) {
 		const char *err_pos;
 
