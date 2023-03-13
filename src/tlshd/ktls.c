@@ -70,6 +70,31 @@ static bool tlshd_is_ktls_enabled(__attribute__ ((unused)) gnutls_session_t sess
 }
 #endif
 
+static bool tlshd_setsockopt(int sock, unsigned read, const void *info,
+			     socklen_t infolen)
+{
+	int ret;
+
+	ret = setsockopt(sock, SOL_TLS, read ? TLS_RX : TLS_TX, info, infolen);
+	if (!ret)
+		return true;
+
+	switch (errno) {
+	case EBADF:
+	case ENOTSOCK:
+		tlshd_log_error("The kernel's socket file descriptor is no longer valid.");
+		break;
+	case EINVAL:
+	case ENOENT:
+	case ENOPROTOOPT:
+		tlshd_log_error("The kernel does not support the requested algorithm.");
+		break;
+	default:
+		tlshd_log_perror("setsockopt");
+	}
+	return false;
+}
+
 #if defined(TLS_CIPHER_AES_GCM_128)
 static bool tlshd_set_aes_gcm128_info(gnutls_session_t session, int sock,
 				      unsigned read)
@@ -105,13 +130,7 @@ static bool tlshd_set_aes_gcm128_info(gnutls_session_t session, int sock,
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_AES_GCM_128_KEY_SIZE);
 	memcpy(info.rec_seq, seq_number, TLS_CIPHER_AES_GCM_128_REC_SEQ_SIZE);
 
-	if (setsockopt(sock, SOL_TLS, read ? TLS_RX : TLS_TX,
-		       &info, sizeof(info)) == -1) {
-		tlshd_log_perror("setsockopt");
-		return false;
-	}
-
-	return true;
+	return tlshd_setsockopt(sock, read, &info, sizeof(info));
 }
 #endif
 
@@ -150,13 +169,7 @@ static bool tlshd_set_aes_gcm256_info(gnutls_session_t session, int sock,
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_AES_GCM_256_KEY_SIZE);
 	memcpy(info.rec_seq, seq_number, TLS_CIPHER_AES_GCM_256_REC_SEQ_SIZE);
 
-	if (setsockopt(sock, SOL_TLS, read ? TLS_RX : TLS_TX,
-		       &info, sizeof(info)) == -1) {
-		tlshd_log_perror("setsockopt");
-		return false;
-	}
-
-	return true;
+	return tlshd_setsockopt(sock, read, &info, sizeof(info));
 }
 #endif
 
@@ -195,13 +208,7 @@ static bool tlshd_set_aes_ccm128_info(gnutls_session_t session, int sock,
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_AES_CCM_128_KEY_SIZE);
 	memcpy(info.rec_seq, seq_number, TLS_CIPHER_AES_CCM_128_REC_SEQ_SIZE);
 
-	if (setsockopt(sock, SOL_TLS, read ? TLS_RX : TLS_TX,
-		       &info, sizeof(info)) == -1) {
-		tlshd_log_perror("setsockopt");
-		return false;
-	}
-
-	return true;
+	return tlshd_setsockopt(sock, read, &info, sizeof(info));
 }
 #endif
 
@@ -236,13 +243,7 @@ static bool tlshd_set_chacha20_poly1305_info(gnutls_session_t session, int sock,
 	memcpy(info.key, cipher_key.data, TLS_CIPHER_CHACHA20_POLY1305_KEY_SIZE);
 	memcpy(info.rec_seq, seq_number, TLS_CIPHER_CHACHA20_POLY1305_REC_SEQ_SIZE);
 
-	if (setsockopt(sock, SOL_TLS, read ? TLS_RX : TLS_TX,
-		       &info, sizeof(info)) == -1) {
-		tlshd_log_perror("setsockopt");
-		return false;
-	}
-
-	return true;
+	return tlshd_setsockopt(sock, read, &info, sizeof(info));
 }
 #endif
 
