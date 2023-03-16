@@ -76,8 +76,8 @@ bool tlshd_config_init(const gchar *pathname)
 	 */
 	tlshd_debug = g_key_file_get_integer(tlshd_configuration, "main",
 					     "debug", NULL);
-	tlshd_library_debug = g_key_file_get_integer(tlshd_configuration,
-						     "main", "libdebug", NULL);
+	tlshd_tls_debug = g_key_file_get_integer(tlshd_configuration,
+						 "main", "tlsdebug", NULL);
 
 	keyrings = g_key_file_get_string_list(tlshd_configuration, "main",
 					      "keyrings", &length, NULL);

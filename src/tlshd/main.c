@@ -159,7 +159,7 @@ int main(int argc, char **argv)
 	int c;
 	size_t len;
 
-	tlshd_library_debug = 0;
+	tlshd_tls_debug = 0;
 	progname = basename(argv[0]);
 	while ((c = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
 		switch (c) {

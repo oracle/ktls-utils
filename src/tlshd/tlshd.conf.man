@@ -57,9 +57,9 @@ In this section, there are two available options:
 This option specifies an integer which indicates the debug message level.
 Zero, the quietest setting, is the default.
 .TP
-.B libdebug
+.B tlsdebug
 This option specifies an integer which indicates the debug message level
-for GNU TLS library calls.
+for TLS library calls.
 Zero, the quietest setting, is the default.
 .TP
 .B keyrings

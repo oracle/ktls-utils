@@ -19,7 +19,7 @@
 #define ARRAY_SIZE(a)		(sizeof(a) / sizeof((a)[0]))
 
 extern int tlshd_debug;
-extern int tlshd_library_debug;
+extern int tlshd_tls_debug;
 extern int tlshd_stderr;
 
 struct tlshd_handshake_parms {

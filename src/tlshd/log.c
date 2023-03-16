@@ -39,7 +39,7 @@
 #include "tlshd.h"
 
 int tlshd_debug;
-int tlshd_library_debug;
+int tlshd_tls_debug;
 int tlshd_stderr;
 
 /**

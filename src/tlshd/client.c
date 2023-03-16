@@ -361,8 +361,8 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 		return;
 	}
 
-	if (tlshd_library_debug)
-		gnutls_global_set_log_level(tlshd_library_debug);
+	if (tlshd_tls_debug)
+		gnutls_global_set_log_level(tlshd_tls_debug);
 	gnutls_global_set_log_function(tlshd_gnutls_log_func);
 	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
 
