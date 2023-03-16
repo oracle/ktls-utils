@@ -268,25 +268,21 @@ int tlshd_initialize_ktls(gnutls_session_t session)
 	switch (gnutls_cipher_get(session)) {
 #if defined(TLS_CIPHER_AES_GCM_128)
 	case GNUTLS_CIPHER_AES_128_GCM:
-		tlshd_log_debug("Negotiated cipher: AES_GCM_128");
 		return tlshd_set_aes_gcm128_info(session, sockout, 0) &&
 			tlshd_set_aes_gcm128_info(session, sockin, 1) ? 0 : EIO;
 #endif
 #if defined(TLS_CIPHER_AES_GCM_256)
 	case GNUTLS_CIPHER_AES_256_GCM:
-		tlshd_log_debug("Negotiated cipher: AES_GCM_256");
 		return tlshd_set_aes_gcm256_info(session, sockout, 0) &&
 			tlshd_set_aes_gcm256_info(session, sockin, 1) ? 0 : EIO;
 #endif
 #if defined(TLS_CIPHER_AES_CCM_128)
 	case GNUTLS_CIPHER_AES_128_CCM:
-		tlshd_log_debug("Negotiated cipher: AES_CCM_128");
 		return tlshd_set_aes_ccm128_info(session, sockout, 0) &&
 			tlshd_set_aes_ccm128_info(session, sockin, 1) ? 0 : EIO;
 #endif
 #if defined(TLS_CIPHER_CHACHA20_POLY1305)
 	case GNUTLS_CIPHER_CHACHA20_POLY1305:
-		tlshd_log_debug("Negotiated cipher: ChaCha20_Poly1305");
 		return tlshd_set_chacha20_poly1305_info(session, sockout, 0) &&
 			tlshd_set_chacha20_poly1305_info(session, sockin, 1) ? 0 : EIO;
 #endif
