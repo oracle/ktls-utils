@@ -87,11 +87,7 @@ bool tlshd_config_init(const gchar *pathname)
 					      "keyrings", &length, NULL);
 	if (keyrings) {
 		for (i = 0; i < length; i++) {
-			key_serial_t serial;
-
-			serial = tlshd_keyring_lookup(keyrings[i]);
-			if (serial)
-				tlshd_keyring_link_session(serial);
+			tlshd_keyring_link_session(keyrings[i]);
 		}
 		g_strfreev(keyrings);
 	}
