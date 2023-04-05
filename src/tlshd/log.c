@@ -100,12 +100,16 @@ void tlshd_log_debug(const char *fmt, ...)
 
 /**
  * tlshd_log_error - Emit a generic error notification
- * @msg: message to log
+ * @fmt - printf-style format string
  *
  */
-void tlshd_log_error(const char *msg)
+void tlshd_log_error(const char *fmt, ...)
 {
-	syslog(LOG_ERR, "%s\n", msg);
+	va_list args;
+
+	va_start(args, fmt);
+	vsyslog(LOG_ERR, fmt, args);
+	va_end(args);
 }
 
 /**
