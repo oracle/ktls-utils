@@ -1,5 +1,5 @@
-ktls-utils 0.7 - 2022-11-10
- * Remove the -n command line option
- * Support client-side peer authentication
- * Support upcall API changes in v6.0 prototype kernel
- * Add /etc/tlshd.conf with support for default cert and private key
+ktls-utils 0.8 - 2023-04-05
+ * Replace the listen-based upcall mechanism with netlink
+ * Implement server-side handshake support
+ * Implement x.509 certificate verification
+ * Implement keyring-based exchange of authentication material

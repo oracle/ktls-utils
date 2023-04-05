@@ -1,4 +1,4 @@
-# Release Notes for ktls-utils 0.8-pre
+# Release Notes for ktls-utils 0.8
 
 Note well: This is experimental prototype software. It's purpose is
 purely as a demonstration and proof-of-concept. USE AT YOUR OWN RISK.
@@ -49,13 +49,7 @@ Work that remains:
 * support for RPC-with-TLS certificate extended key usage
 * support for root device / filesystem with TLS
 * support for sharing TLS sessions across sockets
-* support for multiple PSK identities
 * support for multiple trust chains for server verification
-
-### Server-side work
-
-A server-side handshake mechanism is also needed but is not
-yet part of this prototype.
 
 ## Security
 
