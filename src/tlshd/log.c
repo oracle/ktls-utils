@@ -113,6 +113,20 @@ void tlshd_log_error(const char *fmt, ...)
 }
 
 /**
+ * tlshd_log_notice - Emit a generic warning
+ * @fmt - printf-style format string
+ *
+ */
+void tlshd_log_notice(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vsyslog(LOG_NOTICE, fmt, args);
+	va_end(args);
+}
+
+/**
  * tlshd_log_perror - Emit "system call failed" notification
  * @sap: remote address to log
  *
