@@ -43,8 +43,6 @@
 
 static gnutls_privkey_t tlshd_server_privkey;
 static gnutls_pcert_st tlshd_server_cert;
-static unsigned int tlshd_num_remote_peerids;
-static key_serial_t tlshd_remote_peerid[10];
 
 /*
  * XXX: After this point, tlshd_server_cert should be deinited on error.
@@ -133,15 +131,15 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
  */
 static int tlshd_server_x509_verify_function(gnutls_session_t session)
 {
+	struct tlshd_handshake_parms *parms;
 	const gnutls_datum_t *peercerts;
 	unsigned int i, status;
-	const char *hostname;
 	gnutls_datum_t out;
 	int type, ret;
 
-	hostname = gnutls_session_get_ptr(session);
+	parms = gnutls_session_get_ptr(session);
 
-	ret = gnutls_certificate_verify_peers3(session, hostname, &status);
+	ret = gnutls_certificate_verify_peers3(session, NULL, &status);
 	switch (ret) {
 	case GNUTLS_E_SUCCESS:
 		break;
@@ -166,23 +164,24 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session)
 	 * via a netlink attribute. */
 
 	peercerts = gnutls_certificate_get_peers(session,
-						 &tlshd_num_remote_peerids);
-	if (!peercerts || tlshd_num_remote_peerids == 0) {
+						 &parms->num_remote_peerids);
+	if (!peercerts || parms->num_remote_peerids == 0) {
 		tlshd_log_debug("The peer cert list is empty.\n");
                 return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 
-	tlshd_log_debug("The peer offered %d certificate(s).\n",
-			tlshd_num_remote_peerids);
+	tlshd_log_debug("The peer offered %u certificate(s).\n",
+			parms->num_remote_peerids);
 
-	if (tlshd_num_remote_peerids > ARRAY_SIZE(tlshd_remote_peerid))
-		tlshd_num_remote_peerids= ARRAY_SIZE(tlshd_remote_peerid);
-	for (i = 0; i < tlshd_num_remote_peerids; i++) {
+	if (parms->num_remote_peerids > ARRAY_SIZE(parms->remote_peerid))
+		parms->num_remote_peerids = ARRAY_SIZE(parms->remote_peerid);
+	for (i = 0; i < parms->num_remote_peerids; i++) {
 		gnutls_x509_crt_t cert;
 
 		gnutls_x509_crt_init(&cert);
 		gnutls_x509_crt_import(cert, &peercerts[i], GNUTLS_X509_FMT_DER);
-		tlshd_remote_peerid[i] = tlshd_keyring_create_cert(cert, hostname);
+		parms->remote_peerid[i] =
+			tlshd_keyring_create_cert(cert, parms->peername);
 		gnutls_x509_crt_deinit(cert);
 	}
 
@@ -223,6 +222,7 @@ static void tlshd_server_x509_handshake(struct tlshd_handshake_parms *parms)
 		goto out_free_creds;
 	}
 	gnutls_transport_set_int(session, parms->sockfd);
+	gnutls_session_set_ptr(session, parms);
 
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 	gnutls_certificate_set_verify_function(xcred,
@@ -250,10 +250,13 @@ out_free_creds:
  *   %0: Matching key has been stored in @key
  *   %-1: Error during lookup, @key is not updated
  */
-static int tlshd_server_psk_cb(__attribute__ ((unused))gnutls_session_t session,
+static int tlshd_server_psk_cb(gnutls_session_t session,
 			       const char *username, gnutls_datum_t *key)
 {
+	struct tlshd_handshake_parms *parms;
 	key_serial_t psk;
+
+	parms = gnutls_session_get_ptr(session);
 
 	psk = keyctl_search(KEY_SPEC_SESSION_KEYRING, "psk", username, 0);
 	if (psk < 0) {
@@ -265,8 +268,8 @@ static int tlshd_server_psk_cb(__attribute__ ((unused))gnutls_session_t session,
 		return -1;
 	}
 	/* PSK uses the same identity for both client and server */
-	tlshd_remote_peerid[0] = psk;
-	tlshd_num_remote_peerids = 1;
+	parms->remote_peerid[0] = psk;
+	parms->num_remote_peerids = 1;
 	return 0;
 }
 
@@ -291,6 +294,7 @@ static void tlshd_server_psk_handshake(struct tlshd_handshake_parms *parms)
 		goto out_free_creds;
 	}
 	gnutls_transport_set_int(session, parms->sockfd);
+	gnutls_session_set_ptr(session, parms);
 
 	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
 
@@ -334,10 +338,6 @@ void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms)
 	default:
 		tlshd_log_debug("Unrecognized auth mode (%d)",
 				parms->auth_mode);
-	}
-	if (tlshd_num_remote_peerids) {
-		parms->num_remote_peerids = tlshd_num_remote_peerids;
-		parms->remote_peerid = tlshd_remote_peerid;
 	}
 
 	gnutls_global_deinit();
