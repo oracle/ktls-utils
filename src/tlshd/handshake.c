@@ -43,6 +43,34 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+static void tlshd_set_nagle(gnutls_session_t session, int val)
+{
+	int ret;
+
+	ret = setsockopt(gnutls_transport_get_int(session),
+			 IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
+	if (ret < 0)
+		tlshd_log_perror("setsockopt (NODELAY)");
+}
+
+static void tlshd_save_nagle(gnutls_session_t session, int *saved)
+{
+	socklen_t len;
+	int ret;
+
+
+	len = sizeof(saved);
+	ret = getsockopt(gnutls_transport_get_int(session),
+			 IPPROTO_TCP, TCP_NODELAY, saved, &len);
+	if (ret < 0) {
+		tlshd_log_perror("getsockopt (NODELAY)");
+		saved = 0;
+		return;
+	}
+
+	tlshd_set_nagle(session, 1);
+}
+
 /**
  * tlshd_start_tls_handshake - Drive the handshake interaction
  * @session: TLS session to initialize
@@ -53,8 +81,8 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 			       struct tlshd_handshake_parms *parms)
 {
 	char *priorities;
+	int saved, ret;
 	char *desc;
-	int ret;
 
 	priorities = tlshd_make_priorities_string(parms);
 	if (priorities) {
@@ -77,9 +105,11 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 	}
 
 	gnutls_handshake_set_timeout(session, parms->timeout_ms);
+	tlshd_save_nagle(session, &saved);
 	do {
 		ret = gnutls_handshake(session);
 	} while (ret < 0 && !gnutls_error_is_fatal(ret));
+	tlshd_set_nagle(session, saved);
 	if (ret < 0) {
 		switch (ret) {
 		case GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR:
