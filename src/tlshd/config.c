@@ -124,9 +124,17 @@ static int tlshd_file_open(const char *pathname)
 #endif
 
 /*
+ * Expected file attributes
+ */
+#define TLSHD_OWNER		0	/* root */
+#define TLSHD_CERT_MODE		(S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
+#define TLSHD_PRIVKEY_MODE	(S_IRUSR|S_IWUSR)
+
+/*
  * On success, caller must release buffer returned in @data by calling free(3)
  */
-static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data)
+static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data,
+				    uid_t owner, mode_t mode)
 {
 	struct stat statbuf;
 	void *buf;
@@ -137,21 +145,27 @@ static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data)
 
 	fd = tlshd_file_open(pathname);
 	if (fd == -1) {
-		tlshd_log_perror("Failed to open file");
+		tlshd_log_perror("open");
 		goto out;
 	}
 	if (fstat(fd, &statbuf)) {
-		tlshd_log_perror("Failed to stat file");
+		tlshd_log_perror("stat");
 		goto out_close;
 	}
+	if (statbuf.st_uid != owner)
+		tlshd_log_notice("File %s: expected owner %u",
+				 pathname, owner);
+	if ((statbuf.st_mode & ALLPERMS) != mode)
+		tlshd_log_notice("File %s: expected mode %o",
+				 pathname, mode);
 	buf = malloc(statbuf.st_size);
 	if (!buf) {
 		errno = ENOMEM;
-		tlshd_log_perror("Failed to allocate buffer");
+		tlshd_log_perror("malloc");
 		goto out_close;
 	}
 	if (read(fd, buf, statbuf.st_size) == -1) {
-		tlshd_log_perror("Failed to read file");
+		tlshd_log_perror("read");
 		free(buf);
 		goto out_close;
 	}
@@ -188,7 +202,8 @@ bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
 		return false;
 	}
 
-	if (!tlshd_config_read_datum(pathname, &data))
+	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
+				     TLSHD_CERT_MODE))
 		return false;
 
 	/* Config file supports only PEM-encoded certificates */
@@ -227,7 +242,8 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 		return false;
 	}
 
-	if (!tlshd_config_read_datum(pathname, &data))
+	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
+				     TLSHD_PRIVKEY_MODE))
 		return false;
 
 	ret = gnutls_privkey_init(privkey);
@@ -273,7 +289,8 @@ bool tlshd_config_get_server_cert(gnutls_pcert_st *cert)
 		return false;
 	}
 
-	if (!tlshd_config_read_datum(pathname, &data))
+	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
+				     TLSHD_CERT_MODE))
 		return false;
 
 	/* Config file supports only PEM-encoded certificates */
@@ -312,7 +329,8 @@ bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey)
 		return false;
 	}
 
-	if (!tlshd_config_read_datum(pathname, &data))
+	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
+				     TLSHD_PRIVKEY_MODE))
 		return false;
 
 	ret = gnutls_privkey_init(privkey);

@@ -87,6 +87,7 @@ extern void tlshd_log_failure(const char *hostname,
 			      const struct sockaddr *sap, socklen_t salen);
 
 extern void tlshd_log_debug(const char *fmt, ...);
+extern void tlshd_log_notice(const char *fmt, ...);
 extern void tlshd_log_error(const char *fmt, ...);
 extern void tlshd_log_perror(const char *prefix);
 extern void tlshd_log_gai_error(int error);
