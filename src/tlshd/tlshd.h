@@ -41,7 +41,7 @@ struct tlshd_handshake_parms {
 	unsigned int	session_status;
 
 	unsigned int	num_remote_peerids;
-	key_serial_t	*remote_peerid;
+	key_serial_t	remote_peerid[10];
 };
 
 /* client.c */
