@@ -12,6 +12,7 @@
 enum handshake_handler_class {
 	HANDSHAKE_HANDLER_CLASS_NONE,
 	HANDSHAKE_HANDLER_CLASS_TLSHD,
+	HANDSHAKE_HANDLER_CLASS_MAX,
 };
 
 enum handshake_msg_type {
