@@ -224,8 +224,6 @@ static void tlshd_server_x509_handshake(struct tlshd_handshake_parms *parms)
 	}
 	gnutls_transport_set_int(session, parms->sockfd);
 
-	gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-			       parms->peername, strlen(parms->peername));
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 	gnutls_certificate_set_verify_function(xcred,
 					       tlshd_server_x509_verify_function);
