@@ -125,9 +125,15 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
  * tlshd_server_x509_verify_function - Verify remote's x.509 certificate
  * @session: session in the midst of a handshake
  *
- * Return values:
- *   %0: Incoming certificate has been successfully verified
- *   %GNUTLS_E_CERTIFICATE_ERROR: certificate verification failed
+ * A return value of %GNUTLS_E_SUCCESS indicates that the TLS session
+ * has been allowed to continue. tlshd either sets the peerid array if
+ * the presented certificate has been successfully verified, or the
+ * peerid array is left empty if no peer information was available to
+ * perform verification. The kernel consumer can apply a security policy
+ * based on this information.
+ *
+ * A return value of %GNUTLS_E_CERTIFICATE_ERROR means that certificate
+ * verification failed. The server sends an ALERT to the client.
  */
 static int tlshd_server_x509_verify_function(gnutls_session_t session)
 {
@@ -144,20 +150,18 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session)
 	case GNUTLS_E_SUCCESS:
 		break;
 	case GNUTLS_E_NO_CERTIFICATE_FOUND:
-		tlshd_log_debug("The peer offered no certificate.\n");
+		tlshd_log_debug("The peer offered no certificate.");
 		return GNUTLS_E_SUCCESS;
 	default:
 		tlshd_log_gnutls_error(ret);
-		return GNUTLS_E_CERTIFICATE_ERROR;
+		goto certificate_error;
 	}
-
-        type = gnutls_certificate_type_get(session);
-        gnutls_certificate_verification_status_print(status, type, &out, 0);
-        tlshd_log_debug("%s", out.data);
-        gnutls_free(out.data);
-
-        if (status)
-                return GNUTLS_E_CERTIFICATE_ERROR;
+	type = gnutls_certificate_type_get(session);
+	gnutls_certificate_verification_status_print(status, type, &out, 0);
+	tlshd_log_debug("%s", out.data);
+	gnutls_free(out.data);
+	if (status)
+		goto certificate_error;
 
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for
@@ -166,11 +170,11 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session)
 	peercerts = gnutls_certificate_get_peers(session,
 						 &parms->num_remote_peerids);
 	if (!peercerts || parms->num_remote_peerids == 0) {
-		tlshd_log_debug("The peer cert list is empty.\n");
-                return GNUTLS_E_CERTIFICATE_ERROR;
+		tlshd_log_debug("The peer cert list is empty.");
+		goto certificate_error;
 	}
 
-	tlshd_log_debug("The peer offered %u certificate(s).\n",
+	tlshd_log_debug("The peer offered %u certificate(s).",
 			parms->num_remote_peerids);
 
 	if (parms->num_remote_peerids > ARRAY_SIZE(parms->remote_peerid))
@@ -186,6 +190,10 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session)
 	}
 
 	return GNUTLS_E_SUCCESS;
+
+certificate_error:
+	gnutls_alert_send(session, GNUTLS_AL_FATAL, GNUTLS_A_ACCESS_DENIED);
+	return GNUTLS_E_CERTIFICATE_ERROR;
 }
 
 static void tlshd_server_x509_handshake(struct tlshd_handshake_parms *parms)
