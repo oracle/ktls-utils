@@ -149,19 +149,20 @@ void tlshd_service_socket(void)
 	peeraddr_len = 0;
 	if (tlshd_genl_get_handshake_parms(&parms) != 0)
 		goto out;
-
 	peeraddr_len = sizeof(ss);
 	if (getpeername(parms.sockfd, peeraddr, &peeraddr_len) == -1) {
 		tlshd_log_perror("getpeername");
 		goto out;
 	}
-
-	ret = getnameinfo(peeraddr, peeraddr_len, peername, sizeof(peername),
-			  NULL, 0, NI_NAMEREQD);
-	if (ret) {
-		tlshd_log_gai_error(ret);
-		goto out;
-	}
+	if (!parms.peername) {
+		ret = getnameinfo(peeraddr, peeraddr_len, peername,
+				  sizeof(peername), NULL, 0, NI_NAMEREQD);
+		if (ret) {
+			tlshd_log_gai_error(ret);
+			goto out;
+		}
+	} else
+		strcpy(peername, parms.peername);
 	parms.peername = peername;
 
 	switch (parms.handshake_type) {

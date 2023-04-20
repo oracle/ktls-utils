@@ -197,7 +197,8 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 
 	parms = gnutls_session_get_ptr(session);
 
-	ret = gnutls_certificate_verify_peers3(session, NULL, &status);
+	ret = gnutls_certificate_verify_peers3(session, parms->peername,
+					       &status);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		return GNUTLS_E_CERTIFICATE_ERROR;
