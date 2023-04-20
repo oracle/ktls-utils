@@ -93,6 +93,7 @@ tlshd_accept_nl_policy[HANDSHAKE_A_ACCEPT_MAX + 1] = {
 	[HANDSHAKE_A_ACCEPT_AUTH_MODE]		= { .type = NLA_U32, },
 	[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]	= { .type = NLA_U32, },
 	[HANDSHAKE_A_ACCEPT_CERTIFICATE]	= { .type = NLA_NESTED, },
+	[HANDSHAKE_A_ACCEPT_PEERNAME]		= { .type = NLA_STRING, },
 };
 
 static int tlshd_genl_event_handler(struct nl_msg *msg,
@@ -232,6 +233,8 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		parms->sockfd = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_SOCKFD]);
 	if (tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE])
 		parms->handshake_type = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE]);
+	if (tb[HANDSHAKE_A_ACCEPT_PEERNAME])
+		parms->peername = nla_get_string(tb[HANDSHAKE_A_ACCEPT_PEERNAME]);
 	if (tb[HANDSHAKE_A_ACCEPT_TIMEOUT])
 		parms->timeout_ms = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_TIMEOUT]);
 	if (tb[HANDSHAKE_A_ACCEPT_AUTH_MODE])
@@ -244,6 +247,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 }
 
 static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
+	.peername		= NULL,
 	.sockfd			= -1,
 	.handshake_type		= HANDSHAKE_MSG_TYPE_UNSPEC,
 	.timeout_ms		= GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT,
