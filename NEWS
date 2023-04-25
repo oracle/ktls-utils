@@ -1,5 +1,5 @@
-ktls-utils 0.8 - 2023-04-05
- * Replace the listen-based upcall mechanism with netlink
- * Implement server-side handshake support
- * Implement x.509 certificate verification
- * Implement keyring-based exchange of authentication material
+ktls-utils 0.9 - 2023-05-01
+ * Cipher negotiaion now conforms with distro security policies
+ * Improve Server Name Indicator support
+ * Disable Nagle during handshakes
+ * Send TLS Alerts on handshake errors
