@@ -80,28 +80,13 @@ static void tlshd_save_nagle(gnutls_session_t session, int *saved)
 void tlshd_start_tls_handshake(gnutls_session_t session,
 			       struct tlshd_handshake_parms *parms)
 {
-	char *priorities;
 	int saved, ret;
 	char *desc;
 
-	priorities = tlshd_make_priorities_string(parms);
-	if (priorities) {
-		const char *err_pos;
-
-		tlshd_log_debug("Using GnuTLS priorities string %s\n",
-				priorities);
-		ret = gnutls_priority_set_direct(session, priorities,
-						 &err_pos);
-		if (ret != GNUTLS_E_SUCCESS) {
-			tlshd_log_gnutls_error(ret);
-			goto out_free;
-		}
-	} else {
-		ret = gnutls_set_default_priority(session);
-		if (ret != GNUTLS_E_SUCCESS) {
-			tlshd_log_gnutls_error(ret);
-			goto out_free;
-		}
+	ret = tlshd_gnutls_priority_set(session, parms);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return;
 	}
 
 	gnutls_handshake_set_timeout(session, parms->timeout_ms);
@@ -119,7 +104,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 			tlshd_log_gnutls_error(ret);
 		}
 		parms->session_status = EACCES;
-		goto out_free;
+		return;
 	}
 
 	desc = gnutls_session_get_desc(session);
@@ -127,9 +112,6 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 	gnutls_free(desc);
 
 	parms->session_status = tlshd_initialize_ktls(session);
-
-out_free:
-	free(priorities);
 }
 
 /**
