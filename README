@@ -59,4 +59,4 @@ Please consult the [security guide](./SECURITY.md) for our responsible security 
 
 Copyright (c) 2023 Oracle and/or its affiliates.
 
-Released under the GNU GENERAL PUBLIC LICENSE
+Released under the GNU GENERAL PUBLIC LICENSE version 2
