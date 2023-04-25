@@ -1,5 +1,11 @@
 Change Log - In newest-release-first order
 
+ktls-utils 0.9 - 2023-05-01
+ * Cipher negotiaion now conforms with distro security policies
+ * Improve Server Name Indicator support
+ * Disable Nagle during handshakes
+ * Send TLS Alerts on handshake errors
+
 ktls-utils 0.8 - 2023-04-05
  * Replace the listen-based upcall mechanism with netlink
  * Implement server-side handshake support

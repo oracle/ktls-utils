@@ -1,4 +1,4 @@
-# Release Notes for ktls-utils 0.9-dev
+# Release Notes for ktls-utils 0.9
 
 Note well: This is experimental prototype software. It's purpose is
 purely as a demonstration and proof-of-concept. USE AT YOUR OWN RISK.
