@@ -74,7 +74,10 @@ extern int tlshd_keyring_link_session(const char *keyring);
 
 /* ktls.c */
 extern int tlshd_initialize_ktls(gnutls_session_t session);
-extern char *tlshd_make_priorities_string(struct tlshd_handshake_parms *parms);
+extern int tlshd_gnutls_priority_init(void);
+extern int tlshd_gnutls_priority_set(gnutls_session_t session,
+					struct tlshd_handshake_parms *parms);
+extern void tlshd_gnutls_priority_deinit(void);
 
 /* log.c */
 extern void tlshd_log_init(const char *progname);
