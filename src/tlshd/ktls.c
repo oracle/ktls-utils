@@ -294,27 +294,68 @@ int tlshd_initialize_ktls(gnutls_session_t session)
 	return EIO;
 }
 
-/**
- * tlshd_make_priorities_string - Build GnuTLS "priorities" string
- * @parms: handshake parameters
+/*
+ * Handshakes must negotiate only ciphers that are supported
+ * by kTLS. The list below contains the ciphers that are
+ * common to both kTLS and GnuTLS (Linux v6.2, GnuTLS 3.8.0).
  *
- * Returns a buffer containing a NUL-terminated string that must
- * be freed with free(3).
+ * The resulting list should be ordered by local system priority.
  */
-char *tlshd_make_priorities_string(struct tlshd_handshake_parms *parms)
+static void emit_cipher_string(char *pstring, unsigned int cipher)
 {
-	char *result;
+	switch(cipher) {
+#if defined(TLS_CIPHER_CHACHA20_POLY1305)
+	case GNUTLS_CIPHER_CHACHA20_POLY1305:
+		strcat(pstring, ":+CHACHA20-POLY1305");
+		break;
+#endif
+#if defined(TLS_CIPHER_AES_GCM_256)
+	case GNUTLS_CIPHER_AES_256_GCM:
+		strcat(pstring, ":+AES-256-GCM");
+		break;
 
-	result = malloc(1024);
-	if (!result)
-		return result;
+#endif
+#if defined(TLS_CIPHER_AES_GCM_128)
+	case GNUTLS_CIPHER_AES_128_GCM:
+		strcat(pstring, ":+AES-128-GCM");
+		break;
+#endif
+#if defined(TLS_CIPHER_AES_CCM_128)
+	case GNUTLS_CIPHER_AES_128_CCM:
+		strcat(pstring, ":+AES-128-CCM");
+		break;
+#endif
+	}
+}
 
-	result[0] = '\0';
+static gnutls_priority_t	tlshd_gnutls_priority;
+static gnutls_priority_t	tlshd_gnutls_priority_psk;
 
-	strcat(result, "SECURE256:+SECURE128:-COMP-ALL");
+int tlshd_gnutls_priority_init(void)
+{
+	int ret, i;
+	char pstring[1024];
+	const unsigned int *ciphers;
+	const char *errpos;
+
+	ret = gnutls_priority_init(&tlshd_gnutls_priority, NULL, &errpos);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
+	}
+
+	ret = gnutls_priority_cipher_list(tlshd_gnutls_priority, &ciphers);
+	if (ret < 0) {
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
+	}
+
+	pstring[0] = '\0';
+
+	strcat(pstring, "SECURE256:+SECURE128:-COMP-ALL");
 
 	/* All kernel TLS consumers require TLS v1.3 or newer. */
-	strcat(result, ":-VERS-ALL:+VERS-TLS1.3:%NO_TICKETS");
+	strcat(pstring, ":-VERS-ALL:+VERS-TLS1.3:%NO_TICKETS");
 
 	/*
 	 * Handshakes must negotiate only ciphers that are supported
@@ -323,26 +364,42 @@ char *tlshd_make_priorities_string(struct tlshd_handshake_parms *parms)
 	 *
 	 * List is ordered from cryptographically strongest to weakest.
 	 */
-	strcat(result, ":-CIPHER-ALL");
+	strcat(pstring, ":-CIPHER-ALL");
 
-#if defined(TLS_CIPHER_CHACHA20_POLY1305)
-	strcat(result, ":+CHACHA20-POLY1305");
-#endif
-#if defined(TLS_CIPHER_AES_GCM_256)
-	strcat(result, ":+AES-256-GCM");
-#endif
-#if defined(TLS_CIPHER_AES_GCM_128)
-	strcat(result, ":+AES-128-GCM");
-#endif
-#if defined(TLS_CIPHER_AES_CCM_128)
-	strcat(result, ":+AES-128-CCM");
-#endif
+	for (i = 0; i < ret; ++i)
+		emit_cipher_string(pstring, ciphers[i]);
 
-	switch (parms->auth_mode) {
-	case HANDSHAKE_AUTH_PSK:
-		strcat(result, ":+PSK:+DHE-PSK:+ECDHE-PSK");
-		break;
+	tlshd_log_debug("Normal priority string: %s\n", pstring);
+
+	gnutls_priority_deinit(tlshd_gnutls_priority);
+	ret = gnutls_priority_init(&tlshd_gnutls_priority, pstring, &errpos);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
 	}
 
-	return result;
+	strcat(pstring, ":+PSK:+DHE-PSK:+ECDHE-PSK");
+
+	tlshd_log_debug("PSK priority string: %s\n", pstring);
+
+	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk, pstring, &errpos);
+	if (ret != GNUTLS_E_SUCCESS) {
+		gnutls_priority_deinit(tlshd_gnutls_priority);
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+int tlshd_gnutls_priority_set(gnutls_session_t session, struct tlshd_handshake_parms *parms)
+{
+	return gnutls_priority_set(session, parms->auth_mode == HANDSHAKE_AUTH_PSK ?
+					    tlshd_gnutls_priority_psk : tlshd_gnutls_priority);
+}
+
+void tlshd_gnutls_priority_deinit(void)
+{
+	gnutls_priority_deinit(tlshd_gnutls_priority);
+	gnutls_priority_deinit(tlshd_gnutls_priority_psk);
 }
