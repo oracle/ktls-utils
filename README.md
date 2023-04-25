@@ -28,7 +28,10 @@ and see [INSTALL](INSTALL) for build instructions.
 
 ## Contributing
 
-This project welcomes contributions from the community. Before submitting a pull request, please [review our contribution guide](./CONTRIBUTING.md).
+This project welcomes contributions from the community.
+Before submitting a pull request,
+please [review our contribution guide](./CONTRIBUTING.md).
+
 Work that remains:
 
 ### Required for client-side prototype
