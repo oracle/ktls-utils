@@ -9,6 +9,11 @@ Please read through this document before submitting an issue or pull
 request to ensure we have all the necessary information to
 effectively respond to your bug report or contribution.
 
+An old-school developer's mailing list is available. See
+[lists.linux.dev](https://subspace.kernel.org/lists.linux.dev.html)
+for links to subscribe to <kernel-tls-handshake@lists.linux.dev> or
+to access archived threads.
+
 ## Opening issues
 
 We welcome you to use the GitHub issue tracker to report bugs or
