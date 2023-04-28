@@ -264,18 +264,22 @@ static int tlshd_server_psk_cb(gnutls_session_t session,
 {
 	struct tlshd_handshake_parms *parms;
 	key_serial_t psk;
+	long ret;
 
 	parms = gnutls_session_get_ptr(session);
 
-	psk = keyctl_search(KEY_SPEC_SESSION_KEYRING, "psk", username, 0);
-	if (psk < 0) {
+	ret = keyctl_search(KEY_SPEC_SESSION_KEYRING, "psk", username, 0);
+	if (ret < 0) {
 		tlshd_log_error("failed to search key");
 		return -1;
 	}
+
+	psk = (key_serial_t)ret;
 	if (!tlshd_keyring_get_psk_key(psk, key)) {
 		tlshd_log_error("failed to load key");
 		return -1;
 	}
+
 	/* PSK uses the same identity for both client and server */
 	parms->remote_peerid[0] = psk;
 	parms->num_remote_peerids = 1;
