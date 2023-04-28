@@ -106,7 +106,7 @@ bool tlshd_keyring_get_psk_key(key_serial_t serial, gnutls_datum_t *key)
 	}
 
 	key->data = tmp;
-	key->size = ret;
+	key->size = (unsigned int)ret;
 	return true;
 }
 
@@ -134,7 +134,7 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t privkey)
 		return false;
 	}
 	data.data = tmp;
-	data.size = ret;
+	data.size = (unsigned int)ret;
 
 	ret = gnutls_privkey_init(&privkey);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -180,7 +180,7 @@ bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert)
 		return false;
 	}
 	data.data = tmp;
-	data.size = ret;
+	data.size = (unsigned int)ret;
 
 	/* Handshake upcall passes only DER-encoded certificates */
 	ret = gnutls_pcert_import_x509_raw(cert, &data,
