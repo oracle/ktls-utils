@@ -42,6 +42,32 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+static char *tlshd_string_concat(char *str1, const char *str2)
+{
+	size_t len = 0;
+	char *result;
+
+	if (!str1 && !str2)
+		return NULL;
+
+	if (str1)
+		len += strlen(str1);
+	if (str2)
+		len += strlen(str2);
+
+	result = malloc(len + 1);
+	if (result) {
+		result[0] = '\0';
+		if (str1)
+			strcat(result, str1);
+		if (str2)
+			strcat(result, str2);
+	}
+
+	free(str1);
+	return result;
+}
+
 #ifdef HAVE_GNUTLS_TRANSPORT_IS_KTLS_ENABLED
 static bool tlshd_is_ktls_enabled(gnutls_session_t session, unsigned read)
 {
@@ -294,38 +320,29 @@ unsigned int tlshd_initialize_ktls(gnutls_session_t session)
 	return EIO;
 }
 
-/*
- * Handshakes must negotiate only ciphers that are supported
- * by kTLS. The list below contains the ciphers that are
- * common to both kTLS and GnuTLS (Linux v6.2, GnuTLS 3.8.0).
- *
- * The resulting list should be ordered by local system priority.
- */
-static void emit_cipher_string(char *pstring, unsigned int cipher)
+static char *tlshd_cipher_string_emit(char *pstring, unsigned int cipher)
 {
-	switch(cipher) {
+	switch (cipher) {
 #if defined(TLS_CIPHER_CHACHA20_POLY1305)
 	case GNUTLS_CIPHER_CHACHA20_POLY1305:
-		strcat(pstring, ":+CHACHA20-POLY1305");
-		break;
+		return tlshd_string_concat(pstring, ":+CHACHA20-POLY1305");
 #endif
 #if defined(TLS_CIPHER_AES_GCM_256)
 	case GNUTLS_CIPHER_AES_256_GCM:
-		strcat(pstring, ":+AES-256-GCM");
-		break;
+		return tlshd_string_concat(pstring, ":+AES-256-GCM");
 
 #endif
 #if defined(TLS_CIPHER_AES_GCM_128)
 	case GNUTLS_CIPHER_AES_128_GCM:
-		strcat(pstring, ":+AES-128-GCM");
-		break;
+		return tlshd_string_concat(pstring, ":+AES-128-GCM");
 #endif
 #if defined(TLS_CIPHER_AES_CCM_128)
 	case GNUTLS_CIPHER_AES_128_CCM:
-		strcat(pstring, ":+AES-128-CCM");
-		break;
+		return tlshd_string_concat(pstring, ":+AES-128-CCM");
 #endif
 	}
+
+	return pstring;
 }
 
 static gnutls_priority_t	tlshd_gnutls_priority_x509;
@@ -337,11 +354,11 @@ static gnutls_priority_t	tlshd_gnutls_priority_psk;
  */
 int tlshd_gnutls_priority_init(void)
 {
-	int ret, i;
-	char pstring[1024];
 	const unsigned int *ciphers;
 	gnutls_priority_t pcache;
 	const char *errpos;
+	char *pstring;
+	int ret, i;
 
 	/* Retrieve the system default priority settings */
 	ret = gnutls_priority_init(&pcache, NULL, &errpos);
@@ -357,44 +374,57 @@ int tlshd_gnutls_priority_init(void)
 		return -EIO;
 	}
 
-	pstring[0] = '\0';
-
-	strcat(pstring, "SECURE256:+SECURE128:-COMP-ALL");
+	pstring = strdup("SECURE256:+SECURE128:-COMP-ALL");
+	if (!pstring)
+		return -ENOMEM;
 
 	/* All kernel TLS consumers require TLS v1.3 or newer. */
-	strcat(pstring, ":-VERS-ALL:+VERS-TLS1.3:%NO_TICKETS");
+	pstring = tlshd_string_concat(pstring, ":-VERS-ALL:+VERS-TLS1.3:%NO_TICKETS");
+	if (!pstring)
+		return -ENOMEM;
 
 	/*
 	 * Handshakes must negotiate only ciphers that are supported
 	 * by kTLS. The list below contains the ciphers that are
 	 * common to both kTLS and GnuTLS (Linux v6.2, GnuTLS 3.8.0).
 	 *
-	 * List is ordered from cryptographically strongest to weakest.
+	 * The resulting list is ordered by local system priority.
 	 */
-	strcat(pstring, ":-CIPHER-ALL");
-
-	for (i = 0; i < ret; ++i)
-		emit_cipher_string(pstring, ciphers[i]);
+	pstring = tlshd_string_concat(pstring, ":-CIPHER-ALL");
+	if (!pstring)
+		return -ENOMEM;
+	for (i = 0; i < ret; ++i) {
+		pstring = tlshd_cipher_string_emit(pstring, ciphers[i]);
+		if (!pstring)
+			return -ENOMEM;
+	}
 
 	tlshd_log_debug("x.509 priority string: %s\n", pstring);
 
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_x509, pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
+		free(pstring);
 		tlshd_log_gnutls_error(ret);
 		return -EIO;
 	}
 
-	strcat(pstring, ":+PSK:+DHE-PSK:+ECDHE-PSK");
+	pstring = tlshd_string_concat(pstring, ":+PSK:+DHE-PSK:+ECDHE-PSK");
+	if (!pstring) {
+		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
+		return -ENOMEM;
+	}
 
 	tlshd_log_debug("PSK priority string: %s\n", pstring);
 
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk, pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
+		free(pstring);
 		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
 		tlshd_log_gnutls_error(ret);
 		return -EIO;
 	}
 
+	free(pstring);
 	return 0;
 }
 
