@@ -139,9 +139,10 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session)
 {
 	struct tlshd_handshake_parms *parms;
 	const gnutls_datum_t *peercerts;
+	gnutls_certificate_type_t type;
 	unsigned int i, status;
 	gnutls_datum_t out;
-	int type, ret;
+	int ret;
 
 	parms = gnutls_session_get_ptr(session);
 
