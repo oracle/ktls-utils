@@ -64,8 +64,7 @@ bool tlshd_config_init(const gchar *pathname)
 
 	error = NULL;
 	if (!g_key_file_load_from_file(tlshd_configuration, pathname,
-				       G_KEY_FILE_KEEP_COMMENTS |
-				       G_KEY_FILE_KEEP_TRANSLATIONS,
+				       G_KEY_FILE_KEEP_COMMENTS,
 				       &error)) {
 		tlshd_log_gerror("Failed to load config file", error);
 		g_error_free(error);
