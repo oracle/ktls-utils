@@ -113,7 +113,7 @@ static int tlshd_file_open(const char *pathname)
 		.resolve	= RESOLVE_NO_SYMLINKS,
 	};
 
-	return syscall(SYS_openat2, 0, pathname, &how, sizeof(how));
+	return (int)syscall(SYS_openat2, 0, pathname, &how, sizeof(how));
 }
 #else
 static int tlshd_file_open(const char *pathname)
