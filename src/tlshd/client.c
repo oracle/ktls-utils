@@ -354,7 +354,7 @@ out_free_creds:
 
 static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 {
-	int i;
+	unsigned int i;
 
 	if (!parms->peerids) {
 		tlshd_log_error("No key identities");
