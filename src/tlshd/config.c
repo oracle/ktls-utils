@@ -136,6 +136,7 @@ static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data,
 				    uid_t owner, mode_t mode)
 {
 	struct stat statbuf;
+	unsigned int size;
 	void *buf;
 	bool ret;
 	int fd;
@@ -151,25 +152,30 @@ static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data,
 		tlshd_log_perror("stat");
 		goto out_close;
 	}
+	if (statbuf.st_size < 0 || statbuf.st_size > UINT_MAX) {
+		tlshd_log_error("Bad config file size: %lld", statbuf.st_size);
+		goto out_close;
+	}
+	size = (unsigned int)statbuf.st_size;
 	if (statbuf.st_uid != owner)
 		tlshd_log_notice("File %s: expected owner %u",
 				 pathname, owner);
 	if ((statbuf.st_mode & ALLPERMS) != mode)
 		tlshd_log_notice("File %s: expected mode %o",
 				 pathname, mode);
-	buf = malloc(statbuf.st_size);
+	buf = malloc(size);
 	if (!buf) {
 		errno = ENOMEM;
 		tlshd_log_perror("malloc");
 		goto out_close;
 	}
-	if (read(fd, buf, statbuf.st_size) == -1) {
+	if (read(fd, buf, size) == -1) {
 		tlshd_log_perror("read");
 		free(buf);
 		goto out_close;
 	}
 	data->data = buf;
-	data->size = statbuf.st_size;
+	data->size = size;
 	ret = true;
 
 out_close:
