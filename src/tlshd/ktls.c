@@ -252,9 +252,9 @@ static bool tlshd_set_chacha20_poly1305_info(gnutls_session_t session, int sock,
  * tlshd_initialize_ktls - Initialize socket for use by kTLS
  * @session: TLS session descriptor
  *
- * Returns zero on success, or a negative errno value.
+ * Returns zero on success, or a positive errno value.
  */
-int tlshd_initialize_ktls(gnutls_session_t session)
+unsigned int tlshd_initialize_ktls(gnutls_session_t session)
 {
 	int sockin, sockout;
 

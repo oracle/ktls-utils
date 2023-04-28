@@ -73,7 +73,7 @@ extern key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
 extern int tlshd_keyring_link_session(const char *keyring);
 
 /* ktls.c */
-extern int tlshd_initialize_ktls(gnutls_session_t session);
+extern unsigned int tlshd_initialize_ktls(gnutls_session_t session);
 extern int tlshd_gnutls_priority_init(void);
 extern int tlshd_gnutls_priority_set(gnutls_session_t session,
 					struct tlshd_handshake_parms *parms);
