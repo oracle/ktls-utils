@@ -153,7 +153,11 @@ void tlshd_genl_dispatch(void)
 		goto out_close;
 	}
 
-	signal(SIGCHLD, SIG_IGN);
+	if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
+		tlshd_log_perror("signal");
+		goto out_close;
+	}
+
 	nl_socket_disable_seq_check(nls);
 	while (true) {
 		err = nl_recvmsgs_default(nls);
