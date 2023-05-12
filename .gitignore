@@ -17,8 +17,10 @@ config.guess
 config.log
 config.status
 config.sub
+cov-int/
 depcomp
 install-sh
 missing
 ktls-utils-*.tar.gz
+ktls-utils-*.tgz
 stamp-h1
