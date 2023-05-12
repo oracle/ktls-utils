@@ -218,10 +218,14 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 		parms->x509_privkey = nla_get_u32(tb[HANDSHAKE_A_X509_PRIVKEY]);
 }
 
+static char tlshd_peername[NI_MAXHOST] = "unknown";
+static struct sockaddr_storage tlshd_peeraddr;
+
 static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 {
 	struct nlattr *tb[HANDSHAKE_A_ACCEPT_MAX + 1];
 	struct tlshd_handshake_parms *parms = arg;
+	char *peername = NULL;
 	int err;
 
 	tlshd_log_debug("Parsing a valid netlink message\n");
@@ -233,12 +237,18 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		return NL_STOP;
 	}
 
-	if (tb[HANDSHAKE_A_ACCEPT_SOCKFD])
+	if (tb[HANDSHAKE_A_ACCEPT_SOCKFD]) {
 		parms->sockfd = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_SOCKFD]);
+		if (getpeername(parms->sockfd, parms->peeraddr,
+				&parms->peeraddr_len) == -1) {
+			tlshd_log_perror("getpeername");
+			return NL_STOP;
+		}
+	}
 	if (tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE])
 		parms->handshake_type = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE]);
 	if (tb[HANDSHAKE_A_ACCEPT_PEERNAME])
-		parms->peername = nla_get_string(tb[HANDSHAKE_A_ACCEPT_PEERNAME]);
+		peername = nla_get_string(tb[HANDSHAKE_A_ACCEPT_PEERNAME]);
 	if (tb[HANDSHAKE_A_ACCEPT_TIMEOUT])
 		parms->timeout_ms = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_TIMEOUT]);
 	if (tb[HANDSHAKE_A_ACCEPT_AUTH_MODE])
@@ -247,11 +257,25 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	tlshd_parse_peer_identity(parms, tb[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]);
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);
 
+	if (peername)
+		strcpy(tlshd_peername, peername);
+	else {
+		err = getnameinfo(parms->peeraddr, parms->peeraddr_len,
+				  tlshd_peername, sizeof(tlshd_peername),
+				  NULL, 0, NI_NAMEREQD);
+		if (err) {
+			tlshd_log_gai_error(err);
+			return NL_STOP;
+		}
+	}
+
 	return NL_SKIP;
 }
 
 static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
-	.peername		= NULL,
+	.peername		= tlshd_peername,
+	.peeraddr		= (struct sockaddr *)&tlshd_peeraddr,
+	.peeraddr_len		= sizeof(tlshd_peeraddr),
 	.sockfd			= -1,
 	.handshake_type		= HANDSHAKE_MSG_TYPE_UNSPEC,
 	.timeout_ms		= GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT,

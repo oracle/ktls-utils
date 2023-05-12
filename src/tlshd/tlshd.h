@@ -28,6 +28,8 @@ struct nl_sock;
 
 struct tlshd_handshake_parms {
 	char		*peername;
+	struct sockaddr *peeraddr;
+	socklen_t	peeraddr_len;
 	int		sockfd;
 	int		handshake_type;
 	unsigned int	timeout_ms;
