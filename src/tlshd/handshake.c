@@ -120,32 +120,10 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
  */
 void tlshd_service_socket(void)
 {
-	static char peername[NI_MAXHOST] = "unknown";
 	struct tlshd_handshake_parms parms;
-	static struct sockaddr_storage ss;
-	static socklen_t peeraddr_len;
-	struct sockaddr *peeraddr = (struct sockaddr *)&ss;
-	int ret;
 
-	memset(&ss, 0, sizeof(ss));
-	peeraddr_len = 0;
 	if (tlshd_genl_get_handshake_parms(&parms) != 0)
 		goto out;
-	peeraddr_len = sizeof(ss);
-	if (getpeername(parms.sockfd, peeraddr, &peeraddr_len) == -1) {
-		tlshd_log_perror("getpeername");
-		goto out;
-	}
-	if (!parms.peername) {
-		ret = getnameinfo(peeraddr, peeraddr_len, peername,
-				  sizeof(peername), NULL, 0, NI_NAMEREQD);
-		if (ret) {
-			tlshd_log_gai_error(ret);
-			goto out;
-		}
-	} else
-		strcpy(peername, parms.peername);
-	parms.peername = peername;
 
 	switch (parms.handshake_type) {
 	case HANDSHAKE_MSG_TYPE_CLIENTHELLO:
@@ -165,8 +143,9 @@ out:
 	free(parms.peerids);
 
 	if (parms.session_status) {
-		tlshd_log_failure(peername, peeraddr, peeraddr_len);
+		tlshd_log_failure(parms.peername, parms.peeraddr,
+				  parms.peeraddr_len);
 		return;
 	}
-	tlshd_log_success(peername, peeraddr, peeraddr_len);
+	tlshd_log_success(parms.peername, parms.peeraddr, parms.peeraddr_len);
 }
