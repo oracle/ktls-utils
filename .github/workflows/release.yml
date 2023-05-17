@@ -9,6 +9,8 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: "Checkout"
@@ -33,23 +35,11 @@ jobs:
         echo "ktls_utils_version=`./configure --version | awk '{print $3;; exit}'`" >> $GITHUB_ENV
 
     - name: "Create release"
-      uses: actions/create-release@latest
+      uses: ncipollo/release-action@v1
       id: create_release
       with:
-        body_path: NEWS
-        release_name: v${{ env.ktls_utils_version }}
-        tag_name: ${{ github.ref }}
-        prerelease: false
-        draft: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: "Upload release tarball"
-      uses: actions/upload-release-asset@latest
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ktls-utils-${{ env.ktls_utils_version }}.tar.gz
-        asset_name: ktls-utils-${{ env.ktls_utils_version }}.tar.gz
-        asset_content_type: application/gzip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: ktls-utils-${{ env.ktls_utils_version }}.tar.gz
+        artifactContentType: application/gzip
+        bodyFile: NEWS
+        name: v${{ env.ktls_utils_version }}
+        tag: ${{ github.ref }}
