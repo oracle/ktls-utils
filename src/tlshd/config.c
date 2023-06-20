@@ -152,7 +152,7 @@ static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data,
 		tlshd_log_perror("stat");
 		goto out_close;
 	}
-	if (statbuf.st_size < 0 || statbuf.st_size > UINT_MAX) {
+	if (statbuf.st_size < 0 || statbuf.st_size > INT_MAX) {
 		tlshd_log_error("Bad config file size: %lld", statbuf.st_size);
 		goto out_close;
 	}
