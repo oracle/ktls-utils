@@ -245,7 +245,6 @@ out:
 int tlshd_keyring_link_session(const char *keyring)
 {
 	key_serial_t serial;
-	char buf[1024];
 	long ret;
 
 	if (!keyring) {
@@ -265,10 +264,10 @@ int tlshd_keyring_link_session(const char *keyring)
 	ret = keyctl_link(serial, KEY_SPEC_SESSION_KEYRING);
 	if (ret < 0) {
 		tlshd_log_debug("Failed to link keyring %s (%lx) error %d\n",
-				buf, serial, errno);
+				keyring, serial, errno);
 		return -1;
 	}
 
-	tlshd_log_debug("Keyring '%s' linked into our session keyring.\n", buf);
+	tlshd_log_debug("Keyring '%s' linked into our session keyring.\n", keyring);
 	return 0;
 }
