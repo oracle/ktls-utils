@@ -21,10 +21,8 @@ unit_files		= tlshd.service
 EXTRA_DIST		= $(unit_files)
 MAINTAINERCLEANFILES	= Makefile.in
 
-unit_dir = /usr/lib/systemd/system
-
 if INSTALL_SYSTEMD
 install-data-hook: $(unit_files)
-	mkdir -p $(DESTDIR)/$(unit_dir)
-	cp $(unit_files) $(DESTDIR)/$(unit_dir)
+	mkdir -p $(DESTDIR)/$(unitdir)
+	cp $(unit_files) $(DESTDIR)/$(unitdir)
 endif
