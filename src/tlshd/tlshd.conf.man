@@ -38,7 +38,7 @@ The
 .B tlshd
 program reads this file once when it is launched.
 Thus changes made in this file take effect only when the
-.B lshd
+.B tlshd
 program is restarted.
 If this file does not exist, the
 .B tlshd
