@@ -9,23 +9,22 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Install packages
+
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get -y install gnutls-dev libkeyutils-dev libnl-3-dev libnl-genl-3-dev
 
-    - name: autogen.sh
-      run: ./autogen.sh
+    - name: Configure
+      run: |
+        ./autogen.sh
+        ./configure --with-systemd
 
-    - name: configure
-      run: ./configure --with-systemd
-      
-    - name: Install dependencies
+    - name: Build
       run: make
-      
-    - name: Run check
+
+    - name: Check
       run: make check
-      
-    - name: Run distcheck
+
+    - name: Distcheck
       run: make distcheck
