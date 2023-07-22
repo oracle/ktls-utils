@@ -15,10 +15,10 @@
 .\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 .\" 02110-1301, USA.
 .\"
-.\" tlshd(8)
+.\" tlshd.conf(5)
 .\"
 .\" Copyright (c) 2022 Oracle and/or its affiliates.
-.TH tlshd 8 "20 Oct 2022"
+.TH tlshd.conf 5 "20 Oct 2022"
 .SH NAME
 tlshd.conf \- tlshd configuration file
 .SH SYNOPSIS
@@ -38,7 +38,7 @@ The
 .B tlshd
 program reads this file once when it is launched.
 Thus changes made in this file take effect only when the
-.B tlshd
+.B lshd
 program is restarted.
 If this file does not exist, the
 .B tlshd
