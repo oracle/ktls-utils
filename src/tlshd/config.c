@@ -185,6 +185,36 @@ out:
 }
 
 /**
+ * tlshd_config_get_client_truststore - Get truststore for ClientHello from .conf
+ * @bundle: OUT: pathname to truststore
+ *
+ * Return values:
+ *   %false: pathname not retrieved
+ *   %true: pathname retrieved successfully; caller must free @bundle using free(3)
+ */
+bool tlshd_config_get_client_truststore(char **bundle)
+{
+	GError *error = NULL;
+	gchar *pathname;
+
+	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
+					 "x509.truststore", &error);
+	if (!pathname) {
+		tlshd_log_gerror("Client x.509 truststore not specified", error);
+		g_error_free(error);
+		return false;
+	}
+
+	*bundle = strdup(pathname);
+	g_free(pathname);
+	if (!*bundle)
+		return false;
+
+	tlshd_log_debug("Client x.509 truststore is %s", *bundle);
+	return true;
+}
+
+/**
  * tlshd_config_get_client_cert - Get cert for ClientHello from .conf
  * @cert: OUT: in-memory certificate
  *
@@ -277,6 +307,36 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 
 	tlshd_log_debug("Retrieved private key from %s", pathname);
 	g_free(pathname);
+	return true;
+}
+
+/**
+ * tlshd_config_get_server_truststore - Get truststore for ServerHello from .conf
+ * @bundle: OUT: pathname to truststore
+ *
+ * Return values:
+ *   %false: pathname not retrieved
+ *   %true: pathname retrieved successfully; caller must free @bundle using free(3)
+ */
+bool tlshd_config_get_server_truststore(char **bundle)
+{
+	GError *error = NULL;
+	gchar *pathname;
+
+	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.server",
+					 "x509.truststore", &error);
+	if (!pathname) {
+		tlshd_log_gerror("Server x.509 truststore not specified", error);
+		g_error_free(error);
+		return false;
+	}
+
+	*bundle = strdup(pathname);
+	g_free(pathname);
+	if (!*bundle)
+		return false;
+
+	tlshd_log_debug("Server x.509 truststore is %s", *bundle);
 	return true;
 }
 
