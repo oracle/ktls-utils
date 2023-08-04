@@ -47,6 +47,7 @@ static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
 	unsigned int flags;
+	char *cafile;
 	int ret;
 
 	ret = gnutls_certificate_allocate_credentials(&xcred);
@@ -63,7 +64,12 @@ static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_certificate_set_flags(xcred,
 			GNUTLS_CERTIFICATE_SKIP_KEY_CERT_MATCH | GNUTLS_CERTIFICATE_SKIP_OCSP_RESPONSE_CHECK);
 
-	ret = gnutls_certificate_set_x509_system_trust(xcred);
+	if (tlshd_config_get_client_truststore(&cafile)) {
+		ret = gnutls_certificate_set_x509_trust_file(xcred, cafile,
+							     GNUTLS_X509_FMT_PEM);
+		free(cafile);
+	} else
+		ret = gnutls_certificate_set_x509_system_trust(xcred);
 	if (ret < 0) {
 		tlshd_log_gnutls_error(ret);
 		goto out_free_creds;
@@ -247,6 +253,7 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
 	unsigned int flags;
+	char *cafile;
 	int ret;
 
 	ret = gnutls_certificate_allocate_credentials(&xcred);
@@ -255,7 +262,12 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 		return;
 	}
 
-	ret = gnutls_certificate_set_x509_system_trust(xcred);
+	if (tlshd_config_get_client_truststore(&cafile)) {
+		ret = gnutls_certificate_set_x509_trust_file(xcred, cafile,
+							     GNUTLS_X509_FMT_PEM);
+		free(cafile);
+	} else
+		ret = gnutls_certificate_set_x509_system_trust(xcred);
 	if (ret < 0) {
 		tlshd_log_gnutls_error(ret);
 		goto out_free_creds;
