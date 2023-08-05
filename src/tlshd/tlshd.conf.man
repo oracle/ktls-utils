@@ -86,7 +86,7 @@ In each of these subsections, there are two available options:
 .B x509.certificate
 This option specifies the pathname of a file containing
 a PEM-encoded x.509 certificate that is to be presented during
-a ClientHello request when no other certificate is available.
+a handshake request when no other certificate is available.
 .TP
 .B x509.private_key
 This option specifies the pathname of a file containing
