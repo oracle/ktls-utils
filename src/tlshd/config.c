@@ -208,8 +208,10 @@ bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
 	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
-				     TLSHD_CERT_MODE))
+				     TLSHD_CERT_MODE)) {
+		g_free(pathname);
 		return false;
+	}
 
 	/* Config file supports only PEM-encoded certificates */
 	ret = gnutls_pcert_import_x509_raw(cert, &data,
@@ -217,10 +219,12 @@ bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
 	free(data.data);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		g_free(pathname);
 		return false;
 	}
 
 	tlshd_log_debug("Retrieved x.509 certificate from %s", pathname);
+	g_free(pathname);
 	return true;
 }
 
@@ -248,13 +252,16 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
-				     TLSHD_PRIVKEY_MODE))
+				     TLSHD_PRIVKEY_MODE)) {
+		g_free(pathname);
 		return false;
+	}
 
 	ret = gnutls_privkey_init(privkey);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		free(data.data);
+		g_free(pathname);
 		return false;
 	}
 
@@ -264,10 +271,12 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 	free(data.data);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		g_free(pathname);
 		return false;
 	}
 
 	tlshd_log_debug("Retrieved private key from %s", pathname);
+	g_free(pathname);
 	return true;
 }
 
@@ -295,8 +304,10 @@ bool tlshd_config_get_server_cert(gnutls_pcert_st *cert)
 	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
-				     TLSHD_CERT_MODE))
+				     TLSHD_CERT_MODE)) {
+		g_free(pathname);
 		return false;
+	}
 
 	/* Config file supports only PEM-encoded certificates */
 	ret = gnutls_pcert_import_x509_raw(cert, &data,
@@ -304,6 +315,7 @@ bool tlshd_config_get_server_cert(gnutls_pcert_st *cert)
 	free(data.data);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		g_free(pathname);
 		return false;
 	}
 
@@ -335,13 +347,16 @@ bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey)
 	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
-				     TLSHD_PRIVKEY_MODE))
+				     TLSHD_PRIVKEY_MODE)) {
+		g_free(pathname);
 		return false;
+	}
 
 	ret = gnutls_privkey_init(privkey);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		free(data.data);
+		g_free(pathname);
 		return false;
 	}
 
@@ -351,9 +366,11 @@ bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey)
 	free(data.data);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		g_free(pathname);
 		return false;
 	}
 
 	tlshd_log_debug("Retrieved private key from %s", pathname);
+	g_free(pathname);
 	return true;
 }
