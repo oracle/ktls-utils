@@ -184,7 +184,13 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session)
 		gnutls_x509_crt_t cert;
 
 		gnutls_x509_crt_init(&cert);
-		gnutls_x509_crt_import(cert, &peercerts[i], GNUTLS_X509_FMT_DER);
+		ret = gnutls_x509_crt_import(cert, &peercerts[i],
+					     GNUTLS_X509_FMT_DER);
+		if (ret != GNUTLS_E_SUCCESS) {
+			tlshd_log_gnutls_error(ret);
+			gnutls_x509_crt_deinit(cert);
+			return GNUTLS_E_CERTIFICATE_ERROR;
+		}
 		parms->remote_peerid[i] =
 			tlshd_keyring_create_cert(cert, parms->peername);
 		gnutls_x509_crt_deinit(cert);
@@ -239,7 +245,11 @@ static void tlshd_server_x509_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_transport_set_int(session, parms->sockfd);
 	gnutls_session_set_ptr(session, parms);
 
-	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
+	ret = gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
 	gnutls_certificate_set_verify_function(xcred,
 					       tlshd_server_x509_verify_function);
 	gnutls_certificate_server_set_request(session, GNUTLS_CERT_REQUEST);
