@@ -228,7 +228,7 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 }
 
 static char tlshd_peername[NI_MAXHOST] = "unknown";
-static struct sockaddr_storage tlshd_peeraddr;
+static struct sockaddr_storage tlshd_peeraddr = { 0 };
 
 static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 {
