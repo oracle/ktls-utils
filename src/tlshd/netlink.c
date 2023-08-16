@@ -50,6 +50,8 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+int tlshd_delay_done;
+
 static int tlshd_genl_sock_open(struct nl_sock **sock)
 {
 	struct nl_sock *nls;
@@ -467,6 +469,13 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 		goto out_free;
 
 sendit:
+	if (tlshd_delay_done) {
+		/* Undocumented tlshd.conf parameter:
+		 * delay DONE downcall by N seconds */
+		tlshd_log_debug("delaying %d second(s)", tlshd_delay_done);
+		sleep(tlshd_delay_done);
+	}
+
 	nl_socket_disable_auto_ack(nls);
 	err = nl_send_auto(nls, msg);
 	if (err < 0) {

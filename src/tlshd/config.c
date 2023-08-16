@@ -81,6 +81,8 @@ bool tlshd_config_init(const gchar *pathname)
 						 "main", "tlsdebug", NULL);
 	nl_debug = g_key_file_get_integer(tlshd_configuration, "main",
 					  "nl_debug", NULL);
+	tlshd_delay_done = g_key_file_get_integer(tlshd_configuration, "main",
+						  "delay_done", NULL);
 
 	keyrings = g_key_file_get_string_list(tlshd_configuration, "main",
 					      "keyrings", &length, NULL);
