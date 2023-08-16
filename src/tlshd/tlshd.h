@@ -22,6 +22,7 @@
 
 extern int tlshd_debug;
 extern int tlshd_tls_debug;
+extern int tlshd_delay_done;
 extern int tlshd_stderr;
 
 struct nl_sock;
