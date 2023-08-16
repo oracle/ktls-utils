@@ -67,6 +67,12 @@ This option specifies an integer which indicates the debug message level
 for netlink operations.
 Zero, the quietest setting, is the default.
 .TP
+.B delay
+This options specifies an integer which indicates the number of seconds
+by which the handshake completion should be delayed. This can be used
+to exercise the timeout handling for the TLS handshake.
+Zero disables any delay.
+.TP
 .B keyrings
 This option specifies a semicolon-separated list of auxiliary keyrings
 that might contain handshake authentication tokens.
