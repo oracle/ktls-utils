@@ -68,6 +68,9 @@ AC_CHECK_LIB([gnutls], [gnutls_transport_is_ktls_enabled],
 AC_CHECK_LIB([gnutls], [gnutls_protocol_set_enabled],
              [AC_DEFINE([HAVE_GNUTLS_PROTOCOL_SET_ENABLED], [1],
                         [Define to 1 if you have the gnutls_protocol_set_enabled function.])])
+AC_CHECK_LIB([gnutls], [gnutls_get_system_config_file],
+             [AC_DEFINE([HAVE_GNUTLS_GET_SYSTEM_CONFIG_FILE], [1],
+                        [Define to 1 if you have the gnutls_get_system_config_file function.])])
 AC_SUBST([AM_CPPFLAGS])
 
 AC_CONFIG_FILES([Makefile src/Makefile src/tlshd/Makefile systemd/Makefile])

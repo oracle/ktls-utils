@@ -392,7 +392,10 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_global_set_log_function(tlshd_gnutls_log_func);
 	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
 
-	tlshd_log_debug("System config file: %s", gnutls_get_system_config_file());
+#ifdef HAVE_GNUTLS_GET_SYSTEM_CONFIG_FILE
+	tlshd_log_debug("System config file: %s",
+			gnutls_get_system_config_file());
+#endif
 
 	switch (parms->auth_mode) {
 	case HANDSHAKE_AUTH_UNAUTH:
