@@ -43,6 +43,7 @@
 #include <netlink/msg.h>
 #include <netlink/genl/genl.h>
 #include <netlink/genl/ctrl.h>
+#include <netlink/version.h>
 
 #include <glib.h>
 
@@ -84,7 +85,11 @@ static void tlshd_genl_sock_close(struct nl_sock *nls)
 	nl_socket_free(nls);
 }
 
+#if LIBNL_VER_NUM >= LIBNL_VER(3,5)
 static const struct nla_policy
+#else
+static struct nla_policy
+#endif
 tlshd_accept_nl_policy[HANDSHAKE_A_ACCEPT_MAX + 1] = {
 	[HANDSHAKE_A_ACCEPT_SOCKFD]		= { .type = NLA_U32, },
 	[HANDSHAKE_A_ACCEPT_HANDLER_CLASS]	= { .type = NLA_U32, },
@@ -190,7 +195,11 @@ static void tlshd_parse_peer_identity(struct tlshd_handshake_parms *parms,
 	parms->peerids[0] = nla_get_u32(head);
 }
 
+#if LIBNL_VER_NUM >= LIBNL_VER(3,5)
 static const struct nla_policy
+#else
+static struct nla_policy
+#endif
 tlshd_x509_nl_policy[HANDSHAKE_A_X509_MAX + 1] = {
 	[HANDSHAKE_A_X509_CERT]		= { .type = NLA_U32, },
 	[HANDSHAKE_A_X509_PRIVKEY]	= { .type = NLA_U32, },
