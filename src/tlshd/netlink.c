@@ -268,21 +268,6 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	tlshd_parse_peer_identity(parms, tb[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]);
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);
 
-	/* SNI needs a domain name. If the kernel provided an IP
-	 * address, just use the reverse lookup results below. */
-	if (peername) {
-		static const struct addrinfo hints = {
-			.ai_family	= AF_UNSPEC,
-			.ai_flags	= AI_NUMERICHOST,
-		};
-		struct addrinfo *res;
-
-		err = getaddrinfo(peername, NULL, &hints, &res);
-		if (!err) {
-			freeaddrinfo(res);
-			peername = NULL;
-		}
-	}
 	if (peername)
 		strcpy(tlshd_peername, peername);
 	else {
