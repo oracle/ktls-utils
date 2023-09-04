@@ -47,41 +47,54 @@ program exits immediately.
 The configuration file is split into sections.
 .P
 The
-.I [main]
-section specifies run-time settings for the
+.I [debug]
+section specifies debugging settings for the
 .B tlshd
 program.
-In this section, there are two available options:
+In this section, there are three available options:
 .TP
-.B debug
+.B loglevel
 This option specifies an integer which indicates the debug message level.
 Zero, the quietest setting, is the default.
 .TP
-.B tlsdebug
+.B tls
 This option specifies an integer which indicates the debug message level
 for TLS library calls.
 Zero, the quietest setting, is the default.
 .TP
-.B nl_debug
+.B nl
 This option specifies an integer which indicates the debug message level
-for netlink operations.
+for netlink library calls.
 Zero, the quietest setting, is the default.
-.TP
-.B keyrings
-This option specifies a semicolon-separated list of auxiliary keyrings
-that might contain handshake authentication tokens.
-.B tlshd
-links these keyrings into its session keyring.
-The configuration file may specify either a keyring's name or serial number.
-The default is to provide no keyring.
 .P
 The
 .I [authentication]
 section specifies default authentication material when establishing
 TLS sessions.
-There are two subsections:
-.IR [client] and [server] .
-In each of these subsections, there are three available options:
+In this section, there is one available option:
+.TP
+.B keyrings
+This option specifies a semicolon-separated list of auxiliary keyrings
+that contain handshake authentication tokens.
+.B tlshd
+links these keyrings into its session keyring.
+The configuration file may specify either a keyring's name or serial number.
+The default is to provide no keyring.
+.P
+And, in this section, there are two subsections:
+.I [client]
+and
+.IR [server] .
+The
+.B tlshd
+program consults the settings in the
+.I [client]
+subsection when handling the client end of a handshake,
+and it consults the settings in the
+.I [server]
+subsection when handling the server end of a handshake.
+.P
+In each of these two subsections, there are three available options:
 .TP
 .B x509.truststore
 This option specifies the pathname of a file containing a
