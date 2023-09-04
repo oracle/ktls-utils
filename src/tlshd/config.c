@@ -75,16 +75,17 @@ bool tlshd_config_init(const gchar *pathname)
 	 * These calls return zero if the key isn't present or the
 	 * specified key value is invalid.
 	 */
-	tlshd_debug = g_key_file_get_integer(tlshd_configuration, "main",
-					     "debug", NULL);
+	tlshd_debug = g_key_file_get_integer(tlshd_configuration, "debug",
+					     "loglevel", NULL);
 	tlshd_tls_debug = g_key_file_get_integer(tlshd_configuration,
-						 "main", "tlsdebug", NULL);
-	nl_debug = g_key_file_get_integer(tlshd_configuration, "main",
-					  "nl_debug", NULL);
-	tlshd_delay_done = g_key_file_get_integer(tlshd_configuration, "main",
+						 "debug", "tls", NULL);
+	nl_debug = g_key_file_get_integer(tlshd_configuration, "debug",
+					  "nl", NULL);
+	tlshd_delay_done = g_key_file_get_integer(tlshd_configuration, "debug",
 						  "delay_done", NULL);
 
-	keyrings = g_key_file_get_string_list(tlshd_configuration, "main",
+	keyrings = g_key_file_get_string_list(tlshd_configuration,
+					      "authentication",
 					      "keyrings", &length, NULL);
 	if (keyrings) {
 		for (i = 0; i < length; i++) {
