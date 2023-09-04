@@ -203,7 +203,6 @@ bool tlshd_config_get_client_truststore(char **bundle)
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
 					 "x509.truststore", &error);
 	if (!pathname) {
-		tlshd_log_gerror("Client x.509 truststore not specified", error);
 		g_error_free(error);
 		return false;
 	}
@@ -235,7 +234,6 @@ bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
 					"x509.certificate", &error);
 	if (!pathname) {
-		tlshd_log_gerror("Default certificate not found", error);
 		g_error_free(error);
 		return false;
 	}
@@ -279,7 +277,6 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
 					"x509.private_key", &error);
 	if (!pathname) {
-		tlshd_log_gerror("Default private key not found", error);
 		g_error_free(error);
 		return false;
 	}
@@ -329,7 +326,6 @@ bool tlshd_config_get_server_truststore(char **bundle)
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.server",
 					 "x509.truststore", &error);
 	if (!pathname) {
-		tlshd_log_gerror("Server x.509 truststore not specified", error);
 		g_error_free(error);
 		return false;
 	}
@@ -361,7 +357,6 @@ bool tlshd_config_get_server_cert(gnutls_pcert_st *cert)
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.server",
 					"x509.certificate", &error);
 	if (!pathname) {
-		tlshd_log_gerror("Default certificate not found", error);
 		g_error_free(error);
 		return false;
 	}
@@ -404,7 +399,6 @@ bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey)
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.server",
 					"x509.private_key", &error);
 	if (!pathname) {
-		tlshd_log_gerror("Default private key not found", error);
 		g_error_free(error);
 		return false;
 	}
