@@ -441,7 +441,7 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 		goto out_free;
 	}
 
-	err = nla_put_u32(msg, HANDSHAKE_A_DONE_SOCKFD, parms->sockfd);
+	err = nla_put_s32(msg, HANDSHAKE_A_DONE_SOCKFD, parms->sockfd);
 	if (err < 0) {
 		tlshd_log_nl_error("nla_put sockfd", err);
 		goto out_free;
