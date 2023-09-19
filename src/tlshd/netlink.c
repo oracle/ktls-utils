@@ -194,7 +194,7 @@ static void tlshd_parse_peer_identity(struct tlshd_handshake_parms *parms,
 		return;
 	}
 
-	parms->peerids[0] = nla_get_u32(head);
+	parms->peerids[0] = nla_get_s32(head);
 }
 
 #if LIBNL_VER_NUM >= LIBNL_VER(3,5)
