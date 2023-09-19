@@ -224,9 +224,9 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 		return;
 
 	if (tb[HANDSHAKE_A_X509_CERT])
-		parms->x509_cert = nla_get_u32(tb[HANDSHAKE_A_X509_CERT]);
+		parms->x509_cert = nla_get_s32(tb[HANDSHAKE_A_X509_CERT]);
 	if (tb[HANDSHAKE_A_X509_PRIVKEY])
-		parms->x509_privkey = nla_get_u32(tb[HANDSHAKE_A_X509_PRIVKEY]);
+		parms->x509_privkey = nla_get_s32(tb[HANDSHAKE_A_X509_PRIVKEY]);
 }
 
 static char tlshd_peername[NI_MAXHOST] = "unknown";
