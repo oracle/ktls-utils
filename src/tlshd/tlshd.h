@@ -32,9 +32,9 @@ struct tlshd_handshake_parms {
 	struct sockaddr *peeraddr;
 	socklen_t	peeraddr_len;
 	int		sockfd;
-	int		handshake_type;
+	uint32_t	handshake_type;
 	unsigned int	timeout_ms;
-	int		auth_mode;
+	uint32_t	auth_mode;
 	key_serial_t	x509_cert;
 	key_serial_t	x509_privkey;
 	key_serial_t	*peerids;

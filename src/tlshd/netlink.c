@@ -249,7 +249,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	}
 
 	if (tb[HANDSHAKE_A_ACCEPT_SOCKFD]) {
-		parms->sockfd = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_SOCKFD]);
+		parms->sockfd = nla_get_s32(tb[HANDSHAKE_A_ACCEPT_SOCKFD]);
 		if (getpeername(parms->sockfd, parms->peeraddr,
 				&parms->peeraddr_len) == -1) {
 			tlshd_log_perror("getpeername");
