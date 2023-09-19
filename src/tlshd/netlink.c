@@ -386,7 +386,7 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 	int err;
 
 	for (i = 0; i < parms->num_remote_peerids; i++) {
-		err = nla_put_u32(msg, HANDSHAKE_A_DONE_REMOTE_AUTH,
+		err = nla_put_s32(msg, HANDSHAKE_A_DONE_REMOTE_AUTH,
 				  parms->remote_peerid[i]);
 		if (err < 0) {
 			tlshd_log_nl_error("nla_put peer id", err);
