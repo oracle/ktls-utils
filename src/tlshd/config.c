@@ -59,6 +59,7 @@ bool tlshd_config_init(const gchar *pathname)
 	gchar **keyrings;
 	gsize i, length;
 	GError *error;
+	gint tmp;
 
 	tlshd_configuration = g_key_file_new();
 
@@ -81,8 +82,9 @@ bool tlshd_config_init(const gchar *pathname)
 						 "debug", "tls", NULL);
 	nl_debug = g_key_file_get_integer(tlshd_configuration, "debug",
 					  "nl", NULL);
-	tlshd_delay_done = g_key_file_get_integer(tlshd_configuration, "debug",
-						  "delay_done", NULL);
+	tmp = g_key_file_get_integer(tlshd_configuration, "debug",
+				     "delay_done", NULL);
+	tlshd_delay_done = tmp > 0 ? tmp : 0;
 
 	keyrings = g_key_file_get_string_list(tlshd_configuration,
 					      "authentication",

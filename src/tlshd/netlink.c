@@ -50,7 +50,7 @@
 #include "tlshd.h"
 #include "netlink.h"
 
-int tlshd_delay_done;
+unsigned int tlshd_delay_done;
 
 static int tlshd_genl_sock_open(struct nl_sock **sock)
 {
