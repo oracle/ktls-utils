@@ -1,5 +1,11 @@
 Change Log - In newest-release-first order
 
+ktls-utils 0.10 - 2023-09-21
+ * Fix Server Name Indicator support (IP addresses)
+ * Add tlshd.conf option to provide specific trust chain
+ * Reorganize tlshd.conf
+ * Fix numerous bugs reported by packagers
+
 ktls-utils 0.9 - 2023-05-01
  * Cipher negotiaion now conforms with distro security policies
  * Improve Server Name Indicator support
