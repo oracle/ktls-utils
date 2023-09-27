@@ -32,26 +32,7 @@ This project welcomes contributions from the community.
 Before submitting a pull request,
 please [review our contribution guide](./CONTRIBUTING.md).
 
-Work that remains:
-
-### Required for client-side prototype
-
-* Prototype requirements have all been met
-
-### Nice-to have for client-side prototype
-
-* support for using private key material stored in the local TPM
-* support for session key renegotiation
-* send proper SSL shutdown message when kernel consumer is finished with an endpoint
-* check for the correct ALPN in the server's certificate
-
-### Unplanned work
-
-* support for DTLS
-* support for RPC-with-TLS certificate extended key usage
-* support for root device / filesystem with TLS
-* support for sharing TLS sessions across sockets
-* support for multiple trust chains for server verification
+See the GitHub Issue Tracker to review or open to-do items.
 
 ## Security
 
