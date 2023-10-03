@@ -71,7 +71,7 @@ extern bool tlshd_keyring_get_psk_username(key_serial_t serial,
 extern bool tlshd_keyring_get_psk_key(key_serial_t serial,
 				      gnutls_datum_t *key);
 extern bool tlshd_keyring_get_privkey(key_serial_t serial,
-				      gnutls_privkey_t privkey);
+				      gnutls_privkey_t *privkey);
 extern bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert);
 extern key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
 					      const char *peername);
