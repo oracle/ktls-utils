@@ -61,7 +61,7 @@ static bool tlshd_x509_server_get_privkey(struct tlshd_handshake_parms *parms)
 {
 	if (parms->x509_privkey != TLS_NO_PRIVKEY)
 		return tlshd_keyring_get_privkey(parms->x509_privkey,
-						 tlshd_server_privkey);
+						 &tlshd_server_privkey);
 	return tlshd_config_get_server_privkey(&tlshd_server_privkey);
 }
 

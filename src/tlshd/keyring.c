@@ -121,7 +121,7 @@ bool tlshd_keyring_get_psk_key(key_serial_t serial, gnutls_datum_t *key)
  *   %true: Success; @privkey has been initialized
  *   %false: Failure
  */
-bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t privkey)
+bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t *privkey)
 {
 	gnutls_datum_t data;
 	void *tmp;
@@ -136,7 +136,7 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t privkey)
 	data.data = tmp;
 	data.size = (unsigned int)ret;
 
-	ret = gnutls_privkey_init(&privkey);
+	ret = gnutls_privkey_init(privkey);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		free(tmp);
@@ -144,7 +144,7 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t privkey)
 	}
 
 	/* Handshake upcall passes only DER-encoded keys */
-	ret = gnutls_privkey_import_x509_raw(privkey, &data, GNUTLS_X509_FMT_DER,
+	ret = gnutls_privkey_import_x509_raw(*privkey, &data, GNUTLS_X509_FMT_DER,
 					     NULL, 0);
 	free(tmp);
 	if (ret != GNUTLS_E_SUCCESS) {
