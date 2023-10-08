@@ -60,8 +60,6 @@ PKG_CHECK_MODULES([LIBNL3], libnl-3.0 >= 3.1)
 AC_SUBST([LIBNL3_CFLAGS])
 AC_SUBST([LIBNL3_LIBS])
 
-AC_CHECK_HEADERS([linux/openat2.h])
-
 AC_CHECK_LIB([gnutls], [gnutls_transport_is_ktls_enabled],
              [AC_DEFINE([HAVE_GNUTLS_TRANSPORT_IS_KTLS_ENABLED], [1],
                         [Define to 1 if you have the gnutls_transport_is_ktls_enabled function.])])
