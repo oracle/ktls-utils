@@ -104,29 +104,6 @@ void tlshd_config_shutdown(void)
 	g_key_file_free(tlshd_configuration);
 }
 
-#if HAVE_LINUX_OPENAT2_H
-#include <linux/openat2.h>
-
-#ifndef SYS_openat2
-#define SYS_openat2 __NR_openat2
-#endif
-
-static int tlshd_file_open(const char *pathname)
-{
-	static const struct open_how how = {
-		.flags		= O_RDONLY,
-		.resolve	= RESOLVE_NO_SYMLINKS,
-	};
-
-	return (int)syscall(SYS_openat2, 0, pathname, &how, sizeof(how));
-}
-#else
-static int tlshd_file_open(const char *pathname)
-{
-	return open(pathname, O_RDONLY);
-}
-#endif
-
 /*
  * Expected file attributes
  */
@@ -148,7 +125,7 @@ static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data,
 
 	ret = false;
 
-	fd = tlshd_file_open(pathname);
+	fd = open(pathname, O_RDONLY);
 	if (fd == -1) {
 		tlshd_log_perror("open");
 		goto out;
