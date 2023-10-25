@@ -2,7 +2,7 @@
  * Handle a request for a TLS handshake on behalf of an
  * in-kernel TLS consumer.
  *
- * Copyright (c) 2022 Oracle and/or its affiliates.
+ * Copyright (c) 2022 - 2023 Oracle and/or its affiliates.
  *
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -47,7 +47,7 @@
 
 #include "tlshd.h"
 
-static const char *optstring = "c:h:sv";
+static const char *optstring = "c:hsv";
 static const struct option longopts[] = {
 	{ "config",	required_argument,	NULL,	'c' },
 	{ "help",	no_argument,		NULL,	'h' },
@@ -55,6 +55,10 @@ static const struct option longopts[] = {
 	{ "version",	no_argument,		NULL,	'v' },
 	{ NULL,		0,			NULL,	 0 }
 };
+
+void usage(char *progname) {
+		fprintf(stderr, "usage: %s [-chsv]\n", progname);
+}
 
 int main(int argc, char **argv)
 {
@@ -85,8 +89,11 @@ int main(int argc, char **argv)
 				progname);
 			return EXIT_SUCCESS;
 		case 'h':
+			usage(progname);
+			return EXIT_SUCCESS;
 		default:
-			fprintf(stderr, "usage: %s [-chsv]\n", progname);
+			usage(progname);
+			return EXIT_FAILURE;
 		}
 	}
 
