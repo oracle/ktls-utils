@@ -92,7 +92,13 @@ static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 	ret = gnutls_set_default_priority(session);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
-		return;
+		goto out_free_creds;
+	}
+
+	ret = tlshd_gnutls_priority_set(session, parms);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
 	}
 
 	gnutls_session_set_verify_cert(session, parms->peername, 0);
@@ -309,6 +315,11 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 		tlshd_log_gnutls_error(ret);
 		goto out_free_creds;
 	}
+	ret = tlshd_gnutls_priority_set(session, parms);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
 	gnutls_certificate_set_verify_function(xcred,
 					       tlshd_client_x509_verify_function);
 
@@ -364,6 +375,12 @@ static void tlshd_client_psk_handshake_one(struct tlshd_handshake_parms *parms,
 	gnutls_transport_set_int(session, parms->sockfd);
 	gnutls_session_set_ptr(session, parms);
 	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
+
+	ret = tlshd_gnutls_priority_set(session, parms);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
 
 	tlshd_log_debug("start ClientHello handshake");
 	tlshd_start_tls_handshake(session, parms);
