@@ -83,12 +83,6 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 	int saved, ret;
 	char *desc;
 
-	ret = tlshd_gnutls_priority_set(session, parms);
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		return;
-	}
-
 	gnutls_handshake_set_timeout(session, parms->timeout_ms);
 	tlshd_save_nagle(session, &saved);
 	do {
