@@ -85,6 +85,8 @@ extern unsigned int tlshd_initialize_ktls(gnutls_session_t session);
 extern int tlshd_gnutls_priority_init(void);
 extern int tlshd_gnutls_priority_set(gnutls_session_t session,
 					struct tlshd_handshake_parms *parms);
+extern int tlshd_gnutls_priority_restrict(gnutls_session_t session,
+					  unsigned int key_len);
 extern void tlshd_gnutls_priority_deinit(void);
 
 /* log.c */

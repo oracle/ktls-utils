@@ -382,6 +382,12 @@ static void tlshd_client_psk_handshake_one(struct tlshd_handshake_parms *parms,
 		goto out_free_creds;
 	}
 
+	ret = tlshd_gnutls_priority_restrict(session, key.size);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out_free_creds;
+	}
+
 	tlshd_log_debug("start ClientHello handshake");
 	tlshd_start_tls_handshake(session, parms);
 	if (!parms->session_status) {

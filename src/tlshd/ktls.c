@@ -429,6 +429,39 @@ int tlshd_gnutls_priority_init(void)
 }
 
 /**
+ * tlshd_gnutls_priority_restrict - Disable specific hash functions
+ * @session: session to initialize
+ * @key_size: length of the selected PSK
+ *
+ * Restrict the set of hash functions to those matching the current
+ * PSK key length.
+ *
+ * Note: this is function actually does the reverse by disabling
+ * the non-matchine SHA functions.
+ *
+ * Returns GNUTLS_E_SUCCESS on success, otherwise an error code.
+ */
+int tlshd_gnutls_priority_restrict(gnutls_session_t session,
+				   unsigned int key_size)
+{
+	const char *err;
+	int ret;
+
+	if (key_size == 32)
+		ret = gnutls_set_default_priority_append(session,
+							 "-SHA384",
+							 &err, 0);
+	else if (key_size == 48)
+		ret = gnutls_set_default_priority_append(session,
+							 "-SHA256",
+							 &err, 0);
+	else
+		ret = GNUTLS_E_UNIMPLEMENTED_FEATURE;
+
+	return ret;
+}
+
+/**
  * tlshd_gnutls_priority_set - Initialize priorities per-session
  * @session: session to initialize
  * @parms: handshake parameters
