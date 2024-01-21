@@ -7,6 +7,35 @@ Before=remote-fs-pre.target
 [Service]
 Type=simple
 ExecStart=/usr/sbin/tlshd
+ProtectSystem=strict
+PrivateDevices=yes
+#PrivateNetwork=yes
+PrivateIPC=yes
+#PrivateUsers=yes
+PrivateTmp=yes
+ProtectHome=tmpfs
+ReadWritePaths=
+ProtectHostname=yes
+ProtectClock=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProcSubset=pid
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+PrivateMounts=yes
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN
+IPAddressDeny=any
 
 [Install]
 WantedBy=remote-fs.target
