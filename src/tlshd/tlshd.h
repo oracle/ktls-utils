@@ -54,10 +54,12 @@ extern void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms);
 bool tlshd_config_init(const gchar *pathname);
 void tlshd_config_shutdown(void);
 bool tlshd_config_get_client_truststore(char **bundle);
-bool tlshd_config_get_client_cert(gnutls_pcert_st *cert);
+bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
+				   unsigned int *certs_len);
 bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey);
 bool tlshd_config_get_server_truststore(char **bundle);
-bool tlshd_config_get_server_cert(gnutls_pcert_st *cert);
+bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
+				   unsigned int *certs_len);
 bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey);
 
 /* handshake.c */
@@ -72,7 +74,8 @@ extern bool tlshd_keyring_get_psk_key(key_serial_t serial,
 				      gnutls_datum_t *key);
 extern bool tlshd_keyring_get_privkey(key_serial_t serial,
 				      gnutls_privkey_t *privkey);
-extern bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert);
+extern bool tlshd_keyring_get_certs(key_serial_t serial, gnutls_pcert_st *certs,
+				    unsigned int *certs_len);
 extern key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
 					      const char *peername);
 extern int tlshd_keyring_link_session(const char *keyring);
@@ -120,3 +123,5 @@ extern void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms);
 #define TLS_NO_PEERID		(0)
 #define TLS_NO_CERT		(0)
 #define TLS_NO_PRIVKEY		(0)
+/* Max number of (chained) certs to load */
+#define TLSHD_MAX_CERTS		10

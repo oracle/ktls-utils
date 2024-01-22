@@ -196,14 +196,16 @@ bool tlshd_config_get_client_truststore(char **bundle)
 }
 
 /**
- * tlshd_config_get_client_cert - Get cert for ClientHello from .conf
- * @cert: OUT: in-memory certificate
+ * tlshd_config_get_client_certs - Get certs for ClientHello from .conf
+ * @certs: OUT: in-memory certificates
+ * @certs_len: IN: maximum number of certs to get, OUT: number of certs found
  *
  * Return values:
  *   %true: certificate retrieved successfully
  *   %false: certificate not retrieved
  */
-bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
+bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
+				   unsigned int *certs_len)
 {
 	GError *error = NULL;
 	gnutls_datum_t data;
@@ -224,8 +226,8 @@ bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
 	}
 
 	/* Config file supports only PEM-encoded certificates */
-	ret = gnutls_pcert_import_x509_raw(cert, &data,
-					   GNUTLS_X509_FMT_PEM, 0);
+	ret = gnutls_pcert_list_import_x509_raw(certs, certs_len, &data,
+						GNUTLS_X509_FMT_PEM, 0);
 	free(data.data);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -233,7 +235,8 @@ bool tlshd_config_get_client_cert(gnutls_pcert_st *cert)
 		return false;
 	}
 
-	tlshd_log_debug("Retrieved x.509 certificate from %s", pathname);
+	tlshd_log_debug("Retrieved %u x.509 client certificate(s) from %s",
+			*certs_len, pathname);
 	g_free(pathname);
 	return true;
 }
@@ -319,14 +322,16 @@ bool tlshd_config_get_server_truststore(char **bundle)
 }
 
 /**
- * tlshd_config_get_server_cert - Get cert for ServerHello from .conf
- * @cert: OUT: in-memory certificate
+ * tlshd_config_get_server_certs - Get certs for ServerHello from .conf
+ * @certs: OUT: in-memory certificates
+ * @certs_len: IN: maximum number of certs to get, OUT: number of certs found
  *
  * Return values:
  *   %true: certificate retrieved successfully
  *   %false: certificate not retrieved
  */
-bool tlshd_config_get_server_cert(gnutls_pcert_st *cert)
+bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
+				   unsigned int *certs_len)
 {
 	GError *error = NULL;
 	gnutls_datum_t data;
@@ -347,8 +352,8 @@ bool tlshd_config_get_server_cert(gnutls_pcert_st *cert)
 	}
 
 	/* Config file supports only PEM-encoded certificates */
-	ret = gnutls_pcert_import_x509_raw(cert, &data,
-					   GNUTLS_X509_FMT_PEM, 0);
+	ret = gnutls_pcert_list_import_x509_raw(certs, certs_len, &data,
+						GNUTLS_X509_FMT_PEM, 0);
 	free(data.data);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -356,7 +361,8 @@ bool tlshd_config_get_server_cert(gnutls_pcert_st *cert)
 		return false;
 	}
 
-	tlshd_log_debug("Retrieved x.509 certificate from %s", pathname);
+	tlshd_log_debug("Retrieved %u x.509 server certificate(s) from %s",
+			*certs_len, pathname);
 	return true;
 }
 

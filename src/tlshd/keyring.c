@@ -157,9 +157,10 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t *privkey)
 }
 
 /**
- * tlshd_keyring_get_cert - Retrieve cert for x.509 handshake
+ * tlshd_keyring_get_certs - Retrieve certs for x.509 handshake
  * @serial: Key serial number to look up
- * @cert: On success, filled in with certificate
+ * @certs: On success, filled in with certificates
+ * @certs_len: IN: maximum number of certs to get, OUT: number of certs found
  *
  * Caller must use gnutls_pcert_deinit() to free @cert when finished.
  *
@@ -167,11 +168,17 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t *privkey)
  *   %true: Success; @cert has been initialized
  *   %false: Failure
  */
-bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert)
+bool tlshd_keyring_get_certs(key_serial_t serial, gnutls_pcert_st *certs,
+			     unsigned int *certs_len)
 {
 	gnutls_datum_t data;
 	void *tmp;
 	int ret;
+
+	if (*certs_len == 0) {
+		tlshd_log_error("tlshd_keyring_get_cert called with zero array.");
+		return false;
+	}
 
 	ret = keyctl_read_alloc(serial, &tmp);
 	if (ret < 0) {
@@ -183,7 +190,7 @@ bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert)
 	data.size = (unsigned int)ret;
 
 	/* Handshake upcall passes only DER-encoded certificates */
-	ret = gnutls_pcert_import_x509_raw(cert, &data,
+	ret = gnutls_pcert_import_x509_raw(certs, &data,
 					   GNUTLS_X509_FMT_DER, 0);
 	free(tmp);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -191,7 +198,9 @@ bool tlshd_keyring_get_cert(key_serial_t serial, gnutls_pcert_st *cert)
 		return false;
 	}
 
-	tlshd_log_debug("Retrieved x.509 certificate");
+	*certs_len = 1;
+	tlshd_log_debug("Retrieved %u x.509 certificate(s) from keyring",
+			*certs_len);
 	return true;
 }
 

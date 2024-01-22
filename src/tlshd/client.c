@@ -106,16 +106,18 @@ out_free_creds:
 }
 
 static gnutls_privkey_t tlshd_privkey;
-static gnutls_pcert_st tlshd_cert;
+static unsigned int tlshd_certs_len = TLSHD_MAX_CERTS;
+static gnutls_pcert_st tlshd_certs[TLSHD_MAX_CERTS];
 
 /*
- * XXX: After this point, tlshd_cert should be deinited on error.
+ * XXX: After this point, tlshd_certs should be deinited on error.
  */
-static bool tlshd_x509_client_get_cert(struct tlshd_handshake_parms *parms)
+static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 {
 	if (parms->x509_cert != TLS_NO_CERT)
-		return tlshd_keyring_get_cert(parms->x509_cert, &tlshd_cert);
-	return tlshd_config_get_client_cert(&tlshd_cert);
+		return tlshd_keyring_get_certs(parms->x509_cert, tlshd_certs,
+					       &tlshd_certs_len);
+	return tlshd_config_get_client_certs(tlshd_certs, &tlshd_certs_len);
 }
 
 /*
@@ -179,8 +181,8 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 	if (type != GNUTLS_CRT_X509)
 		return -1;
 
-	*pcert_length = 1;
-	*pcert = &tlshd_cert;
+	*pcert_length = tlshd_certs_len;
+	*pcert = tlshd_certs;
 	*privkey = tlshd_privkey;
 	return 0;
 }
@@ -280,7 +282,7 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 	}
 	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
-	if (!tlshd_x509_client_get_cert(parms))
+	if (!tlshd_x509_client_get_certs(parms))
 		goto out_free_creds;
 	if (!tlshd_x509_client_get_privkey(parms))
 		goto out_free_creds;
