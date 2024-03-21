@@ -68,7 +68,7 @@ for netlink library calls.
 Zero, the quietest setting, is the default.
 .P
 The
-.I [authentication]
+.I [authenticate]
 section specifies default authentication material when establishing
 TLS sessions.
 In this section, there is one available option:
