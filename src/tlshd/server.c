@@ -258,7 +258,7 @@ static void tlshd_server_x509_handshake(struct tlshd_handshake_parms *parms)
 					       tlshd_server_x509_verify_function);
 	gnutls_certificate_server_set_request(session, GNUTLS_CERT_REQUEST);
 
-	ret = tlshd_gnutls_priority_set(session, parms);
+	ret = tlshd_gnutls_priority_set(session, parms, 0);
 	if (ret) {
 		tlshd_log_gnutls_error(ret);
 		goto out_free_creds;
@@ -337,7 +337,7 @@ static void tlshd_server_psk_handshake(struct tlshd_handshake_parms *parms)
 
 	gnutls_credentials_set(session, GNUTLS_CRD_PSK, psk_cred);
 
-	ret = tlshd_gnutls_priority_set(session, parms);
+	ret = tlshd_gnutls_priority_set(session, parms, 0);
 	if (ret) {
 		tlshd_log_gnutls_error(ret);
 		goto out_free_creds;

@@ -347,6 +347,8 @@ static char *tlshd_cipher_string_emit(char *pstring, unsigned int cipher)
 
 static gnutls_priority_t	tlshd_gnutls_priority_x509;
 static gnutls_priority_t	tlshd_gnutls_priority_psk;
+static gnutls_priority_t	tlshd_gnutls_priority_psk_sha256;
+static gnutls_priority_t	tlshd_gnutls_priority_psk_sha384;
 
 /**
  * tlshd_gnutls_priority_init - Initialize GnuTLS priority caches
@@ -357,7 +359,7 @@ int tlshd_gnutls_priority_init(void)
 	const unsigned int *ciphers;
 	gnutls_priority_t pcache;
 	const char *errpos;
-	char *pstring;
+	char *pstring, *pstring_sha256, *pstring_sha384;
 	int ret, i;
 
 	/* Retrieve the system default priority settings */
@@ -393,10 +395,52 @@ int tlshd_gnutls_priority_init(void)
 	pstring = tlshd_string_concat(pstring, ":-CIPHER-ALL");
 	if (!pstring)
 		return -ENOMEM;
+	pstring_sha256 = strdup(pstring);
+	if (!pstring_sha256) {
+		free(pstring);
+		return -ENOMEM;
+	}
+	pstring_sha384 = strdup(pstring);
+	if (!pstring_sha384) {
+		free(pstring_sha256);
+		free(pstring);
+		return -ENOMEM;
+	}
+
 	for (i = 0; i < ret; ++i) {
+		bool skip_sha256 = false;
+		bool skip_sha384 = false;
+
 		pstring = tlshd_cipher_string_emit(pstring, ciphers[i]);
-		if (!pstring)
+		if (!pstring) {
+			free(pstring_sha256);
+			free(pstring_sha384);
 			return -ENOMEM;
+		}
+		if (ciphers[i] == GNUTLS_CIPHER_AES_256_GCM)
+			skip_sha256 = true;
+		if (ciphers[i] == GNUTLS_CIPHER_AES_128_GCM)
+			skip_sha384 = true;
+		if (ciphers[i] == GNUTLS_CIPHER_AES_128_CCM)
+			skip_sha384 = true;
+		if (ciphers[i] == GNUTLS_CIPHER_CHACHA20_POLY1305)
+			skip_sha256 = true;
+		if (!skip_sha256) {
+			pstring_sha256 = tlshd_cipher_string_emit(pstring_sha256, ciphers[i]);
+			if (!pstring_sha256) {
+				free(pstring_sha384);
+				free(pstring);
+				return -ENOMEM;
+			}
+		}
+		if (!skip_sha384) {
+			pstring_sha384 = tlshd_cipher_string_emit(pstring_sha384, ciphers[i]);
+			if (!pstring_sha384) {
+				free(pstring_sha256);
+				free(pstring);
+				return -ENOMEM;
+			}
+		}
 	}
 
 	tlshd_log_debug("x.509 priority string: %s\n", pstring);
@@ -410,6 +454,8 @@ int tlshd_gnutls_priority_init(void)
 
 	pstring = tlshd_string_concat(pstring, ":+PSK:+DHE-PSK:+ECDHE-PSK");
 	if (!pstring) {
+		free(pstring_sha256);
+		free(pstring_sha384);
 		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
 		return -ENOMEM;
 	}
@@ -418,6 +464,8 @@ int tlshd_gnutls_priority_init(void)
 
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk, pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
+		free(pstring_sha256);
+		free(pstring_sha384);
 		free(pstring);
 		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
 		tlshd_log_gnutls_error(ret);
@@ -425,40 +473,55 @@ int tlshd_gnutls_priority_init(void)
 	}
 
 	free(pstring);
+
+	pstring = tlshd_string_concat(pstring_sha256, ":+DHE-PSK:+ECDHE-PSK");
+	if (!pstring) {
+		free(pstring_sha384);
+		gnutls_priority_deinit(tlshd_gnutls_priority_psk);
+		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
+		return -ENOMEM;
+	}
+
+	tlshd_log_debug("PSK SHA256 priority string: %s\n", pstring);
+
+	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk_sha256,
+				   pstring, &errpos);
+	if (ret != GNUTLS_E_SUCCESS) {
+		free(pstring);
+		free(pstring_sha384);
+		gnutls_priority_deinit(tlshd_gnutls_priority_psk);
+		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
+	}
+
+	free(pstring);
+
+	pstring = tlshd_string_concat(pstring_sha384, ":+DHE-PSK:+ECDHE-PSK");
+	if (!pstring) {
+		gnutls_priority_deinit(tlshd_gnutls_priority_psk_sha256);
+		gnutls_priority_deinit(tlshd_gnutls_priority_psk);
+		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
+	}
+
+	tlshd_log_debug("PSK SHA384 priority string: %s\n", pstring);
+
+	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk_sha384,
+				   pstring, &errpos);
+	if (ret != GNUTLS_E_SUCCESS) {
+		free(pstring);
+		gnutls_priority_deinit(tlshd_gnutls_priority_psk_sha256);
+		gnutls_priority_deinit(tlshd_gnutls_priority_psk);
+		gnutls_priority_deinit(tlshd_gnutls_priority_x509);
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
+	}
+
+	free(pstring);
+
 	return 0;
-}
-
-/**
- * tlshd_gnutls_priority_restrict - Disable specific hash functions
- * @session: session to initialize
- * @key_size: length of the selected PSK
- *
- * Restrict the set of hash functions to those matching the current
- * PSK key length.
- *
- * Note: this is function actually does the reverse by disabling
- * the non-matchine SHA functions.
- *
- * Returns GNUTLS_E_SUCCESS on success, otherwise an error code.
- */
-int tlshd_gnutls_priority_restrict(gnutls_session_t session,
-				   unsigned int key_size)
-{
-	const char *err;
-	int ret;
-
-	if (key_size == 32)
-		ret = gnutls_set_default_priority_append(session,
-							 "-SHA384",
-							 &err, 0);
-	else if (key_size == 48)
-		ret = gnutls_set_default_priority_append(session,
-							 "-SHA256",
-							 &err, 0);
-	else
-		ret = GNUTLS_E_UNIMPLEMENTED_FEATURE;
-
-	return ret;
 }
 
 /**
@@ -468,10 +531,21 @@ int tlshd_gnutls_priority_restrict(gnutls_session_t session,
  *
  * Returns GNUTLS_E_SUCCESS on success, otherwise an error code.
  */
-int tlshd_gnutls_priority_set(gnutls_session_t session, struct tlshd_handshake_parms *parms)
+int tlshd_gnutls_priority_set(gnutls_session_t session,
+			      struct tlshd_handshake_parms *parms, int psk_len)
 {
-	return gnutls_priority_set(session, parms->auth_mode == HANDSHAKE_AUTH_PSK ?
-					    tlshd_gnutls_priority_psk : tlshd_gnutls_priority_x509);
+	gnutls_priority_t priority = tlshd_gnutls_priority_x509;
+
+	if (parms->auth_mode == HANDSHAKE_AUTH_PSK) {
+		if (psk_len == 32)
+			priority = tlshd_gnutls_priority_psk_sha256;
+		else if (psk_len == 48)
+			priority = tlshd_gnutls_priority_psk_sha384;
+		else
+			priority = tlshd_gnutls_priority_psk;
+	}
+
+	return gnutls_priority_set(session, priority);
 }
 
 /**
@@ -482,4 +556,6 @@ void tlshd_gnutls_priority_deinit(void)
 {
 	gnutls_priority_deinit(tlshd_gnutls_priority_x509);
 	gnutls_priority_deinit(tlshd_gnutls_priority_psk);
+	gnutls_priority_deinit(tlshd_gnutls_priority_psk_sha256);
+	gnutls_priority_deinit(tlshd_gnutls_priority_psk_sha384);
 }
