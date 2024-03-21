@@ -87,7 +87,7 @@ bool tlshd_config_init(const gchar *pathname)
 	tlshd_delay_done = tmp > 0 ? tmp : 0;
 
 	keyrings = g_key_file_get_string_list(tlshd_configuration,
-					      "authentication",
+					      "authenticate",
 					      "keyrings", &length, NULL);
 	if (keyrings) {
 		for (i = 0; i < length; i++) {
