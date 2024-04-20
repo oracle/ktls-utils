@@ -42,6 +42,15 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+int server_cert_check = 1;
+
+static int no_check(gnutls_session_t session)
+{
+	(void)session;
+	tlshd_log_notice("Client is ignoring server's certificate!!!");
+	return GNUTLS_E_SUCCESS;
+}
+
 static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_certificate_credentials_t xcred;
@@ -49,6 +58,13 @@ static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 	unsigned int flags;
 	char *cafile;
 	int ret;
+
+	flags = GNUTLS_CLIENT;
+	ret = gnutls_init(&session, flags);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return;
+	}
 
 	ret = gnutls_certificate_allocate_credentials(&xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -64,28 +80,27 @@ static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_certificate_set_flags(xcred,
 			GNUTLS_CERTIFICATE_SKIP_KEY_CERT_MATCH | GNUTLS_CERTIFICATE_SKIP_OCSP_RESPONSE_CHECK);
 
-	if (tlshd_config_get_client_truststore(&cafile)) {
-		ret = gnutls_certificate_set_x509_trust_file(xcred, cafile,
-							     GNUTLS_X509_FMT_PEM);
-		free(cafile);
-	} else
-		ret = gnutls_certificate_set_x509_system_trust(xcred);
-	if (ret < 0) {
-		tlshd_log_gnutls_error(ret);
-		goto out_free_creds;
+	if (server_cert_check) {
+		if (tlshd_config_get_client_truststore(&cafile)) {
+			ret = gnutls_certificate_set_x509_trust_file(xcred, cafile,
+									 GNUTLS_X509_FMT_PEM);
+			free(cafile);
+		} else
+			ret = gnutls_certificate_set_x509_system_trust(xcred);
+		if (ret < 0) {
+			tlshd_log_gnutls_error(ret);
+			goto out_free_creds;
+		}
+		tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
+		gnutls_session_set_verify_cert(session, parms->peername, 0);
+	} else {
+		gnutls_certificate_set_verify_function(xcred, no_check);
 	}
-	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
-	flags = GNUTLS_CLIENT;
-	ret = gnutls_init(&session, flags);
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		goto out_free_creds;
-	}
 	gnutls_transport_set_int(session, parms->sockfd);
 
 	gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-			       parms->peername, strlen(parms->peername));
+				   parms->peername, strlen(parms->peername));
 
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 
@@ -100,8 +115,6 @@ static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
 		tlshd_log_gnutls_error(ret);
 		goto out_free_creds;
 	}
-
-	gnutls_session_set_verify_cert(session, parms->peername, 0);
 
 	tlshd_start_tls_handshake(session, parms);
 
@@ -122,7 +135,7 @@ static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 {
 	if (parms->x509_cert != TLS_NO_CERT)
 		return tlshd_keyring_get_certs(parms->x509_cert, tlshd_certs,
-					       &tlshd_certs_len);
+						   &tlshd_certs_len);
 	return tlshd_config_get_client_certs(tlshd_certs, &tlshd_certs_len);
 }
 
@@ -213,19 +226,19 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 	parms = gnutls_session_get_ptr(session);
 
 	ret = gnutls_certificate_verify_peers3(session, parms->peername,
-					       &status);
+						   &status);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 
-        type = gnutls_certificate_type_get(session);
-        gnutls_certificate_verification_status_print(status, type, &out, 0);
-        tlshd_log_debug("%s", out.data);
-        gnutls_free(out.data);
+		type = gnutls_certificate_type_get(session);
+		gnutls_certificate_verification_status_print(status, type, &out, 0);
+		tlshd_log_debug("%s", out.data);
+		gnutls_free(out.data);
 
-        if (status)
-                return GNUTLS_E_CERTIFICATE_ERROR;
+		if (status)
+				return GNUTLS_E_CERTIFICATE_ERROR;
 
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for
@@ -235,7 +248,7 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 						 &parms->num_remote_peerids);
 	if (!peercerts || parms->num_remote_peerids == 0) {
 		tlshd_log_debug("The peer cert list is empty.\n");
-                return GNUTLS_E_CERTIFICATE_ERROR;
+				return GNUTLS_E_CERTIFICATE_ERROR;
 	}
 
 	tlshd_log_debug("The peer offered %u certificate(s).\n",
@@ -248,7 +261,7 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 
 		gnutls_x509_crt_init(&cert);
 		ret = gnutls_x509_crt_import(cert, &peercerts[i],
-					     GNUTLS_X509_FMT_DER);
+						 GNUTLS_X509_FMT_DER);
 		if (ret != GNUTLS_E_SUCCESS) {
 			tlshd_log_gnutls_error(ret);
 			gnutls_x509_crt_deinit(cert);
@@ -278,7 +291,7 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 
 	if (tlshd_config_get_client_truststore(&cafile)) {
 		ret = gnutls_certificate_set_x509_trust_file(xcred, cafile,
-							     GNUTLS_X509_FMT_PEM);
+								 GNUTLS_X509_FMT_PEM);
 		free(cafile);
 	} else
 		ret = gnutls_certificate_set_x509_system_trust(xcred);
@@ -305,7 +318,7 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 	gnutls_session_set_ptr(session, parms);
 
 	ret = gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-				     parms->peername, strlen(parms->peername));
+					 parms->peername, strlen(parms->peername));
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		goto out_free_creds;
@@ -321,7 +334,7 @@ static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
 		goto out_free_creds;
 	}
 	gnutls_certificate_set_verify_function(xcred,
-					       tlshd_client_x509_verify_function);
+						   tlshd_client_x509_verify_function);
 
 	tlshd_start_tls_handshake(session, parms);
 

@@ -96,6 +96,19 @@ bool tlshd_config_init(const gchar *pathname)
 		g_strfreev(keyrings);
 	}
 
+	/*
+	 * If 'no_certificate_check' exists in the client configuration
+     * section AND it is non-zero, then don't check the certificate
+     * presented to the client by the server.
+	 */
+	if (g_key_file_get_integer(tlshd_configuration,
+				   "authenticate.client",
+				   "no_certificate_check", NULL)) {
+		server_cert_check = 0;
+	} else {
+		server_cert_check = 1;
+	}
+
 	return true;
 }
 
