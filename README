@@ -18,7 +18,8 @@ this package is released.
 
 ## Dependencies
 
-* The local kernel must be built with CONFIG_TLS enabled
+* The local kernel must have net/handshake support and be built with
+  CONFIG_TLS enabled
 * The local build environment requires GnuTLS and keyutils
 
 ## Installation
