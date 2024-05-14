@@ -16,5 +16,5 @@
 # 02110-1301, USA.
 #
 
-SUBDIRS			= tlshd
+SUBDIRS			= $(LIBQUIC) tlshd
 MAINTAINERCLEANFILES	= Makefile.in

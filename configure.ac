@@ -46,6 +46,16 @@ AC_ARG_WITH(systemd,
 	AM_CONDITIONAL(INSTALL_SYSTEMD, [test "$use_systemd" = 1])
 	AC_SUBST(unitdir)
 
+AC_ARG_ENABLE(quic, [AS_HELP_STRING([--enable-quic], [enable quic @<:@Default: no@:>@])], [enable_quic=1])
+	AS_IF([test "$enable_quic" = 1],
+	      [AC_CHECK_FILE([/usr/include/linux/quic.h], [], [AC_MSG_ERROR([no quic module found])])
+	       AC_SUBST([LIBQUIC], [libquic])
+	       AC_SUBST([LIBQUIC_CFLAGS], ['-I$(top_srcdir)/src/libquic/'])
+	       AC_SUBST([LIBQUIC_LIBS], ['$(top_srcdir)/src/libquic/libquic.la'])
+	       AC_CONFIG_FILES([src/libquic/Makefile src/libquic/libquic.pc])
+	       AC_DEFINE([HAVE_QUIC], [1], [Define to 1 if QUIC is enabled.])])
+	LT_INIT
+
 PKG_PROG_PKG_CONFIG([0.9.0])
 PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.3.0])
 AC_SUBST([LIBGNUTLS_CFLAGS])
