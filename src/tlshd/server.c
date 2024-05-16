@@ -351,6 +351,140 @@ out_free_creds:
 	gnutls_psk_free_server_credentials(psk_cred);
 }
 
+#ifdef HAVE_QUIC
+#include <quic.h>
+static int tlshd_get_all_psks(key_serial_t key, char *type, key_serial_t *psks, int count)
+{
+	key_serial_t *p;
+	char *desc, *t;
+	void *payload;
+	int len, ret;
+
+	len = keyctl_read_alloc(key, &payload);
+	if (len < 0)
+		return 0;
+
+	p = payload;
+	while (len >= (int)sizeof(key_serial_t) && count < 10) {
+		key = *p++;
+		ret = keyctl_describe_alloc(key, &desc);
+		if (ret < 0)
+			goto out;
+
+		t = memchr(desc, ';', ret);
+		if (!t) {
+			count = 0;
+			free(desc);
+			goto out;
+		}
+
+		*t = 0;
+		t = desc;
+		if (!strcmp(t, "keyring"))
+			count = tlshd_get_all_psks(key, type, psks, count);
+		if (!strcmp(t, type))
+			psks[count++] = key;
+
+		free(desc);
+		len -= sizeof(key_serial_t);
+	}
+out:
+	free(payload);
+	return count;
+}
+
+static int tlshd_server_initial_handshake(struct tlshd_handshake_parms *parms)
+{
+	struct quic_handshake_parms quic_parms = {};
+	unsigned int proto, optlen = sizeof(proto);
+	key_serial_t peerid, peerids[10];
+	int i, err = EACCES, num_peerids;
+	gnutls_x509_crt_t cert;
+	char *cafile;
+
+	if (getsockopt(parms->sockfd, SOL_SOCKET, SO_PROTOCOL, &proto, &optlen) ||
+	    proto != IPPROTO_QUIC)
+		return 1;
+
+	quic_set_log_funcs(tlshd_log_debug, tlshd_log_notice, tlshd_log_error);
+
+	quic_parms.timeout = parms->timeout_ms;
+	if (parms->auth_mode == HANDSHAKE_AUTH_PSK) {
+		num_peerids = tlshd_get_all_psks(KEY_SPEC_SESSION_KEYRING, "user", peerids, 0);
+
+		for (i = 0; i < num_peerids; i++) {
+			peerid = peerids[i];
+			if (!tlshd_keyring_get_psk_username(peerid, &quic_parms.names[i])) {
+				tlshd_log_error("Failed to get key identity");
+				goto out;
+			}
+			if (!tlshd_keyring_get_psk_key(peerid, &quic_parms.keys[i])) {
+				tlshd_log_error("Failed to read key");
+				free(quic_parms.names[i]);
+				goto out;
+			}
+			tlshd_log_debug("get psk identity: '%s'", quic_parms.names[i]);
+			quic_parms.num_keys++;
+		}
+
+		err = quic_server_handshake_parms(parms->sockfd, &quic_parms);
+		if (err)
+			goto out;
+
+		err = keyctl_search(KEY_SPEC_SESSION_KEYRING, "user", quic_parms.peername, 0);
+		if (err < 0)
+			goto out;
+		parms->remote_peerid[0] = (key_serial_t)err;
+		parms->num_remote_peerids = 1;
+		err = 0;
+		tlshd_log_debug("psk identity chosen: '%s'", quic_parms.peername);
+	}
+
+	if (parms->auth_mode == HANDSHAKE_AUTH_X509) {
+		if (!tlshd_x509_server_get_certs(parms))
+			goto out;
+		if (!tlshd_x509_server_get_privkey(parms))
+			goto out;
+		if (tlshd_config_get_server_truststore(&cafile))
+			quic_parms.cafile = cafile;
+
+		quic_parms.cert = tlshd_server_certs;
+		quic_parms.privkey = tlshd_server_privkey;
+
+		err = quic_server_handshake_parms(parms->sockfd, &quic_parms);
+		if (err)
+			goto out;
+
+		for (i = 0; i < (int)quic_parms.num_keys; i++) {
+			gnutls_x509_crt_init(&cert);
+			err = gnutls_x509_crt_import(cert, &quic_parms.keys[i],
+						     GNUTLS_X509_FMT_DER);
+			if (err) {
+				gnutls_x509_crt_deinit(cert);
+				goto out;
+			}
+			parms->remote_peerid[i] = tlshd_keyring_create_cert(cert, parms->peername);
+			parms->num_remote_peerids++;
+			gnutls_x509_crt_deinit(cert);
+		}
+		tlshd_log_debug("received certificates numbers: %d", quic_parms.num_keys);
+	}
+out:
+	for (i = 0; i < (int)quic_parms.num_keys; i++) {
+		free(quic_parms.names[i]);
+		free(quic_parms.keys[i].data);
+	}
+	free(quic_parms.cafile);
+	parms->session_status = err;
+	return 0;
+}
+#else
+static int tlshd_server_initial_handshake(struct tlshd_handshake_parms *parms)
+{
+	return !!parms; /* Avoid the unused parameter 'parms' compile error */
+}
+#endif
+
 /**
  * tlshd_serverhello_handshake - send a TLSv1.3 ServerHello
  * @parms: handshake parameters
@@ -375,6 +509,9 @@ void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms)
 	tlshd_log_debug("System config file: %s",
 			gnutls_get_system_config_file());
 #endif
+
+	if (!tlshd_server_initial_handshake(parms))
+		return gnutls_global_deinit();
 
 	switch (parms->auth_mode) {
 	case HANDSHAKE_AUTH_X509:

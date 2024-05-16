@@ -417,6 +417,90 @@ static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 	}
 }
 
+#ifdef HAVE_QUIC
+#include <quic.h>
+static int tlshd_client_initial_handshake(struct tlshd_handshake_parms *parms)
+{
+	struct quic_handshake_parms quic_parms = {};
+	unsigned int proto, optlen = sizeof(proto);
+	gnutls_x509_crt_t cert;
+	key_serial_t peerid;
+	int err = EACCES, i;
+	char *cafile;
+
+	if (getsockopt(parms->sockfd, SOL_SOCKET, SO_PROTOCOL, &proto, &optlen) ||
+	    proto != IPPROTO_QUIC)
+		return 1;
+
+	quic_set_log_funcs(tlshd_log_debug, tlshd_log_notice, tlshd_log_error);
+
+	quic_parms.timeout = parms->timeout_ms;
+	if (parms->auth_mode == HANDSHAKE_AUTH_PSK) {
+		peerid = parms->peerids[0];
+		if (!tlshd_keyring_get_psk_username(peerid, &quic_parms.names[0])) {
+			tlshd_log_error("Failed to get key identity");
+			goto out;
+		}
+		if (!tlshd_keyring_get_psk_key(peerid, &quic_parms.keys[0])) {
+			tlshd_log_error("Failed to read key");
+			goto out;
+		}
+		quic_parms.num_keys = 1;
+		err = quic_client_handshake_parms(parms->sockfd, &quic_parms);
+		if (err)
+			goto out;
+
+		parms->num_remote_peerids = 1;
+		parms->remote_peerid[0] = peerid;
+		tlshd_log_debug("psk identity chosen: '%s'", quic_parms.peername);
+	}
+
+	if (parms->auth_mode == HANDSHAKE_AUTH_X509) {
+		if (!tlshd_x509_client_get_certs(parms))
+			goto out;
+		if (!tlshd_x509_client_get_privkey(parms))
+			goto out;
+		if (tlshd_config_get_client_truststore(&cafile))
+			quic_parms.cafile = cafile;
+
+		quic_parms.cert = tlshd_certs;
+		quic_parms.privkey = tlshd_privkey;
+		quic_parms.peername = parms->peername;
+
+		err = quic_client_handshake_parms(parms->sockfd, &quic_parms);
+		if (err)
+			goto out;
+
+		for (i = 0; i < (int)quic_parms.num_keys; i++) {
+			gnutls_x509_crt_init(&cert);
+			err = gnutls_x509_crt_import(cert, &quic_parms.keys[i],
+						     GNUTLS_X509_FMT_DER);
+			if (err) {
+				gnutls_x509_crt_deinit(cert);
+				goto out;
+			}
+			parms->remote_peerid[i] = tlshd_keyring_create_cert(cert, parms->peername);
+			parms->num_remote_peerids++;
+			gnutls_x509_crt_deinit(cert);
+		}
+		tlshd_log_debug("received certificates numbers: %d", quic_parms.num_keys);
+	}
+out:
+	for (i = 0; i < (int)quic_parms.num_keys; i++) {
+		free(quic_parms.names[i]);
+		free(quic_parms.keys[i].data);
+	}
+	free(quic_parms.cafile);
+	parms->session_status = err;
+	return 0;
+}
+#else
+static int tlshd_client_initial_handshake(struct tlshd_handshake_parms *parms)
+{
+	return !!parms; /* Avoid the unused parameter 'parms' compile error */
+}
+#endif
+
 /**
  * tlshd_clienthello_handshake - send a TLSv1.3 ClientHello
  * @parms: handshake parameters
@@ -441,6 +525,9 @@ void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
 	tlshd_log_debug("System config file: %s",
 			gnutls_get_system_config_file());
 #endif
+
+	if (!tlshd_client_initial_handshake(parms))
+		return gnutls_global_deinit();
 
 	switch (parms->auth_mode) {
 	case HANDSHAKE_AUTH_UNAUTH:
