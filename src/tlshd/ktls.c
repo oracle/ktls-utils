@@ -530,11 +530,13 @@ int tlshd_gnutls_priority_init(void)
  * tlshd_gnutls_priority_set - Initialize priorities per-session
  * @session: session to initialize
  * @parms: handshake parameters
+ * @psk_len: size of pre-shared key in bytes, or zero
  *
  * Returns GNUTLS_E_SUCCESS on success, otherwise an error code.
  */
 int tlshd_gnutls_priority_set(gnutls_session_t session,
-			      struct tlshd_handshake_parms *parms, int psk_len)
+			      struct tlshd_handshake_parms *parms,
+			      unsigned int psk_len)
 {
 	gnutls_priority_t priority = tlshd_gnutls_priority_x509;
 
