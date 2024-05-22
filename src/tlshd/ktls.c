@@ -447,6 +447,8 @@ int tlshd_gnutls_priority_init(void)
 
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_x509, pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
+		free(pstring_sha256);
+		free(pstring_sha384);
 		free(pstring);
 		tlshd_log_gnutls_error(ret);
 		return -EIO;
