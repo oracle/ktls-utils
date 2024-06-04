@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2022 Oracle and/or its affiliates.
  * Copyright (c) 2022 SUSE LLC.
+ * Copyright (c) 2024 Red Hat, Inc.
  *
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -196,21 +197,20 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 /**
  * tlshd_client_x509_verify_function - Verify remote's x.509 certificate
  * @session: session in the midst of a handshake
+ * @parms: handshake parameters
  *
  * Return values:
  *   %GNUTLS_E_SUCCESS: Incoming certificate has been successfully verified
  *   %GNUTLS_E_CERTIFICATE_ERROR: certificate verification failed
  */
-static int tlshd_client_x509_verify_function(gnutls_session_t session)
+static int tlshd_client_x509_verify_function(gnutls_session_t session,
+					     struct tlshd_handshake_parms *parms)
 {
-	struct tlshd_handshake_parms *parms;
 	const gnutls_datum_t *peercerts;
 	gnutls_certificate_type_t type;
 	unsigned int i, status;
 	gnutls_datum_t out;
 	int ret;
-
-	parms = gnutls_session_get_ptr(session);
 
 	ret = gnutls_certificate_verify_peers3(session, parms->peername,
 					       &status);
@@ -260,6 +260,13 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 	}
 
 	return GNUTLS_E_SUCCESS;
+}
+
+static int tlshd_tls13_client_x509_verify_function(gnutls_session_t session)
+{
+	struct tlshd_handshake_parms *parms = gnutls_session_get_ptr(session);
+
+	return tlshd_client_x509_verify_function(session, parms);
 }
 
 static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parms)
@@ -321,7 +328,7 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 		goto out_free_creds;
 	}
 	gnutls_certificate_set_verify_function(xcred,
-					       tlshd_client_x509_verify_function);
+					       tlshd_tls13_client_x509_verify_function);
 
 	tlshd_start_tls_handshake(session, parms);
 
@@ -439,3 +446,213 @@ void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parms)
 				parms->auth_mode);
 	}
 }
+
+#ifdef HAVE_GNUTLS_QUIC
+static int tlshd_quic_client_x509_verify_function(gnutls_session_t session)
+{
+	struct tlshd_quic_conn *conn = gnutls_session_get_ptr(session);
+
+	return tlshd_client_x509_verify_function(session, conn->parms);
+}
+
+static int tlshd_quic_client_ticket_recv(gnutls_session_t session, unsigned int htype,
+					 unsigned int when, unsigned int incoming,
+					 const gnutls_datum_t *msg)
+{
+	struct tlshd_quic_conn *conn = gnutls_session_get_ptr(session);
+	int ret, sockfd = conn->parms->sockfd;
+	gnutls_datum_t ticket;
+
+	if (htype != GNUTLS_HANDSHAKE_NEW_SESSION_TICKET)
+		return 0;
+
+	conn->completed = 1;
+	ret = gnutls_session_get_data2(session, &ticket);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		return ret;
+	}
+
+	ret = setsockopt(sockfd, SOL_QUIC, QUIC_SOCKOPT_SESSION_TICKET, ticket.data, ticket.size);
+	if (ret) {
+		tlshd_log_error("socket setsockopt session ticket error %d %u", errno, ticket.size);
+		return -1;
+	}
+	tlshd_log_debug("  Ticket recv: %u %u %u", when, incoming, msg->size);
+	return 0;
+}
+
+#define TLSHD_QUIC_NO_CERT_AUTH	3
+
+static int tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
+{
+	struct tlshd_handshake_parms *parms = conn->parms;
+	gnutls_certificate_credentials_t cred;
+	gnutls_session_t session;
+	int ret = -EINVAL;
+	char *cafile;
+
+	if (conn->cert_req != TLSHD_QUIC_NO_CERT_AUTH) {
+		if (!tlshd_x509_client_get_certs(parms) || !tlshd_x509_client_get_privkey(parms)) {
+			tlshd_log_error("cert/privkey get error %d", -ret);
+			return ret;
+		}
+	}
+	ret = gnutls_certificate_allocate_credentials(&cred);
+	if (ret)
+		goto err;
+	if (tlshd_config_get_client_truststore(&cafile)) {
+		ret = gnutls_certificate_set_x509_trust_file(cred, cafile, GNUTLS_X509_FMT_PEM);
+		free(cafile);
+	} else
+		ret = gnutls_certificate_set_x509_system_trust(cred);
+	if (ret < 0)
+		goto err_cred;
+	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
+
+	if (conn->cert_req == TLSHD_QUIC_NO_CERT_AUTH) {
+		gnutls_certificate_set_verify_flags(cred, GNUTLS_VERIFY_ALLOW_SIGN_RSA_MD2 |
+							  GNUTLS_VERIFY_ALLOW_SIGN_RSA_MD5);
+		gnutls_certificate_set_flags(cred, GNUTLS_CERTIFICATE_SKIP_KEY_CERT_MATCH |
+						   GNUTLS_CERTIFICATE_SKIP_OCSP_RESPONSE_CHECK);
+	} else {
+		gnutls_certificate_set_verify_function(cred,
+						       tlshd_quic_client_x509_verify_function);
+		gnutls_certificate_set_retrieve_function2(cred, tlshd_x509_retrieve_key_cb);
+	}
+
+	ret = gnutls_init(&session, GNUTLS_CLIENT |
+				    GNUTLS_ENABLE_EARLY_DATA | GNUTLS_NO_END_OF_EARLY_DATA);
+	if (ret)
+		goto err_cred;
+	gnutls_handshake_set_hook_function(session, GNUTLS_HANDSHAKE_ANY,
+					   GNUTLS_HOOK_POST, tlshd_quic_client_ticket_recv);
+	gnutls_session_set_ptr(session, conn);
+	ret = tlshd_quic_session_configure(session, conn->alpns, conn->cipher);
+	if (ret)
+		goto err_session;
+	if (conn->ticket_len) {
+		ret = gnutls_session_set_data(session, conn->ticket, conn->ticket_len);
+		if (ret)
+			goto err_session;
+	}
+	ret = gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, cred);
+	if (ret)
+		goto err_session;
+	if (parms->peername) {
+		ret = gnutls_server_name_set(session, GNUTLS_NAME_DNS,
+					     parms->peername, strlen(parms->peername));
+		if (ret)
+			goto err_session;
+	}
+	conn->session = session;
+	return 0;
+err_session:
+	gnutls_deinit(session);
+err_cred:
+	gnutls_certificate_free_credentials(cred);
+err:
+	tlshd_log_gnutls_error(ret);
+	return ret;
+}
+
+static int tlshd_quic_client_set_anon_session(struct tlshd_quic_conn *conn)
+{
+	conn->cert_req = TLSHD_QUIC_NO_CERT_AUTH;
+	return tlshd_quic_client_set_x509_session(conn);
+}
+
+static int tlshd_quic_client_set_psk_session(struct tlshd_quic_conn *conn)
+{
+	key_serial_t peerid = conn->parms->peerids[0];
+	gnutls_psk_client_credentials_t cred;
+	gnutls_session_t session;
+	char *identity = NULL;
+	gnutls_datum_t key;
+	int ret = -EINVAL;
+
+	if (!tlshd_keyring_get_psk_username(peerid, &identity) ||
+	    !tlshd_keyring_get_psk_key(peerid, &key)) {
+		free(identity);
+		tlshd_log_error("identity/key get error %d", -ret);
+		return ret;
+	}
+
+	ret = gnutls_psk_allocate_client_credentials(&cred);
+	if (ret)
+		goto err;
+	ret = gnutls_psk_set_client_credentials(cred, identity, &key, GNUTLS_PSK_KEY_RAW);
+	if (ret)
+		goto err_cred;
+
+	ret = gnutls_init(&session, GNUTLS_CLIENT);
+	if (ret)
+		goto err_cred;
+	gnutls_handshake_set_hook_function(session, GNUTLS_HANDSHAKE_ANY,
+					   GNUTLS_HOOK_POST, tlshd_quic_client_ticket_recv);
+	gnutls_session_set_ptr(session, conn);
+	ret = tlshd_quic_session_configure(session, conn->alpns, conn->cipher);
+	if (ret)
+		goto err_session;
+	ret = gnutls_credentials_set(session, GNUTLS_CRD_PSK, cred);
+	if (ret)
+		goto err_session;
+	conn->session = session;
+	return 0;
+err_session:
+	gnutls_deinit(session);
+err_cred:
+	gnutls_psk_free_client_credentials(cred);
+err:
+	free(identity);
+	tlshd_log_gnutls_error(ret);
+	return ret;
+}
+
+/**
+ * tlshd_quic_clienthello_handshake - send a QUIC Client Initial
+ * @parms: handshake parameters
+ *
+ */
+void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms)
+{
+	struct tlshd_quic_conn *conn;
+	int ret;
+
+	ret = tlshd_quic_conn_create(&conn, parms);
+	if (ret) {
+		parms->session_status = -ret;
+		return gnutls_global_deinit();
+	}
+
+	switch (parms->auth_mode) {
+	case HANDSHAKE_AUTH_UNAUTH:
+		ret = tlshd_quic_client_set_anon_session(conn);
+		break;
+	case HANDSHAKE_AUTH_X509:
+		ret = tlshd_quic_client_set_x509_session(conn);
+		break;
+	case HANDSHAKE_AUTH_PSK:
+		ret = tlshd_quic_client_set_psk_session(conn);
+		break;
+	default:
+		ret = -EINVAL;
+		tlshd_log_debug("Unrecognized auth mode (%d)", parms->auth_mode);
+	}
+	if (ret) {
+		conn->errcode = -ret;
+		goto out;
+	}
+
+	tlshd_quic_start_handshake(conn);
+out:
+	parms->session_status = conn->errcode;
+	tlshd_quic_conn_destroy(conn);
+}
+#else
+void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms)
+{
+	tlshd_log_debug("QUIC handshake is not enabled (%d)", parms->auth_mode);
+	parms->session_status = EOPNOTSUPP;
+}
+#endif
