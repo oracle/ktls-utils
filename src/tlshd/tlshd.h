@@ -50,6 +50,7 @@ struct tlshd_handshake_parms {
 
 /* client.c */
 extern void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parms);
+extern void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms);
 
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
@@ -120,6 +121,49 @@ extern void tlshd_genl_done(struct tlshd_handshake_parms *parms);
 
 /* server.c */
 extern void tlshd_tls13_serverhello_handshake(struct tlshd_handshake_parms *parms);
+extern void tlshd_quic_serverhello_handshake(struct tlshd_handshake_parms *parms);
+
+#ifdef HAVE_GNUTLS_QUIC
+#include <linux/quic.h>
+
+#define TLSHD_QUIC_MAX_DATA_LEN		4096
+#define TLSHD_QUIC_MAX_ALPNS_LEN	128
+
+struct tlshd_quic_msg {
+	struct tlshd_quic_msg *next;
+	uint8_t data[TLSHD_QUIC_MAX_DATA_LEN];
+	uint32_t len;
+	uint8_t level;
+};
+
+struct tlshd_quic_conn {
+	struct tlshd_handshake_parms *parms;
+	char alpns[TLSHD_QUIC_MAX_ALPNS_LEN];
+	uint8_t ticket[TLSHD_QUIC_MAX_DATA_LEN];
+	uint32_t ticket_len;
+	uint32_t cipher;
+
+	gnutls_session_t session;
+	uint8_t recv_ticket:1;
+	uint8_t completed:1;
+	uint8_t cert_req:2;
+	uint8_t is_serv:1;
+	uint32_t errcode;
+	timer_t timer;
+
+	struct tlshd_quic_msg *send_list;
+	struct tlshd_quic_msg *send_last;
+	struct tlshd_quic_msg recv_msg;
+};
+
+/* quic.c */
+extern int tlshd_quic_conn_create(struct tlshd_quic_conn **conn_p,
+				  struct tlshd_handshake_parms *parms);
+extern void tlshd_quic_conn_destroy(struct tlshd_quic_conn *conn);
+extern int tlshd_quic_session_configure(gnutls_session_t session,
+					char *alpns, uint32_t cipher);
+extern void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn);
+#endif
 
 #define TLS_DEFAULT_PRIORITIES	(NULL)
 #define TLS_NO_PEERID		(0)

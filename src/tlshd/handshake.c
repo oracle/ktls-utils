@@ -138,10 +138,34 @@ void tlshd_service_socket(void)
 
 	switch (parms.handshake_type) {
 	case HANDSHAKE_MSG_TYPE_CLIENTHELLO:
-		tlshd_tls13_clienthello_handshake(&parms);
+		switch (parms.ip_proto) {
+		case IPPROTO_TCP:
+			tlshd_tls13_clienthello_handshake(&parms);
+			break;
+#ifdef HAVE_GNUTLS_QUIC
+		case IPPROTO_QUIC:
+			tlshd_quic_clienthello_handshake(&parms);
+			break;
+#endif
+		default:
+			tlshd_log_debug("Unsupported ip_proto (%d)", parms.ip_proto);
+			parms.session_status = EOPNOTSUPP;
+		}
 		break;
 	case HANDSHAKE_MSG_TYPE_SERVERHELLO:
-		tlshd_tls13_serverhello_handshake(&parms);
+		switch (parms.ip_proto) {
+		case IPPROTO_TCP:
+			tlshd_tls13_serverhello_handshake(&parms);
+			break;
+#ifdef HAVE_GNUTLS_QUIC
+		case IPPROTO_QUIC:
+			tlshd_quic_serverhello_handshake(&parms);
+			break;
+#endif
+		default:
+			tlshd_log_debug("Unsupported ip_proto (%d)", parms.ip_proto);
+			parms.session_status = EOPNOTSUPP;
+		}
 		break;
 	default:
 		tlshd_log_debug("Unrecognized handshake type (%d)",
