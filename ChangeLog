@@ -1,5 +1,10 @@
 Change Log - In newest-release-first order
 
+ktls-utils 0.11 - 2024-06-05
+ * Add support for chained certs
+ * Move to-do items to the GitHub issue tracker
+ * Fix minor bugs
+
 ktls-utils 0.10 - 2023-09-21
  * Fix Server Name Indicator support (IP addresses)
  * Add tlshd.conf option to provide specific trust chain
