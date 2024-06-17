@@ -186,6 +186,7 @@ bool tlshd_config_get_client_truststore(char **bundle)
 		return false;
 	} else if (access(pathname, F_OK)) {
 		tlshd_log_debug("client x509.truststore pathname \"%s\" is not accessible", pathname);
+		g_free(pathname);
 		return false;
 	}
 
@@ -222,6 +223,7 @@ bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
 		return false;
 	} else if (access(pathname, F_OK)) {
 		tlshd_log_debug("client x509.certificate pathname \"%s\" is not accessible", pathname);
+		g_free(pathname);
 		return false;
 	}
 
@@ -268,7 +270,8 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 		g_error_free(error);
 		return false;
 	} else if (access(pathname, F_OK)) {
-		tlshd_log_debug("client x095.private_key pathname \"%s\" is not accessible", pathname);
+		tlshd_log_debug("client x509.private_key pathname \"%s\" is not accessible", pathname);
+		g_free(pathname);
 		return false;
 	}
 
@@ -321,6 +324,7 @@ bool tlshd_config_get_server_truststore(char **bundle)
 		return false;
 	} else if (access(pathname, F_OK)) {
 		tlshd_log_debug("server x509.truststore pathname \"%s\" is not accessible", pathname);
+		g_free(pathname);
 		return false;
 	}
 
@@ -357,6 +361,7 @@ bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
 		return false;
 	} else if (access(pathname, F_OK)) {
 		tlshd_log_debug("server x509.certificate pathname \"%s\" is not accessible", pathname);
+		g_free(pathname);
 		return false;
 	}
 
@@ -378,6 +383,7 @@ bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
 
 	tlshd_log_debug("Retrieved %u x.509 server certificate(s) from %s",
 			*certs_len, pathname);
+	g_free(pathname);
 	return true;
 }
 
@@ -403,6 +409,7 @@ bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey)
 		return false;
 	} else if (access(pathname, F_OK)) {
 		tlshd_log_debug("server x509.privkey pathname \"%s\" is not accessible", pathname);
+		g_free(pathname);
 		return false;
 	}
 
