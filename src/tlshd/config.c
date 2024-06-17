@@ -378,6 +378,7 @@ bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
 
 	tlshd_log_debug("Retrieved %u x.509 server certificate(s) from %s",
 			*certs_len, pathname);
+	g_free(pathname);
 	return true;
 }
 
