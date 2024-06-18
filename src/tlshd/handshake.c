@@ -59,7 +59,7 @@ static void tlshd_save_nagle(gnutls_session_t session, int *saved)
 	int ret;
 
 
-	len = sizeof(saved);
+	len = sizeof(*saved);
 	ret = getsockopt(gnutls_transport_get_int(session),
 			 IPPROTO_TCP, TCP_NODELAY, saved, &len);
 	if (ret < 0) {
