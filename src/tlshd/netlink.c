@@ -276,7 +276,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);
 
 	if (peername)
-		strcpy(tlshd_peername, peername);
+		strncpy(tlshd_peername, peername, sizeof(tlshd_peername) - 1);
 	else {
 		err = getnameinfo(parms->peeraddr, parms->peeraddr_len,
 				  tlshd_peername, sizeof(tlshd_peername),
