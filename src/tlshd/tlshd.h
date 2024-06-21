@@ -48,7 +48,7 @@ struct tlshd_handshake_parms {
 };
 
 /* client.c */
-extern void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms);
+extern void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parms);
 
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
@@ -118,7 +118,7 @@ extern int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms);
 extern void tlshd_genl_done(struct tlshd_handshake_parms *parms);
 
 /* server.c */
-extern void tlshd_serverhello_handshake(struct tlshd_handshake_parms *parms);
+extern void tlshd_tls13_serverhello_handshake(struct tlshd_handshake_parms *parms);
 
 #define TLS_DEFAULT_PRIORITIES	(NULL)
 #define TLS_NO_PEERID		(0)
