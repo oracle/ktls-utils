@@ -237,6 +237,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	struct nlattr *tb[HANDSHAKE_A_ACCEPT_MAX + 1];
 	struct tlshd_handshake_parms *parms = arg;
 	char *peername = NULL;
+	socklen_t optlen;
 	int err;
 
 	tlshd_log_debug("Parsing a valid netlink message\n");
@@ -253,6 +254,12 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		if (getpeername(parms->sockfd, parms->peeraddr,
 				&parms->peeraddr_len) == -1) {
 			tlshd_log_perror("getpeername");
+			return NL_STOP;
+		}
+		optlen = sizeof(parms->ip_proto);
+		if (getsockopt(parms->sockfd, SOL_SOCKET, SO_PROTOCOL,
+			       &parms->ip_proto, &optlen) == -1) {
+			tlshd_log_perror("getsockopt (SO_PROTOCOL)");
 			return NL_STOP;
 		}
 	}
@@ -288,6 +295,7 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.peeraddr		= (struct sockaddr *)&tlshd_peeraddr,
 	.peeraddr_len		= sizeof(tlshd_peeraddr),
 	.sockfd			= -1,
+	.ip_proto		= -1,
 	.handshake_type		= HANDSHAKE_MSG_TYPE_UNSPEC,
 	.timeout_ms		= GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT,
 	.auth_mode		= HANDSHAKE_AUTH_UNSPEC,
