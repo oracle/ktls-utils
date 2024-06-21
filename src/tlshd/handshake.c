@@ -115,21 +115,40 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 void tlshd_service_socket(void)
 {
 	struct tlshd_handshake_parms parms;
+	int ret;
 
 	if (tlshd_genl_get_handshake_parms(&parms) != 0)
 		goto out;
 
+	ret = gnutls_global_init();
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto out;
+	}
+
+	if (tlshd_tls_debug)
+		gnutls_global_set_log_level(tlshd_tls_debug);
+	gnutls_global_set_log_function(tlshd_gnutls_log_func);
+	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
+
+#ifdef HAVE_GNUTLS_GET_SYSTEM_CONFIG_FILE
+	tlshd_log_debug("System config file: %s",
+			gnutls_get_system_config_file());
+#endif
+
 	switch (parms.handshake_type) {
 	case HANDSHAKE_MSG_TYPE_CLIENTHELLO:
-		tlshd_clienthello_handshake(&parms);
+		tlshd_tls13_clienthello_handshake(&parms);
 		break;
 	case HANDSHAKE_MSG_TYPE_SERVERHELLO:
-		tlshd_serverhello_handshake(&parms);
+		tlshd_tls13_serverhello_handshake(&parms);
 		break;
 	default:
 		tlshd_log_debug("Unrecognized handshake type (%d)",
 				parms.handshake_type);
 	}
+
+	gnutls_global_deinit();
 
 out:
 	tlshd_genl_done(&parms);

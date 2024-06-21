@@ -42,7 +42,7 @@
 #include "tlshd.h"
 #include "netlink.h"
 
-static void tlshd_client_anon_handshake(struct tlshd_handshake_parms *parms)
+static void tlshd_tls13_client_anon_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
@@ -262,7 +262,7 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session)
 	return GNUTLS_E_SUCCESS;
 }
 
-static void tlshd_client_x509_handshake(struct tlshd_handshake_parms *parms)
+static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parms)
 {
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
@@ -331,8 +331,8 @@ out_free_creds:
 	gnutls_certificate_free_credentials(xcred);
 }
 
-static void tlshd_client_psk_handshake_one(struct tlshd_handshake_parms *parms,
-					   key_serial_t peerid)
+static void tlshd_tls13_client_psk_handshake_one(struct tlshd_handshake_parms *parms,
+						 key_serial_t peerid)
 {
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
@@ -397,7 +397,7 @@ out_free_creds:
 	free(identity);
 }
 
-static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
+static void tlshd_tls13_client_psk_handshake(struct tlshd_handshake_parms *parms)
 {
 	unsigned int i;
 
@@ -411,51 +411,31 @@ static void tlshd_client_psk_handshake(struct tlshd_handshake_parms *parms)
 	 * Retry ClientHello with each identity on the kernel's list.
 	 */
 	for (i = 0; i < parms->num_peerids; i++) {
-		tlshd_client_psk_handshake_one(parms, parms->peerids[i]);
+		tlshd_tls13_client_psk_handshake_one(parms, parms->peerids[i]);
 		if (parms->session_status != EACCES)
 			break;
 	}
 }
 
 /**
- * tlshd_clienthello_handshake - send a TLSv1.3 ClientHello
+ * tlshd_tls13_clienthello_handshake - send a TLSv1.3 ClientHello
  * @parms: handshake parameters
  *
  */
-void tlshd_clienthello_handshake(struct tlshd_handshake_parms *parms)
+void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parms)
 {
-	int ret;
-
-	ret = gnutls_global_init();
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		return;
-	}
-
-	if (tlshd_tls_debug)
-		gnutls_global_set_log_level(tlshd_tls_debug);
-	gnutls_global_set_log_function(tlshd_gnutls_log_func);
-	gnutls_global_set_audit_log_function(tlshd_gnutls_audit_func);
-
-#ifdef HAVE_GNUTLS_GET_SYSTEM_CONFIG_FILE
-	tlshd_log_debug("System config file: %s",
-			gnutls_get_system_config_file());
-#endif
-
 	switch (parms->auth_mode) {
 	case HANDSHAKE_AUTH_UNAUTH:
-		tlshd_client_anon_handshake(parms);
+		tlshd_tls13_client_anon_handshake(parms);
 		break;
 	case HANDSHAKE_AUTH_X509:
-		tlshd_client_x509_handshake(parms);
+		tlshd_tls13_client_x509_handshake(parms);
 		break;
 	case HANDSHAKE_AUTH_PSK:
-		tlshd_client_psk_handshake(parms);
+		tlshd_tls13_client_psk_handshake(parms);
 		break;
 	default:
 		tlshd_log_debug("Unrecognized auth mode (%d)",
 				parms->auth_mode);
 	}
-
-	gnutls_global_deinit();
 }
