@@ -166,6 +166,7 @@ extern void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn);
 #endif
 
 #define TLS_DEFAULT_PRIORITIES	(NULL)
+#define TLS_DEFAULT_PSK_TYPE	"psk"
 #define TLS_NO_PEERID		(0)
 #define TLS_NO_CERT		(0)
 #define TLS_NO_PRIVKEY		(0)

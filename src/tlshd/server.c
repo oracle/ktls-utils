@@ -301,15 +301,17 @@ static int tlshd_server_psk_cb(gnutls_session_t session,
 
 	parms = gnutls_session_get_ptr(session);
 
-	ret = keyctl_search(KEY_SPEC_SESSION_KEYRING, "psk", username, 0);
+	ret = keyctl_search(KEY_SPEC_SESSION_KEYRING,
+			    TLS_DEFAULT_PSK_TYPE, username, 0);
 	if (ret < 0) {
-		tlshd_log_error("failed to search key");
+		tlshd_log_error("failed to search '%s' key '%s'",
+				TLS_DEFAULT_PSK_TYPE, username);
 		return -1;
 	}
 
 	psk = (key_serial_t)ret;
 	if (!tlshd_keyring_get_psk_key(psk, key)) {
-		tlshd_log_error("failed to load key");
+		tlshd_log_error("failed to load key %lu", (unsigned long)psk);
 		return -1;
 	}
 
