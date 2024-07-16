@@ -1,8 +1,5 @@
 # Release Notes for ktls-utils 0.12-pre
 
-Note well: This is experimental prototype software. It's purpose is
-purely as a demonstration and proof-of-concept. USE AT YOUR OWN RISK.
-
 In-kernel TLS consumers need a mechanism to perform TLS handshakes
 on a connected socket to negotiate TLS session parameters that can
 then be programmed into the kernel's TLS record protocol engine.

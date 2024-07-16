@@ -112,10 +112,6 @@ a handshake request when no other certificate is available.
 .B x509.private_key
 This option specifies the pathname of a file containing
 a PEM-encoded private key associated with the above certificate.
-.SH NOTES
-This software is a prototype.
-It's purpose is for demonstration and as a proof-of-concept.
-USE THIS SOFTWARE AT YOUR OWN RISK.
 .SH SEE ALSO
 .BR tlshd (8)
 .SH AUTHOR
