@@ -18,7 +18,7 @@ dnl 02110-1301, USA.
 dnl
 
 AC_PREREQ([2.69])
-AC_INIT([ktls-utils],[0.12-pre],[kernel-tls-handshake@lists.linux.dev])
+AC_INIT([ktls-utils],[1.0.0-pre],[kernel-tls-handshake@lists.linux.dev])
 AM_INIT_AUTOMAKE
 AM_SILENT_RULES([yes])
 AC_CONFIG_SRCDIR([config.h.in])
