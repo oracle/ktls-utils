@@ -455,33 +455,6 @@ static int tlshd_quic_client_x509_verify_function(gnutls_session_t session)
 	return tlshd_client_x509_verify_function(session, conn->parms);
 }
 
-static int tlshd_quic_client_ticket_recv(gnutls_session_t session, unsigned int htype,
-					 unsigned int when, unsigned int incoming,
-					 const gnutls_datum_t *msg)
-{
-	struct tlshd_quic_conn *conn = gnutls_session_get_ptr(session);
-	int ret, sockfd = conn->parms->sockfd;
-	gnutls_datum_t ticket;
-
-	if (htype != GNUTLS_HANDSHAKE_NEW_SESSION_TICKET)
-		return 0;
-
-	conn->completed = 1;
-	ret = gnutls_session_get_data2(session, &ticket);
-	if (ret) {
-		tlshd_log_gnutls_error(ret);
-		return ret;
-	}
-
-	ret = setsockopt(sockfd, SOL_QUIC, QUIC_SOCKOPT_SESSION_TICKET, ticket.data, ticket.size);
-	if (ret) {
-		tlshd_log_error("socket setsockopt session ticket error %d %u", errno, ticket.size);
-		return -1;
-	}
-	tlshd_log_debug("  Ticket recv: %u %u %u", when, incoming, msg->size);
-	return 0;
-}
-
 #define TLSHD_QUIC_NO_CERT_AUTH	3
 
 static int tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
@@ -525,8 +498,6 @@ static int tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 				    GNUTLS_ENABLE_EARLY_DATA | GNUTLS_NO_END_OF_EARLY_DATA);
 	if (ret)
 		goto err_cred;
-	gnutls_handshake_set_hook_function(session, GNUTLS_HANDSHAKE_ANY,
-					   GNUTLS_HOOK_POST, tlshd_quic_client_ticket_recv);
 	gnutls_session_set_ptr(session, conn);
 	if (conn->ticket_len) {
 		ret = gnutls_session_set_data(session, conn->ticket, conn->ticket_len);
@@ -585,8 +556,6 @@ static int tlshd_quic_client_set_psk_session(struct tlshd_quic_conn *conn)
 	ret = gnutls_init(&session, GNUTLS_CLIENT);
 	if (ret)
 		goto err_cred;
-	gnutls_handshake_set_hook_function(session, GNUTLS_HANDSHAKE_ANY,
-					   GNUTLS_HOOK_POST, tlshd_quic_client_ticket_recv);
 	gnutls_session_set_ptr(session, conn);
 	ret = gnutls_credentials_set(session, GNUTLS_CRD_PSK, cred);
 	if (ret)
