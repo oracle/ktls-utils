@@ -284,10 +284,10 @@ static gnutls_record_encryption_level_t quic_get_encryption_level(uint8_t level)
 	}
 }
 
-static int quic_conn_get_transport_param(struct tlshd_quic_conn *conn)
+static int quic_conn_get_config(struct tlshd_quic_conn *conn)
 {
-	struct quic_transport_param param = {};
 	int sockfd = conn->parms->sockfd;
+	struct quic_config config = {};
 	unsigned int len;
 
 	len = sizeof(conn->alpns);
@@ -301,14 +301,14 @@ static int quic_conn_get_transport_param(struct tlshd_quic_conn *conn)
 		return -1;
 	}
 	conn->ticket_len = len;
-	len = sizeof(param);
-	if (getsockopt(sockfd, SOL_QUIC, QUIC_SOCKOPT_TRANSPORT_PARAM, &param, &len)) {
-		tlshd_log_error("socket getsockopt transport param error %d", errno);
+	len = sizeof(config);
+	if (getsockopt(sockfd, SOL_QUIC, QUIC_SOCKOPT_CONFIG, &config, &len)) {
+		tlshd_log_error("socket getsockopt config error %d", errno);
 		return -1;
 	}
-	conn->recv_ticket = param.receive_session_ticket;
-	conn->cert_req = param.certificate_request;
-	conn->cipher = param.payload_cipher_type;
+	conn->recv_ticket = config.receive_session_ticket;
+	conn->cert_req = config.certificate_request;
+	conn->cipher = config.payload_cipher_type;
 	return 0;
 }
 
@@ -438,7 +438,7 @@ int tlshd_quic_conn_create(struct tlshd_quic_conn **conn_p, struct tlshd_handsha
 	memset(conn, 0, sizeof(*conn));
 	conn->parms = parms;
 
-	if (quic_conn_get_transport_param(conn)) {
+	if (quic_conn_get_config(conn)) {
 		ret = -errno;
 		goto err;
 	}
