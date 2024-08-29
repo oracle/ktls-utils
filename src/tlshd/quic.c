@@ -23,7 +23,6 @@
 #include <linux/tls.h>
 #include <keyutils.h>
 #include <stdbool.h>
-#include <fcntl.h>
 #include <glib.h>
 
 #include "config.h"
@@ -38,35 +37,11 @@ static void quic_timer_handler(union sigval arg)
 	conn->errcode = ETIMEDOUT;
 }
 
-static int quic_set_nonblocking(int sockfd, uint8_t nonblocking)
-{
-	int flags = fcntl(sockfd, F_GETFL, 0);
-
-	if (flags == -1) {
-		tlshd_log_error("socket fcntl getfl error %d", errno);
-		return -1;
-	}
-
-	if (nonblocking)
-		flags |= O_NONBLOCK;
-	else
-		flags &= ~O_NONBLOCK;
-
-	if (fcntl(sockfd, F_SETFL, flags) == -1) {
-		tlshd_log_error("socket fcntl setfl error %d %d", errno, flags);
-		return -1;
-	}
-	return 0;
-}
-
 static int quic_conn_setup_timer(struct tlshd_quic_conn *conn)
 {
 	uint64_t msec = conn->parms->timeout_ms;
 	struct itimerspec its = {};
 	struct sigevent sev = {};
-
-	if (quic_set_nonblocking(conn->parms->sockfd, 1))
-		return -1;
 
 	sev.sigev_notify = SIGEV_THREAD;
 	sev.sigev_notify_function = quic_timer_handler;
@@ -87,7 +62,6 @@ static int quic_conn_setup_timer(struct tlshd_quic_conn *conn)
 
 static void quic_conn_delete_timer(struct tlshd_quic_conn *conn)
 {
-	quic_set_nonblocking(conn->parms->sockfd, 0);
 	timer_delete(conn->timer);
 }
 
@@ -217,8 +191,6 @@ static int quic_tp_send_func(gnutls_session_t session, gnutls_buffer_t extdata)
 	return 0;
 }
 
-#define QUIC_MAX_FRAG_LEN	1200
-
 static int quic_read_func(gnutls_session_t session, gnutls_record_encryption_level_t level,
 			  gnutls_handshake_description_t htype, const void *data, size_t datalen)
 {
@@ -229,28 +201,21 @@ static int quic_read_func(gnutls_session_t session, gnutls_record_encryption_lev
 	if (htype == GNUTLS_HANDSHAKE_KEY_UPDATE)
 		return 0;
 
-	while (len > 0) {
-		msg = malloc(sizeof(*msg));
-		if (!msg) {
-			tlshd_log_error("msg malloc error %d", ENOMEM);
-			return -1;
-		}
-		memset(msg, 0, sizeof(*msg));
-		msg->len = len;
-		if (len > QUIC_MAX_FRAG_LEN)
-			msg->len = QUIC_MAX_FRAG_LEN;
-		memcpy(msg->data, data, msg->len);
-
-		msg->level = quic_get_crypto_level(level);
-		if (!conn->send_list)
-			conn->send_list = msg;
-		else
-			conn->send_last->next = msg;
-		conn->send_last = msg;
-
-		len -= msg->len;
-		data += msg->len;
+	msg = malloc(sizeof(*msg));
+	if (!msg) {
+		tlshd_log_debug("msg malloc error %d", ENOMEM);
+		return -1;
 	}
+	memset(msg, 0, sizeof(*msg));
+	msg->len = len;
+	memcpy(msg->data, data, msg->len);
+
+	msg->level = quic_get_crypto_level(level);
+	if (!conn->send_list)
+		conn->send_list = msg;
+	else
+		conn->send_last->next = msg;
+	conn->send_last = msg;
 
 	tlshd_log_debug("  Read func: %u %u %u", level, htype, datalen);
 	return 0;
@@ -402,7 +367,7 @@ static int quic_handshake_recvmsg(int sockfd, struct tlshd_quic_msg *msg)
 	inmsg.msg_control = incmsg;
 	inmsg.msg_controllen = sizeof(incmsg);
 
-	ret = recvmsg(sockfd, &inmsg, 0);
+	ret = recvmsg(sockfd, &inmsg, MSG_DONTWAIT);
 	if (ret < 0)
 		return ret;
 	msg->len = ret;
@@ -512,24 +477,17 @@ void tlshd_quic_conn_destroy(struct tlshd_quic_conn *conn)
 
 #define QUIC_TLSEXT_TP_PARAM	0x39u
 
-/**
- * tlshd_quic_session_configure - Configure a handshake session
- * @session: TLS session to configure
- * @alpns: multiple ALPNs split by ','
- * @cipher: cipher perferred
- *
- * Returns: %GNUTLS_E_SUCCESS on success, or a negative error code
- */
-int tlshd_quic_session_configure(gnutls_session_t session, char *alpns, uint32_t cipher)
+static int tlshd_quic_session_configure(struct tlshd_quic_conn *conn)
 {
+	gnutls_session_t session = conn->session;
 	int ret;
 
-	ret = quic_session_set_priority(session, cipher);
+	ret = quic_session_set_priority(session, conn->cipher);
 	if (ret)
 		return ret;
 
-	if (alpns[0]) {
-		ret = quic_session_set_alpns(session, alpns);
+	if (conn->alpns[0]) {
+		ret = quic_session_set_alpns(session, conn->alpns);
 		if (ret)
 			return ret;
 	}
@@ -558,6 +516,13 @@ void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn)
 
 	FD_ZERO(&readfds);
 	FD_SET(sockfd, &readfds);
+
+	ret = tlshd_quic_session_configure(conn);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		conn->errcode = -ret;
+		return;
+	}
 
 	if (!conn->is_serv) {
 		ret = quic_handshake_crypto_data(conn, QUIC_CRYPTO_INITIAL, NULL, 0);

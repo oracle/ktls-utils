@@ -503,9 +503,6 @@ static int tlshd_quic_server_set_x509_session(struct tlshd_quic_conn *conn)
 		goto err_session;
 
 	gnutls_session_set_ptr(session, conn);
-	ret = tlshd_quic_session_configure(session, conn->alpns, conn->cipher);
-	if (ret)
-		goto err_session;
 	ticket_key.data = conn->ticket;
 	ticket_key.size = conn->ticket_len;
 	ret = gnutls_session_ticket_enable_server(session, &ticket_key);
@@ -545,9 +542,6 @@ static int tlshd_quic_server_set_psk_session(struct tlshd_quic_conn *conn)
 	if (ret)
 		goto err_cred;
 	gnutls_session_set_ptr(session, conn);
-	ret = tlshd_quic_session_configure(session, conn->alpns, conn->cipher);
-	if (ret)
-		goto err_session;
 	gnutls_handshake_set_hook_function(session, GNUTLS_HANDSHAKE_CLIENT_HELLO,
 					   GNUTLS_HOOK_POST, tlshd_quic_server_alpn_verify);
 	ret = gnutls_credentials_set(session, GNUTLS_CRD_PSK, cred);
