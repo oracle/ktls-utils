@@ -23,6 +23,7 @@
 #include <linux/tls.h>
 #include <keyutils.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <glib.h>
 
 #include "config.h"
@@ -139,8 +140,7 @@ static int quic_secret_func(gnutls_session_t session, gnutls_record_encryption_l
 					return ret;
 				}
 			}
-			if (!conn->recv_ticket)
-				conn->completed = 1;
+			conn->completed = 1;
 		}
 	}
 	tlshd_log_debug("  Secret func: %u %u %u", secret.level, !!tx_secret, !!rx_secret);
@@ -502,6 +502,54 @@ static int tlshd_quic_session_configure(struct tlshd_quic_conn *conn)
 		GNUTLS_EXT_FLAG_TLS | GNUTLS_EXT_FLAG_CLIENT_HELLO | GNUTLS_EXT_FLAG_EE);
 }
 
+static void tlshd_quic_recv_session_ticket(struct tlshd_quic_conn *conn)
+{
+	gnutls_session_t session = conn->session;
+	int i, ret, sockfd = conn->parms->sockfd;
+	unsigned int len;
+	size_t size;
+
+	if (conn->is_serv || !conn->recv_ticket)
+		return;
+
+	for (i = 0; i < 10 * conn->recv_ticket; i++) { /* wait and try for conn->recv_ticket secs */
+		len = sizeof(conn->ticket);
+		ret = getsockopt(sockfd, SOL_QUIC, QUIC_SOCKOPT_SESSION_TICKET, conn->ticket, &len);
+		if (ret) {
+			tlshd_log_error("socket getsockopt session ticket error %d", errno);
+			conn->errcode = errno;
+			return;
+		}
+		if (len)
+			break;
+		usleep(100000);
+	}
+	if (i == 10 * conn->recv_ticket)
+		return;
+
+	/* process new session ticket msg and get the generated session data */
+	ret = quic_handshake_crypto_data(conn, QUIC_CRYPTO_APP, conn->ticket, len);
+	if (ret) {
+		conn->errcode = -ret;
+		return;
+	}
+	size = sizeof(conn->ticket);
+	ret = gnutls_session_get_data(session, conn->ticket, &size);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		conn->errcode = -ret;
+		return;
+	}
+
+	/* set it back to kernel for session resumption of next connection */
+	len = size;
+	ret = setsockopt(sockfd, SOL_QUIC, QUIC_SOCKOPT_SESSION_TICKET, conn->ticket, len);
+	if (ret) {
+		tlshd_log_error("socket setsockopt session ticket error %d %u", errno, len);
+		conn->errcode = errno;
+	}
+}
+
 /**
  * tlshd_quic_start_handshake - Drive the handshake interaction
  * @conn: QUIC handshake context
@@ -582,5 +630,7 @@ void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn)
 			msg = conn->send_list;
 		}
 	}
+
+	tlshd_quic_recv_session_ticket(conn);
 }
 #endif
