@@ -160,8 +160,6 @@ struct tlshd_quic_conn {
 extern int tlshd_quic_conn_create(struct tlshd_quic_conn **conn_p,
 				  struct tlshd_handshake_parms *parms);
 extern void tlshd_quic_conn_destroy(struct tlshd_quic_conn *conn);
-extern int tlshd_quic_session_configure(gnutls_session_t session,
-					char *alpns, uint32_t cipher);
 extern void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn);
 #endif
 
