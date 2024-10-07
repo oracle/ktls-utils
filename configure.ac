@@ -59,6 +59,9 @@ AC_SUBST([GLIB_LIBS])
 PKG_CHECK_MODULES([LIBNL3], libnl-3.0 >= 3.1)
 AC_SUBST([LIBNL3_CFLAGS])
 AC_SUBST([LIBNL3_LIBS])
+PKG_CHECK_MODULES([LIBNL_GENL3], libnl-genl-3.0 >= 3.1)
+AC_SUBST([LIBNL_GENL3_CFLAGS])
+AC_SUBST([LIBNL_GENL3_LIBS])
 
 AC_CHECK_FILE([/usr/include/linux/quic.h],
               [AC_CHECK_LIB([gnutls], [gnutls_handshake_set_secret_function],
