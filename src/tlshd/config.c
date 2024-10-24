@@ -91,10 +91,17 @@ bool tlshd_config_init(const gchar *pathname)
 					      "keyrings", &length, NULL);
 	if (keyrings) {
 		for (i = 0; i < length; i++) {
+			if (!strcmp(keyrings[i], ".nvme"))
+				continue;
 			tlshd_keyring_link_session(keyrings[i]);
 		}
 		g_strfreev(keyrings);
 	}
+	/*
+	 * Always link the default nvme subsystem keyring into the
+	 * session.
+	 */
+	tlshd_keyring_link_session(".nvme");
 
 	return true;
 }
