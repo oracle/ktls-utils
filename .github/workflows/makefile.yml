@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get -y install gnutls-dev libkeyutils-dev libnl-3-dev libnl-genl-3-dev
+        sudo apt-get -y install gnutls-dev libkeyutils-dev libnl-3-dev libnl-genl-3-dev libglib2.0-dev
 
     - name: Configure
       run: |
