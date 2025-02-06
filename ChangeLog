@@ -1,5 +1,10 @@
 Change Log - In newest-release-first order
 
+ktls-utils 1.0 - 2025-02-06
+ * Handshake support for in-kernel QUIC
+ * Package is no longer "experimental"
+ * Fix minor bugs
+
 ktls-utils 0.11 - 2024-06-05
  * Add support for chained certs
  * Move to-do items to the GitHub issue tracker
