@@ -94,10 +94,14 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 		case GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR:
 			tlshd_log_cert_verification_error(session);
 			break;
-		default:
+		case -ETIMEDOUT:
 			tlshd_log_gnutls_error(ret);
+			parms->session_status = -ret;
+			break;
+		default:
+			tlshd_log_notice("tlshd_start_tls_handshake unhandled error %d, returning EACCES\n", ret);
+			parms->session_status = EACCES;
 		}
-		parms->session_status = EACCES;
 		return;
 	}
 
