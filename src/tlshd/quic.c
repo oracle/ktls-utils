@@ -335,7 +335,7 @@ static int quic_handshake_sendmsg(int sockfd, struct tlshd_quic_msg *msg)
 		flags = MSG_MORE;
 
 	cmsg = CMSG_FIRSTHDR(&outmsg);
-	cmsg->cmsg_level = IPPROTO_QUIC;
+	cmsg->cmsg_level = SOL_QUIC;
 	cmsg->cmsg_type = QUIC_HANDSHAKE_INFO;
 	cmsg->cmsg_len = CMSG_LEN(sizeof(*info));
 
@@ -373,7 +373,7 @@ static int quic_handshake_recvmsg(int sockfd, struct tlshd_quic_msg *msg)
 	msg->len = ret;
 
 	for (cmsg = CMSG_FIRSTHDR(&inmsg); cmsg != NULL; cmsg = CMSG_NXTHDR(&inmsg, cmsg))
-		if (IPPROTO_QUIC == cmsg->cmsg_level && QUIC_HANDSHAKE_INFO == cmsg->cmsg_type)
+		if (SOL_QUIC == cmsg->cmsg_level && QUIC_HANDSHAKE_INFO == cmsg->cmsg_type)
 			break;
 	if (cmsg) {
 		memcpy(&info, CMSG_DATA(cmsg), sizeof(info));
