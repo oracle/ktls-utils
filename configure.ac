@@ -76,6 +76,9 @@ AC_CHECK_LIB([gnutls], [gnutls_protocol_set_enabled],
 AC_CHECK_LIB([gnutls], [gnutls_get_system_config_file],
              [AC_DEFINE([HAVE_GNUTLS_GET_SYSTEM_CONFIG_FILE], [1],
                         [Define to 1 if you have the gnutls_get_system_config_file function.])])
+AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
+             [AC_DEFINE([HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2], [1],
+                        [Define to 1 if you have the gnutls_psk_allocate_client_credentials2 function.])])
 AC_SUBST([AM_CPPFLAGS])
 
 AC_CONFIG_FILES([Makefile src/Makefile src/tlshd/Makefile systemd/Makefile])

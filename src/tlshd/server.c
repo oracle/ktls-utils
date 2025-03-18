@@ -327,7 +327,12 @@ static void tlshd_tls13_server_psk_handshake(struct tlshd_handshake_parms *parms
 	gnutls_session_t session;
 	int ret;
 
+#ifdef HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2
+	ret = gnutls_psk_allocate_server_credentials2(&psk_cred,
+						      GNUTLS_MAC_NONE);
+#else
 	ret = gnutls_psk_allocate_server_credentials(&psk_cred);
+#endif
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		return;

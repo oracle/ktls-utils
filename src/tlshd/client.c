@@ -341,8 +341,14 @@ out_free_creds:
 static void tlshd_tls13_client_psk_handshake_one(struct tlshd_handshake_parms *parms,
 						 key_serial_t peerid)
 {
+#ifdef HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2
+	gnutls_mac_algorithm_t mac = GNUTLS_MAC_SHA256;
+#endif
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
+#ifdef HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2
+	int version, type, hash;
+#endif
 	gnutls_datum_t key;
 	unsigned int flags;
 	char *identity;
@@ -359,7 +365,27 @@ static void tlshd_tls13_client_psk_handshake_one(struct tlshd_handshake_parms *p
 		return;
 	}
 
+#ifdef HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2
+	if (sscanf(identity, "NVMe%01d%c%02d %*s",
+		   &version, &type, &hash) == 3) {
+		switch (hash) {
+		case 1:
+			mac = GNUTLS_MAC_SHA256;
+			break;
+		case 2:
+			mac = GNUTLS_MAC_SHA384;
+			break;
+		default:
+			tlshd_log_error("invalid key identity");
+			free(identity);
+			return;
+		}
+	}
+
+	ret = gnutls_psk_allocate_client_credentials2(&psk_cred, mac);
+#else
 	ret = gnutls_psk_allocate_client_credentials(&psk_cred);
+#endif
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		free(identity);
