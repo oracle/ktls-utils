@@ -84,7 +84,7 @@ bool tlshd_config_init(const gchar *pathname)
 					  "nl", NULL);
 	tmp = g_key_file_get_integer(tlshd_configuration, "debug",
 				     "delay_done", NULL);
-	tlshd_delay_done = tmp > 0 ? tmp : 0;
+	tlshd_delay_done = tmp > 0 ? (unsigned int)tmp : 0;
 
 	keyrings = g_key_file_get_string_list(tlshd_configuration,
 					      "authenticate",
