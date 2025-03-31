@@ -56,8 +56,9 @@ static const struct option longopts[] = {
 	{ NULL,		0,			NULL,	 0 }
 };
 
-void usage(char *progname) {
-		fprintf(stderr, "usage: %s [-chsv]\n", progname);
+static void usage(char *progname)
+{
+	fprintf(stderr, "usage: %s [-chsv]\n", progname);
 }
 
 int main(int argc, char **argv)
