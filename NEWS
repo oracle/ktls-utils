@@ -1,4 +1,4 @@
-ktls-utils 1.0 - 2025-02-06
+ktls-utils 1.0 - 2025-05-05
  * Handshake support for in-kernel QUIC
  * Package is no longer "experimental"
  * Fix minor bugs
