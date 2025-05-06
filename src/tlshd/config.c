@@ -47,6 +47,12 @@
 static GKeyFile *tlshd_configuration;
 
 /**
+ * ALLPERMS exists in glibc, but not on musl, so we
+ * manually define TLSHD_ACCESSPERMS instead of using ALLPERMS.
+ */
+#define TLSHD_ACCESSPERMS	(S_IRWXU|S_IRWXG|S_IRWXO)
+
+/**
  * tlshd_config_init - Read tlshd's config file
  * @pathname: Pathname to config file
  *
@@ -149,7 +155,7 @@ static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data,
 	if (statbuf.st_uid != owner)
 		tlshd_log_notice("File %s: expected owner %u",
 				 pathname, owner);
-	if ((statbuf.st_mode & ALLPERMS) != mode)
+	if ((statbuf.st_mode & TLSHD_ACCESSPERMS) != mode)
 		tlshd_log_notice("File %s: expected mode %o",
 				 pathname, mode);
 	buf = malloc(size);
