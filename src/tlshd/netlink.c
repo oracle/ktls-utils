@@ -101,6 +101,7 @@ tlshd_accept_nl_policy[HANDSHAKE_A_ACCEPT_MAX + 1] = {
 	[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]	= { .type = NLA_U32, },
 	[HANDSHAKE_A_ACCEPT_CERTIFICATE]	= { .type = NLA_NESTED, },
 	[HANDSHAKE_A_ACCEPT_PEERNAME]		= { .type = NLA_STRING, },
+	[HANDSHAKE_A_ACCEPT_KEYRING]		= { .type = NLA_U32, },
 };
 
 static int tlshd_genl_event_handler(struct nl_msg *msg,
@@ -267,10 +268,20 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		parms->handshake_type = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE]);
 	if (tb[HANDSHAKE_A_ACCEPT_PEERNAME])
 		peername = nla_get_string(tb[HANDSHAKE_A_ACCEPT_PEERNAME]);
+	if (tb[HANDSHAKE_A_ACCEPT_KEYRING])
+		parms->keyring = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_KEYRING]);
 	if (tb[HANDSHAKE_A_ACCEPT_TIMEOUT])
 		parms->timeout_ms = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_TIMEOUT]);
 	if (tb[HANDSHAKE_A_ACCEPT_AUTH_MODE])
 		parms->auth_mode = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_AUTH_MODE]);
+
+	if (parms->keyring) {
+		err = keyctl_link(parms->keyring, KEY_SPEC_SESSION_KEYRING);
+		if (err < 0) {
+			tlshd_log_debug("Failed to link keyring %lx error %d\n",
+					parms->keyring, errno);
+		}
+	}
 
 	tlshd_parse_peer_identity(parms, tb[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]);
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);

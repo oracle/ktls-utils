@@ -36,6 +36,7 @@ struct tlshd_handshake_parms {
 	uint32_t	handshake_type;
 	unsigned int	timeout_ms;
 	uint32_t	auth_mode;
+	key_serial_t	keyring;
 	key_serial_t	x509_cert;
 	key_serial_t	x509_privkey;
 	key_serial_t	*peerids;

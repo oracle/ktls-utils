@@ -181,6 +181,9 @@ void tlshd_service_socket(void)
 out:
 	tlshd_genl_done(&parms);
 
+	if (parms.keyring)
+		keyctl_unlink(parms.keyring, KEY_SPEC_SESSION_KEYRING);
+
 	free(parms.peerids);
 
 	if (parms.session_status) {
