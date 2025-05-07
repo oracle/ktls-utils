@@ -247,7 +247,7 @@ out:
 
 /**
  * tlshd_keyring_link_session - Link a keyring into the session keyring
- * @serial: serial number of the keyring to be linked
+ * @keyring: keyring to be linked
  *
  * Returns 0 on success and -1 on error.
  */
