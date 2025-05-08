@@ -63,7 +63,7 @@ PKG_CHECK_MODULES([LIBNL_GENL3], libnl-genl-3.0 >= 3.1)
 AC_SUBST([LIBNL_GENL3_CFLAGS])
 AC_SUBST([LIBNL_GENL3_LIBS])
 
-AC_CHECK_FILE([/usr/include/linux/quic.h],
+AC_CHECK_HEADER([linux/quic.h],
               [AC_CHECK_LIB([gnutls], [gnutls_handshake_set_secret_function],
                             [AC_DEFINE([HAVE_GNUTLS_QUIC], [1], [Define to 1 if QUIC is found.])])])
 
