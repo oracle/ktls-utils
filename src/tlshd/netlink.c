@@ -123,11 +123,7 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
 	    HANDSHAKE_HANDLER_CLASS_TLSHD)
 		return NL_SKIP;
 
-	if (!fork()) {
-		/* child */
-		tlshd_service_socket();
-		exit(EXIT_SUCCESS);
-	}
+	g_thread_new("tlshd_socket", tlshd_service_socket, NULL);
 
 	return NL_SKIP;
 }

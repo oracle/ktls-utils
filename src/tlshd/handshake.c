@@ -116,7 +116,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
  * tlshd_service_socket - Service a kernel socket needing a key operation
  *
  */
-void tlshd_service_socket(void)
+void *tlshd_service_socket(void *)
 {
 	struct tlshd_handshake_parms parms;
 	int ret;
@@ -189,7 +189,9 @@ out:
 	if (parms.session_status) {
 		tlshd_log_failure(parms.peername, parms.peeraddr,
 				  parms.peeraddr_len);
-		return;
+		return NULL;
 	}
 	tlshd_log_success(parms.peername, parms.peeraddr, parms.peeraddr_len);
+
+	return NULL;
 }

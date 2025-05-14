@@ -68,7 +68,7 @@ bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey);
 /* handshake.c */
 extern void tlshd_start_tls_handshake(gnutls_session_t session,
 				      struct tlshd_handshake_parms *parms);
-extern void tlshd_service_socket(void);
+extern void *tlshd_service_socket(void *session_ptr);
 
 /* keyring.c */
 extern bool tlshd_keyring_get_psk_username(key_serial_t serial,
