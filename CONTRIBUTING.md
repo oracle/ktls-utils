@@ -35,10 +35,9 @@ vulnerability, do not raise a GitHub issue and follow the instructions in our
 
 ## Contributing code
 
-We welcome your code contributions. Before submitting code via a pull request,
-you will need to have signed the [Oracle Contributor Agreement][OCA] (OCA) and
-your commits need to include the following line using the name and e-mail
-address you used to sign the OCA:
+We welcome your code contributions. Code contributions must have a developer 
+certificate of origin. Acknowledge the Developer Certificate of Origin by 
+including the following text with your commit message.
 
 ```text
 Signed-off-by: Your Name <you@example.org>
@@ -51,8 +50,7 @@ or `-s`, e.g.
 git commit --signoff
 ```
 
-Only pull requests from committers that can be verified as having signed the OCA
-can be accepted.
+Review the [Developer Certificate of Origin][DCO].
 
 ## Pull request process
 
@@ -91,5 +89,5 @@ ask you to confirm the licensing of your contribution.
 Follow the [Golden Rule](https://en.wikipedia.org/wiki/Golden_Rule). If you'd
 like more specific guidelines, see the [Contributor Covenant Code of Conduct][COC].
 
-[OCA]: https://oca.opensource.oracle.com
+[DCO]: https://developercertificate.org/
 [COC]: https://www.contributor-covenant.org/version/1/4/code-of-conduct/
