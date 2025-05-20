@@ -577,8 +577,8 @@ void tlshd_quic_serverhello_handshake(struct tlshd_handshake_parms *parms)
 
 	ret = tlshd_quic_conn_create(&conn, parms);
 	if (ret) {
-		parms->session_status = ret;
-		return gnutls_global_deinit();
+		parms->session_status = -ret;
+		return;
 	}
 
 	switch (parms->auth_mode) {
