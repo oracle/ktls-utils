@@ -90,6 +90,8 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 	} while (ret < 0 && !gnutls_error_is_fatal(ret));
 	tlshd_set_nagle(session, saved);
 	if (ret < 0) {
+		/* Any errors here should default to blocking access: */
+		parms->session_status = EACCES;
 		switch (ret) {
 		case GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR:
 			tlshd_log_cert_verification_error(session);
@@ -100,7 +102,6 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 			break;
 		default:
 			tlshd_log_notice("tlshd_start_tls_handshake unhandled error %d, returning EACCES\n", ret);
-			parms->session_status = EACCES;
 		}
 		return;
 	}
