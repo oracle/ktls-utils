@@ -9,15 +9,16 @@ Please read through this document before submitting an issue or pull
 request to ensure we have all the necessary information to
 effectively respond to your bug report or contribution.
 
-An old-school developer's mailing list is available. See
+A ktls-utils developer mailing list is available. See
 [lists.linux.dev](https://subspace.kernel.org/lists.linux.dev.html)
 for links to subscribe to <kernel-tls-handshake@lists.linux.dev> or
 to access archived threads.
 
 ## Opening issues
 
-We welcome you to use the GitHub issue tracker to report bugs or
-suggest features.
+We welcome you to use the GitHub
+[ktls-utils issue tracker](https://github.com/oracle/ktls-utils/issues)
+to report bugs or suggest features.
 
 When filing an issue, please check existing open or recently closed
 issues to make sure somebody else hasn't already reported the
@@ -54,17 +55,14 @@ Review the [Developer Certificate of Origin][DCO].
 
 ## Pull request process
 
-Contributions via pull requests are much appreciated.
-Before sending us a pull request, please ensure that:
+To contribute code, please post patches (not attachments) to
+[lists.linux.dev](https://subspace.kernel.org/lists.linux.dev.html).
+Sending email enables the community, which includes some who do not
+have GitHub accounts, to participate in review.
 
-1. You open an issue to discuss any significant work - we would hate
-   for your time to be wasted.
-2. You check existing open, and recently merged, pull requests to make
-   sure someone else hasn't addressed the problem already.
+GitHub pull requests also work. To send us a pull request:
 
-To send us a pull request, please:
-
-1. Fork the repository.
+1. Fork the oracle/ktls-utils repository.
 2. Modify the source. Focus on the specific change you are
    contributing. If you also reformat all the code, it will
    be hard for us to review on your change.
