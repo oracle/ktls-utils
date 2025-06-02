@@ -1,4 +1,5 @@
-ktls-utils 1.0 - 2025-05-05
- * Handshake support for in-kernel QUIC
- * Package is no longer "experimental"
- * Fix minor bugs
+ktls-utils 1.1.0 2025-06-02
+ * Return to the old release process
+ * Update the contribution process
+ * Accept alternate keyrings during handshake upcall
+ * Initial support for building ktls-utils with MUSL

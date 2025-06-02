@@ -1,4 +1,4 @@
-# Release Notes for ktls-utils 1.1.0-pre
+# Release Notes for ktls-utils 1.1.0
 
 In-kernel TLS consumers need a mechanism to perform TLS handshakes
 on a connected socket to negotiate TLS session parameters that can
