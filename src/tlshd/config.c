@@ -193,15 +193,13 @@ out:
  */
 bool tlshd_config_get_client_truststore(char **bundle)
 {
-	GError *error = NULL;
 	gchar *pathname;
 
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
-					 "x509.truststore", &error);
-	if (!pathname) {
-		g_error_free(error);
+					 "x509.truststore", NULL);
+	if (!pathname)
 		return false;
-	} else if (access(pathname, F_OK)) {
+	if (access(pathname, F_OK)) {
 		tlshd_log_debug("tlshd cannot access \"%s\"", pathname);
 		g_free(pathname);
 		return false;
@@ -228,17 +226,14 @@ bool tlshd_config_get_client_truststore(char **bundle)
 bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
 				   unsigned int *certs_len)
 {
-	GError *error = NULL;
 	gnutls_datum_t data;
 	gchar *pathname;
 	int ret;
 
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
-					"x509.certificate", &error);
-	if (!pathname) {
-		g_error_free(error);
+					"x509.certificate", NULL);
+	if (!pathname)
 		return false;
-	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
 				     TLSHD_CERT_MODE)) {
@@ -272,17 +267,14 @@ bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
  */
 bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 {
-	GError *error = NULL;
 	gnutls_datum_t data;
 	gchar *pathname;
 	int ret;
 
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.client",
-					"x509.private_key", &error);
-	if (!pathname) {
-		g_error_free(error);
+					"x509.private_key", NULL);
+	if (!pathname)
 		return false;
-	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
 				     TLSHD_PRIVKEY_MODE)) {
@@ -323,15 +315,13 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
  */
 bool tlshd_config_get_server_truststore(char **bundle)
 {
-	GError *error = NULL;
 	gchar *pathname;
 
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.server",
-					 "x509.truststore", &error);
-	if (!pathname) {
-		g_error_free(error);
+					 "x509.truststore", NULL);
+	if (!pathname)
 		return false;
-	} else if (access(pathname, F_OK)) {
+	if (access(pathname, F_OK)) {
 		tlshd_log_debug("tlshd cannot access \"%s\"", pathname);
 		g_free(pathname);
 		return false;
@@ -358,17 +348,14 @@ bool tlshd_config_get_server_truststore(char **bundle)
 bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
 				   unsigned int *certs_len)
 {
-	GError *error = NULL;
 	gnutls_datum_t data;
 	gchar *pathname;
 	int ret;
 
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.server",
-					"x509.certificate", &error);
-	if (!pathname) {
-		g_error_free(error);
+					"x509.certificate", NULL);
+	if (!pathname)
 		return false;
-	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
 				     TLSHD_CERT_MODE)) {
@@ -402,17 +389,14 @@ bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
  */
 bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey)
 {
-	GError *error = NULL;
 	gnutls_datum_t data;
 	gchar *pathname;
 	int ret;
 
 	pathname = g_key_file_get_string(tlshd_configuration, "authenticate.server",
-					"x509.private_key", &error);
-	if (!pathname) {
-		g_error_free(error);
+					"x509.private_key", NULL);
+	if (!pathname)
 		return false;
-	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
 				     TLSHD_PRIVKEY_MODE)) {
