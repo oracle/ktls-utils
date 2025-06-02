@@ -140,7 +140,11 @@ static bool tlshd_config_read_datum(const char *pathname, gnutls_datum_t *data,
 
 	fd = open(pathname, O_RDONLY);
 	if (fd == -1) {
-		tlshd_log_perror("open");
+		if (access(pathname, F_OK))
+			tlshd_log_debug("tlshd cannot access \"%s\"",
+					pathname);
+		else
+			tlshd_log_perror("open");
 		goto out;
 	}
 	if (fstat(fd, &statbuf)) {
@@ -198,7 +202,7 @@ bool tlshd_config_get_client_truststore(char **bundle)
 		g_error_free(error);
 		return false;
 	} else if (access(pathname, F_OK)) {
-		tlshd_log_debug("client x509.truststore pathname \"%s\" is not accessible", pathname);
+		tlshd_log_debug("tlshd cannot access \"%s\"", pathname);
 		g_free(pathname);
 		return false;
 	}
@@ -233,10 +237,6 @@ bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
 					"x509.certificate", &error);
 	if (!pathname) {
 		g_error_free(error);
-		return false;
-	} else if (access(pathname, F_OK)) {
-		tlshd_log_debug("client x509.certificate pathname \"%s\" is not accessible", pathname);
-		g_free(pathname);
 		return false;
 	}
 
@@ -281,10 +281,6 @@ bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey)
 					"x509.private_key", &error);
 	if (!pathname) {
 		g_error_free(error);
-		return false;
-	} else if (access(pathname, F_OK)) {
-		tlshd_log_debug("client x509.private_key pathname \"%s\" is not accessible", pathname);
-		g_free(pathname);
 		return false;
 	}
 
@@ -336,7 +332,7 @@ bool tlshd_config_get_server_truststore(char **bundle)
 		g_error_free(error);
 		return false;
 	} else if (access(pathname, F_OK)) {
-		tlshd_log_debug("server x509.truststore pathname \"%s\" is not accessible", pathname);
+		tlshd_log_debug("tlshd cannot access \"%s\"", pathname);
 		g_free(pathname);
 		return false;
 	}
@@ -371,10 +367,6 @@ bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
 					"x509.certificate", &error);
 	if (!pathname) {
 		g_error_free(error);
-		return false;
-	} else if (access(pathname, F_OK)) {
-		tlshd_log_debug("server x509.certificate pathname \"%s\" is not accessible", pathname);
-		g_free(pathname);
 		return false;
 	}
 
@@ -419,10 +411,6 @@ bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey)
 					"x509.private_key", &error);
 	if (!pathname) {
 		g_error_free(error);
-		return false;
-	} else if (access(pathname, F_OK)) {
-		tlshd_log_debug("server x509.privkey pathname \"%s\" is not accessible", pathname);
-		g_free(pathname);
 		return false;
 	}
 
