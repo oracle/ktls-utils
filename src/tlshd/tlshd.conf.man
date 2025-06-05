@@ -79,7 +79,13 @@ that contain handshake authentication tokens.
 .B tlshd
 links these keyrings into its session keyring.
 The configuration file may specify either a keyring's name or serial number.
-The default is to provide no keyring.
+.B tlshd
+always includes the
+.IR .nvme ,
+.IR .nfs ,
+and
+.I .nfsd
+keyrings on its session keyring.
 .P
 And, in this section, there are two subsections:
 .I [client]
