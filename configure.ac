@@ -82,6 +82,10 @@ AC_CHECK_LIB([gnutls], [gnutls_get_system_config_file],
 AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
              [AC_DEFINE([HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2], [1],
                         [Define to 1 if you have the gnutls_psk_allocate_client_credentials2 function.])])
+AC_CHECK_LIB([glib-2.0], [g_pattern_spec_match],
+             [AC_DEFINE([HAVE_GLIB_G_PATTERN_SPEC_MATCH], [1],
+                        [Define to 1 if you have the g_pattern_spec_match function.])])
+
 AC_SUBST([AM_CPPFLAGS])
 
 AC_CONFIG_FILES([Makefile \

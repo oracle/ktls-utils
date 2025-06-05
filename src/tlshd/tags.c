@@ -34,6 +34,8 @@
 //#include <string.h>
 //#include <libgen.h>
 #include <keyutils.h>
+//#define _XOPEN_SOURCE
+#include <time.h>
 
 #include <gnutls/gnutls.h>
 //#include <gnutls/x509.h>
@@ -872,6 +874,8 @@ tlshd_tags_filter_type_validate_time(struct tlshd_tags_filter *filter)
 	struct tm tm;
 	char *ret;
 
+	/* strftime(s, max, "%a %b %d %H:%M:%S UTC %Y", &t) == 0) */
+
 	memset(&tm, 0, sizeof(tm));
 	ret = strptime(filter->fi_pattern, "%Y-%m-%d %H:%M:%S", &tm);
 	if (!ret) {
@@ -886,6 +890,514 @@ tlshd_tags_filter_type_validate_time(struct tlshd_tags_filter *filter)
 	return true;
 }
 
+static gchar *
+tlshd_tags_raw_to_hex(const uint8_t *input, size_t input_size)
+{
+	size_t i, output_size = (input_size * 2) + 1;
+	gchar *c, *output;
+
+	output = g_malloc(output_size);
+	if (!output)
+		return NULL;
+
+	c = output;
+	for (i = 0; i < input_size; i++) {
+		snprintf(c, output_size, "%.2x", input[i]);
+		c += 2;
+		output_size -= 2;
+		if (output_size < 2)
+			break;
+	}
+	*c = '\0';
+
+	return output;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_cert_signaturealgorithm(struct tlshd_tags_filter *filter,
+							  gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	bool res = false;
+	gchar *name;
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	name = NULL;
+	ret = gnutls_x509_crt_get_signature_algorithm(peercert);
+	if (ret != GNUTLS_SIGN_UNKNOWN)
+		name = g_strdup(gnutls_sign_get_name(ret));
+	if (!name) {
+		char oid[128];
+		size_t oid_size = sizeof(oid);
+
+		ret = gnutls_x509_crt_get_signature_oid(peercert, oid, &oid_size);
+		if (ret != GNUTLS_E_SUCCESS) {
+			tlshd_log_error("Unknown signature algorithm");
+			goto deinit;
+		}
+		name = g_strdup(oid);
+	}
+
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	res = g_pattern_spec_match(filter->fi_pattern_spec,
+				   strlen(name), name, NULL);
+#else
+	res = g_pattern_match(filter->fi_pattern_spec,
+			      strlen(name), name, NULL);
+#endif
+
+	tlshd_log_debug("Filter '%s' %s algorithm '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			name);
+	g_free(name);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_tbs_version(struct tlshd_tags_filter *filter,
+					      gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	bool res = false;
+	char version[16];
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	ret = gnutls_x509_crt_get_version(peercert);
+	if (ret < 0) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+	snprintf(version, sizeof(version), "%u", ret);
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	res = g_pattern_spec_match(filter->fi_pattern_spec,
+				   strlen(version), version, NULL);
+#else
+	res = g_pattern_match(filter->fi_pattern_spec,
+			      strlen(version), version, NULL);
+#endif
+
+	tlshd_log_debug("Filter '%s' %s version '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			version);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_tbs_serial(struct tlshd_tags_filter *filter,
+					     gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	uint8_t serial[128];
+	size_t serial_size;
+	bool res = false;
+	gchar *hex;
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	serial_size = sizeof(serial);
+	ret = gnutls_x509_crt_get_serial(peercert, serial, &serial_size);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+	hex = tlshd_tags_raw_to_hex(serial, serial_size);
+	if (!hex) {
+		tlshd_log_error("No memory\n");
+		goto deinit;
+	}
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	res = g_pattern_spec_match(filter->fi_pattern_spec,
+				   strlen(hex), hex, NULL);
+#else
+	res = g_pattern_match(filter->fi_pattern_spec,
+			      strlen(hex), hex, NULL);
+#endif
+
+	tlshd_log_debug("Filter '%s' %s serial '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			hex);
+	g_free(hex);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_tbs_issuer(struct tlshd_tags_filter *filter,
+					      gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	gnutls_datum_t dn;
+	bool res = false;
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	ret = gnutls_x509_crt_get_issuer_dn3(peercert, &dn, 0);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	if (!g_pattern_spec_match(filter->fi_pattern_spec, dn.size,
+			     (const gchar *)dn.data, NULL))
+#else
+	if (!g_pattern_match(filter->fi_pattern_spec, dn.size,
+			     (const gchar *)dn.data, NULL))
+#endif
+		goto free;
+	res = true;
+
+free:
+	tlshd_log_debug("Filter '%s' %s issuer '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			dn.data);
+	gnutls_free(dn.data);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_tbs_validity_notbefore(struct tlshd_tags_filter *filter,
+							 gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	time_t activation_time;
+	bool res = false;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	activation_time = gnutls_x509_crt_get_activation_time(peercert);
+	if (activation_time == (time_t)-1) {
+		tlshd_log_error("Failed to retrieve activation time.");
+		goto deinit;
+	}
+
+	res = (filter->fi_time >= activation_time);
+
+	tlshd_log_debug("Filter '%s' %s validity.notBefore '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			filter->fi_pattern);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_tbs_validity_notafter(struct tlshd_tags_filter *filter,
+							gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	time_t expiration_time;
+	bool res = false;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	expiration_time = gnutls_x509_crt_get_expiration_time(peercert);
+	if (expiration_time == (time_t)-1) {
+		tlshd_log_error("Failed to retrieve expiration time.");
+		goto deinit;
+	}
+
+	res = (filter->fi_time <= expiration_time);
+
+	tlshd_log_debug("Filter '%s' %s validity.notBefore '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			filter->fi_pattern);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_tbs_subject(struct tlshd_tags_filter *filter,
+					      gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	gnutls_datum_t dn;
+	bool res = false;
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	ret = gnutls_x509_crt_get_dn3(peercert, &dn, 0);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	ret = g_pattern_spec_match(filter->fi_pattern_spec, dn.size,
+				   (const gchar *)dn.data, NULL);
+#else
+	ret = g_pattern_match(filter->fi_pattern_spec, dn.size,
+			      (const gchar *)dn.data, NULL);
+#endif
+
+	tlshd_log_debug("Filter '%s' %s subject '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			dn.data);
+	gnutls_free(dn.data);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_extension_keyusage(struct tlshd_tags_filter *filter,
+						      gnutls_session_t session)
+{
+	unsigned int key_usage, critical;
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	bool res = false;
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	ret = gnutls_x509_crt_get_key_usage (peercert, &key_usage, &critical);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+	res = (filter->fi_purpose_mask & key_usage) == filter->fi_purpose_mask;
+
+	tlshd_log_debug("Filter '%s' %s key usage",
+			filter->fi_name,
+			res ? "matched" : "did not match");
+
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_derived_fingerprint(struct tlshd_tags_filter *filter,
+						      gnutls_session_t session)
+{
+	bool sha1_res, sha256_res, res = false;
+	const gnutls_datum_t *cert_list;
+	uint8_t fingerprint[64];
+	size_t size = sizeof(fingerprint);
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	gchar *hex;
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	ret = gnutls_x509_crt_get_fingerprint(peercert, GNUTLS_DIG_SHA1,
+					      fingerprint, &size);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+	hex = tlshd_tags_raw_to_hex(fingerprint, size);
+	if (!hex) {
+		tlshd_log_error("No memory\n");
+		goto deinit;
+	}
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	sha1_res = g_pattern_spec_match(filter->fi_pattern_spec,
+					strlen(hex), hex, NULL);
+#else
+	sha1_res = g_pattern_match(filter->fi_pattern_spec,
+				   strlen(hex), hex, NULL);
+#endif
+	g_free(hex);
+
+	size = sizeof(fingerprint);
+	ret = gnutls_x509_crt_get_fingerprint(peercert, GNUTLS_DIG_SHA256,
+					      fingerprint, &size);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+	hex = tlshd_tags_raw_to_hex(fingerprint, size);
+	if (!hex) {
+		tlshd_log_error("No memory\n");
+		goto deinit;
+	}
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	sha256_res = g_pattern_spec_match(filter->fi_pattern_spec,
+					  strlen(hex), hex, NULL);
+#else
+	sha256_res = g_pattern_match(filter->fi_pattern_spec,
+				     strlen(hex), hex, NULL);
+#endif
+	g_free(hex);
+
+	res = sha1_res | sha256_res;
+
+	tlshd_log_debug("Filter '%s' %s fingerprint '%s'",
+			filter->fi_name,
+			res ? "matched" : "did not match",
+			filter->fi_pattern);
+deinit:
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+static bool
+tlshd_tags_filter_type_match_x509_derived_selfsigned(struct tlshd_tags_filter *filter,
+						     gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+	gnutls_datum_t issuer, subject;
+	bool res = false;
+	int ret;
+
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		goto out;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		goto out;
+
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+
+	ret = gnutls_x509_crt_get_issuer_dn3(peercert, &issuer, 0);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		goto deinit;
+	}
+
+	ret = gnutls_x509_crt_get_dn3(peercert, &subject, 0);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		gnutls_free(issuer.data);
+		goto deinit;
+	}
+
+	if (issuer.size == subject.size &&
+	    memcmp(issuer.data, subject.data, issuer.size) == 0)
+		res = true;
+
+	gnutls_free(subject.data);
+	gnutls_free(issuer.data);
+
+deinit:
+	tlshd_log_debug("Filter '%s' x.509 cert %s self-signed",
+			filter->fi_name, res ? "is" : "is not");
+	gnutls_x509_crt_deinit(peercert);
+out:
+	return res;
+}
+
+
 static const struct tlshd_tags_filter_type tlshd_tags_static_filter_types[] = {
 
 	/* Certificate fields, RFC 5280, Section 4.1.1 */
@@ -893,6 +1405,8 @@ static const struct tlshd_tags_filter_type tlshd_tags_static_filter_types[] = {
 	{
 		/* RFC 5280, Section 4.1.1.2 */
 		.ft_name		= "x509.cert.signatureAlgorithm",
+		.ft_validate		= tlshd_tags_filter_type_validate_pattern,
+		.ft_match		= tlshd_tags_filter_type_match_x509_cert_signaturealgorithm,
 	},
 
 	/* To-Be-Signed fields, RFC 5280, Section 4.1.2 */
@@ -900,35 +1414,43 @@ static const struct tlshd_tags_filter_type tlshd_tags_static_filter_types[] = {
 	{
 		/* RFC 5280, Section 4.1.2.1 */
 		.ft_name		= "x509.tbs.version",
+		.ft_validate		= tlshd_tags_filter_type_validate_pattern,
+		.ft_match		= tlshd_tags_filter_type_match_x509_tbs_version,
 	},
 	{
 		/* RFC 5280, Section 4.1.2.2 */
 		.ft_name		= "x509.tbs.serialNumber",
 		.ft_validate		= tlshd_tags_filter_type_validate_pattern,
+		.ft_match		= tlshd_tags_filter_type_match_x509_tbs_serial,
 	},
 	{
 		/* RFC 5280, Section 4.1.2.3 */
 		.ft_name		= "x509.tbs.signature",
+		/* NYI */
 	},
 	{
 		/* RFC 5280, Section 4.1.2.4 */
 		.ft_name		= "x509.tbs.issuer",
 		.ft_validate		= tlshd_tags_filter_type_validate_pattern,
+		.ft_match		= tlshd_tags_filter_type_match_x509_tbs_issuer,
 	},
 	{
 		/* RFC 5280, Section 4.1.2.5 */
 		.ft_name		= "x509.tbs.validity.notBefore",
 		.ft_validate		= tlshd_tags_filter_type_validate_time,
+		.ft_match		= tlshd_tags_filter_type_match_x509_tbs_validity_notbefore,
 	},
 	{
 		/* RFC 5280, Section 4.1.2.5 */
 		.ft_name		= "x509.tbs.validity.notAfter",
 		.ft_validate		= tlshd_tags_filter_type_validate_time,
+		.ft_match		= tlshd_tags_filter_type_match_x509_tbs_validity_notafter,
 	},
 	{
 		/* RFC 5280, Section 4.1.2.6 */
 		.ft_name		= "x509.tbs.subject",
 		.ft_validate		= tlshd_tags_filter_type_validate_pattern,
+		.ft_match		= tlshd_tags_filter_type_match_x509_tbs_subject,
 	},
 
 	/* Standard certificate extensions, RFC 5280, Section 4.2.1 */
@@ -937,10 +1459,12 @@ static const struct tlshd_tags_filter_type tlshd_tags_static_filter_types[] = {
 		/* RFC 5280, Section 4.2.1.3 */
 		.ft_name		= "x509.extension.keyUsage",
 		.ft_validate		= tlshd_tags_filter_type_validate_purpose,
+		.ft_match		= tlshd_tags_filter_type_match_x509_extension_keyusage,
 	},
 	{
 		/* RFC 5280, Secttion 4.2.1.12 */
 		.ft_name		= "x509.extension.extendedKeyUsage",
+		/* NYI */
 	},
 
 	/* Derived fields */
@@ -949,11 +1473,13 @@ static const struct tlshd_tags_filter_type tlshd_tags_static_filter_types[] = {
 		/* Locally implemented */
 		.ft_name		= "x509.derived.fingerprint",
 		.ft_validate		= tlshd_tags_filter_type_validate_pattern,
+		.ft_match		= tlshd_tags_filter_type_match_x509_derived_fingerprint,
 	},
 	{
 		/* Locally implemented */
 		.ft_name		= "x509.derived.selfSigned",
 		.ft_validate		= tlshd_tags_filter_type_no_parameters,
+		.ft_match		= tlshd_tags_filter_type_match_x509_derived_selfsigned,
 	},
 };
 
@@ -990,6 +1516,111 @@ static bool tlshd_tags_filter_type_hash_init(void)
 				    (gpointer)filter_type);
 	}
 	return true;
+}
+
+struct tlshd_tags_match_args {
+	struct tlshd_tags_tag		*ma_tag;
+	gnutls_session_t		ma_session;
+	bool				ma_filter_matched;
+};
+
+static void tlshd_tags_x509_nomatch_filters_cb(gpointer data, gpointer user_data)
+{
+	struct tlshd_tags_match_args *args = (struct tlshd_tags_match_args *)user_data;
+	gchar *filter_name = (gchar *)data;
+	struct tlshd_tags_filter *filter;
+
+	/* A previous filter matched. No need to check more of this
+	 * tag's inverting filters. */
+	if (args->ma_filter_matched)
+		return;
+
+	filter = g_hash_table_lookup(tlshd_tags_filter_hash, filter_name);
+	if (!filter) {
+		args->ma_filter_matched = false;
+		tlshd_log_debug("Failed to find filter '%s'", filter_name);
+		return;
+	}
+	if (!filter->fi_filter_type->ft_match) {
+		args->ma_filter_matched = false;
+		return;
+	}
+
+	args->ma_filter_matched = filter->fi_filter_type->ft_match(filter, args->ma_session);
+}
+
+static void tlshd_tags_x509_match_filters_cb(gpointer data, gpointer user_data)
+{
+	struct tlshd_tags_match_args *args = (struct tlshd_tags_match_args *)user_data;
+	gchar *filter_name = (gchar *)data;
+	struct tlshd_tags_filter *filter;
+
+	/* A previous filter failed to match. No need to check more of
+	 * this tag's non-inverting filters. */
+	if (!args->ma_filter_matched)
+		return;
+
+	filter = g_hash_table_lookup(tlshd_tags_filter_hash, filter_name);
+	if (!filter) {
+		args->ma_filter_matched = false;
+		tlshd_log_debug("Failed to find filter '%s'", filter_name);
+		return;
+	}
+	if (!filter->fi_filter_type->ft_match) {
+		args->ma_filter_matched = true;
+		return;
+	}
+
+	args->ma_filter_matched = filter->fi_filter_type->ft_match(filter, args->ma_session);
+}
+
+/**
+ * tlshd_tags_match_session - match certificate against configured tags
+ * @session: session to assign tags to
+ *
+ * Side-effect: The ta_matched boolean is set in each tag in the
+ * global tag list that is matched. When this function is called in
+ * a child process, the parent process's tag list is not changed
+ * (the parent's tag list is copied-on-write when the child address
+ * space is created by fork(2)).
+ */
+void tlshd_tags_match_session(gnutls_session_t session)
+{
+	GHashTableIter iter;
+	gpointer key, value;
+
+	if (!tlshd_tags_tag_hash)
+		return;
+
+	/* Visit each tag in the global hash */
+	g_hash_table_iter_init(&iter, tlshd_tags_tag_hash);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		struct tlshd_tags_match_args args = {
+			.ma_tag			= (struct tlshd_tags_tag *)value,
+			.ma_session		= session,
+		};
+
+		args.ma_tag->ta_matched = false;
+
+		/* Visit each inverting filter in the tag */
+		args.ma_filter_matched = false;
+		g_ptr_array_foreach(args.ma_tag->ta_inverted_filters,
+				    tlshd_tags_x509_nomatch_filters_cb,
+				    (gpointer)&args);
+
+		/* Visit each non-inverting filter in the tag */
+		args.ma_filter_matched = true;
+		g_ptr_array_foreach(args.ma_tag->ta_noninverted_filters,
+				    tlshd_tags_x509_match_filters_cb,
+				    (gpointer)&args);
+
+		/*
+		 * Set tag->ta_matched only if:
+		 * - none of the inverting filters matched, and
+		 * - all the tag's filters matched
+		 */
+		args.ma_tag->ta_matched = args.ma_filter_matched;
+	}
 }
 
 /* --- Subsystem start-up / shutdown APIs --- */
