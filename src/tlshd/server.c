@@ -313,6 +313,8 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 		}
 	}
 
+	tlsdh_tags_x509_match_session(session);
+
 	gnutls_deinit(session);
 
 out_free_certs:

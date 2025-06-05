@@ -1006,3 +1006,238 @@ void tlshd_tags_shutdown(void)
 				    NULL);
 	g_ptr_array_free(tlshd_tags_filter_all, TRUE);
 }
+
+static bool tlshd_tags_x509_match_subject(struct tlshd_tags_filter *filter,
+					  gnutls_x509_crt_t *cert)
+{
+	gnutls_datum_t dn;
+	int ret;
+
+	ret = gnutls_x509_crt_get_dn3(*cert, &dn, 0);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return false;
+	}
+
+	/* XXX: Do we need to consult filter->fi_match_type here ? */
+
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	if (!g_pattern_spec_match(filter->fi_pattern, dn.size,
+			     (const gchar *)dn.data, NULL)) {
+#else
+	if (!g_pattern_match(filter->fi_pattern, dn.size,
+			     (const gchar *)dn.data, NULL)) {
+#endif
+		tlshd_log_debug("Filter '%s' did not match subject '%s'",
+				filter->fi_name, dn.data);
+		gnutls_free(dn.data);
+		return false;
+	}
+	tlshd_log_debug("Filter '%s' matched subject '%s'",
+			filter->fi_name, dn.data);
+	gnutls_free(dn.data);
+	return true;
+}
+
+static bool tlshd_tags_x509_match_issuer(struct tlshd_tags_filter *filter,
+					 gnutls_x509_crt_t *cert)
+{
+	gnutls_datum_t dn;
+	int ret;
+
+	ret = gnutls_x509_crt_get_issuer_dn3(*cert, &dn, 0);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return false;
+	}
+
+	/* XXX: Do we need to consult filter->fi_match_type here ? */
+
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	if (!g_pattern_spec_match(filter->fi_pattern, dn.size,
+			     (const gchar *)dn.data, NULL)) {
+#else
+	if (!g_pattern_match(filter->fi_pattern, dn.size,
+			     (const gchar *)dn.data, NULL)) {
+#endif
+		tlshd_log_debug("Filter '%s' did not match issuer '%s'",
+				filter->fi_name, dn.data);
+		gnutls_free(dn.data);
+		return false;
+	}
+	tlshd_log_debug("Filter '%s' matched issuer '%s'",
+			filter->fi_name, dn.data);
+	gnutls_free(dn.data);
+	return true;
+}
+
+static bool tlshd_tags_x509_match_serial(struct tlshd_tags_filter *filter,
+					 gnutls_x509_crt_t *cert)
+{
+	unsigned char raw[40];
+	char *c, buf[100];
+	size_t i, size;
+	int ret;
+
+	size = sizeof(raw);
+	ret = gnutls_x509_crt_get_serial(*cert, raw, &size);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return false;
+	}
+
+	c = buf;
+	for (i = 0; i < size; i++) {
+		sprintf(c, "%.2x", raw[i]);
+		c += 2;
+	}
+	*c = '\0';
+
+	/* XXX: Do we need to consult filter->fi_match_type here ? */
+
+#ifdef HAVE_GLIB_G_PATTERN_SPEC_MATCH
+	if (!g_pattern_spec_match(filter->fi_pattern, strlen(buf), buf, NULL)) {
+#else
+	if (!g_pattern_match(filter->fi_pattern, strlen(buf), buf, NULL)) {
+#endif
+		tlshd_log_debug("Filter '%s' did not match serial '%s'",
+				filter->fi_name, buf);
+		return false;
+	}
+	tlshd_log_debug("Filter '%s' matched serial '%s'",
+			filter->fi_name, buf);
+	return true;
+}
+
+static bool tlshd_tags_x509_match_san(struct tlshd_tags_filter *filter,
+				      gnutls_x509_crt_t *cert)
+{
+	char buf[256];	/* XXX: Dynamically-allocate this buffer */
+	unsigned int i;
+	size_t size;
+	int ret;
+
+	tlshd_log_debug("SAN filter: '%s'", filter->fi_name);
+
+	for (ret = 0, i = 0; ret >= 0; i++) {
+		size = sizeof(buf);
+		ret = gnutls_x509_crt_get_subject_alt_name(*cert, i, buf,
+							   &size, NULL);
+		if (ret == GNUTLS_E_REQUESTED_DATA_NOT_AVAILABLE)
+			break;
+
+		switch (ret) {
+		case GNUTLS_SAN_DNSNAME:
+			tlshd_log_debug("DNS: %s", buf);
+			break;
+		case GNUTLS_SAN_RFC822NAME:
+			tlshd_log_debug("RFC822: %s", buf);
+			break;
+		case GNUTLS_SAN_URI:
+			tlshd_log_debug("URI: %s", buf);
+			break;
+		case GNUTLS_SAN_IPADDRESS:
+			tlshd_log_debug("IP: %s", buf);
+			break;
+		case GNUTLS_SAN_OTHERNAME:
+			tlshd_log_debug("Other: %s", buf);
+			break;
+		case GNUTLS_SAN_DN:
+			tlshd_log_debug("DN: %s", buf);
+			break;
+		case GNUTLS_SAN_REGISTERED_ID:
+			tlshd_log_debug("Registered ID: %s", buf);
+			break;
+		case GNUTLS_SAN_OTHERNAME_XMPP:
+			tlshd_log_debug("Other XMPP: %s", buf);
+			break;
+		case GNUTLS_SAN_OTHERNAME_KRB5PRINCIPAL:
+			tlshd_log_debug("Other Krb5: %s", buf);
+			break;
+		case GNUTLS_SAN_OTHERNAME_MSUSERPRINCIPAL:
+			tlshd_log_debug("Other MS User principal: %s", buf);
+			break;
+
+		default:
+			if (ret < 0) {
+				tlshd_log_gnutls_error(ret);
+				break;
+			}
+		}
+	}
+
+	return false;
+}
+
+struct tlshd_tags_match_args {
+	struct tlshd_tags_tag		*ma_tag;
+	gnutls_x509_crt_t		*ma_cert;
+	bool				ma_matched;
+};
+
+static void tlshd_tags_x509_match_filters_cb(gpointer data, gpointer user_data)
+{
+	struct tlshd_tags_filter *filter = (struct tlshd_tags_filter *)data;
+	struct tlshd_tags_match_args *args = (struct tlshd_tags_match_args *)user_data;
+
+	/* A previous filter failed to match, no need to check any further */
+	if (!args->ma_matched)
+		return;
+
+	if (strcmp(filter->fi_field, "subject") == 0)
+		args->ma_matched = tlshd_tags_x509_match_subject(filter, args->ma_cert);
+	else if (strcmp(filter->fi_field, "issuer") == 0)
+		args->ma_matched = tlshd_tags_x509_match_issuer(filter, args->ma_cert);
+	else if (strcmp(filter->fi_field, "serial") == 0)
+		args->ma_matched = tlshd_tags_x509_match_serial(filter, args->ma_cert);
+	else if (strcmp(filter->fi_field, "san") == 0)
+		args->ma_matched = tlshd_tags_x509_match_san(filter, args->ma_cert);
+}
+
+static void tlshd_tags_x509_match_cb(gpointer data, gpointer user_data)
+{
+	struct tlshd_tags_match_args args = {
+		.ma_tag		= (struct tlshd_tags_tag *)data,
+		.ma_cert	= (gnutls_x509_crt_t *)user_data,
+		.ma_matched	= true,
+	};
+
+	g_ptr_array_foreach(args.ma_tag->ta_filters,
+			    tlshd_tags_x509_match_filters_cb, (gpointer)&args);
+	args.ma_tag->ta_matched = args.ma_matched;
+}
+
+/**
+ * tlshd_tags_x509_match_session - match certificate against configured tags
+ * @session: session with incoming x.509 certificates
+ *
+ * Side-effect: The tt_matched boolean is set in each tag in the
+ * global tag list that is matched. When this function is called
+ * in a child process, the parent's tag list is not changed (the
+ * parent's tag list is copied-on-write after the child forks).
+ */
+void tlsdh_tags_x509_match_session(gnutls_session_t session)
+{
+	const gnutls_datum_t *cert_list;
+	unsigned int num_certs = 0;
+	gnutls_x509_crt_t peercert;
+
+	if (!tlshd_tags_tag_all)
+		return;
+	if (gnutls_certificate_type_get(session) != GNUTLS_CRT_X509)
+		return;
+	cert_list = gnutls_certificate_get_peers(session, &num_certs);
+	if (num_certs == 0)
+		return;
+
+	/*
+	 * The first certificate in the returned list is the peer's
+	 * certificate. That is the only one that is checked against
+	 * our tags list.
+	 */
+	gnutls_x509_crt_init(&peercert);
+	gnutls_x509_crt_import(peercert, &cert_list[0], GNUTLS_X509_FMT_DER);
+	g_ptr_array_foreach(tlshd_tags_tag_all,
+			    tlshd_tags_x509_match_cb, (gpointer)&peercert);
+	gnutls_x509_crt_deinit(peercert);
+}

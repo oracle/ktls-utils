@@ -121,6 +121,7 @@ extern void tlshd_quic_serverhello_handshake(struct tlshd_handshake_parms *parms
 
 /* tags.c */
 extern void tlshd_tags_read_configuration(const char *tagsdir);
+extern void tlsdh_tags_x509_match_session(gnutls_session_t session);
 extern void tlshd_tags_shutdown(void);
 
 #ifdef HAVE_GNUTLS_QUIC
