@@ -137,6 +137,7 @@ extern void tlshd_quic_serverhello_handshake(struct tlshd_handshake_parms *parms
 /* tags.c */
 extern bool tlshd_tags_config_init(const char *tagsdir);
 extern void tlshd_tags_config_shutdown(void);
+extern void tlshd_tags_match_session(gnutls_session_t session);
 
 #ifdef HAVE_GNUTLS_QUIC
 #include "quic.h"

@@ -88,6 +88,12 @@ AC_CHECK_LIB([gnutls], [gnutls_get_system_config_file],
 AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
              [AC_DEFINE([HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2], [1],
                         [Define to 1 if you have the gnutls_psk_allocate_client_credentials2 function.])])
+AC_CHECK_LIB([glib-2.0], [g_pattern_spec_match],
+             [AC_DEFINE([HAVE_GLIB_G_PATTERN_SPEC_MATCH], [1],
+                        [Define to 1 if you have the g_pattern_spec_match function.])])
+AC_CHECK_LIB([glib-2.0], [g_pattern_spec_match_string],
+             [AC_DEFINE([HAVE_GLIB_G_PATTERN_SPEC_MATCH_STRING], [1],
+                        [Define to 1 if you have the g_pattern_spec_match_string function.])])
 
 AC_MSG_CHECKING(for ML-DSA support in gnutls)
 AC_COMPILE_IFELSE(
