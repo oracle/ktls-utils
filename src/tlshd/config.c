@@ -99,15 +99,18 @@ bool tlshd_config_init(const gchar *pathname)
 		for (i = 0; i < length; i++) {
 			if (!strcmp(keyrings[i], ".nvme"))
 				continue;
+			if (!strcmp(keyrings[i], ".nfs"))
+				continue;
+			if (!strcmp(keyrings[i], ".nfsd"))
+				continue;
 			tlshd_keyring_link_session(keyrings[i]);
 		}
 		g_strfreev(keyrings);
 	}
-	/*
-	 * Always link the default nvme subsystem keyring into the
-	 * session.
-	 */
+	/* The ".nvme", ".nfs", and ".nfsd" keyrings cannot be disabled. */
 	tlshd_keyring_link_session(".nvme");
+	tlshd_keyring_link_session(".nfs");
+	tlshd_keyring_link_session(".nfsd");
 
 	return true;
 }
