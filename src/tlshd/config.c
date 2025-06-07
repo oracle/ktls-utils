@@ -47,12 +47,6 @@
 static GKeyFile *tlshd_configuration;
 
 /**
- * ALLPERMS exists in glibc, but not on musl, so we
- * manually define TLSHD_ACCESSPERMS instead of using ALLPERMS.
- */
-#define TLSHD_ACCESSPERMS	(S_IRWXU|S_IRWXG|S_IRWXO)
-
-/**
  * tlshd_config_init - Read tlshd's config file
  * @pathname: Pathname to config file
  *
@@ -119,6 +113,12 @@ void tlshd_config_shutdown(void)
 {
 	g_key_file_free(tlshd_configuration);
 }
+
+/**
+ * ALLPERMS exists in glibc, but not on musl, so we manually
+ * define TLSHD_ACCESSPERMS instead of using ALLPERMS.
+ */
+#define TLSHD_ACCESSPERMS	(S_IRWXU|S_IRWXG|S_IRWXO)
 
 /*
  * Expected file attributes
