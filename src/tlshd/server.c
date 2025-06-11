@@ -273,6 +273,28 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 
 	tlshd_start_tls_handshake(session, parms);
 
+	if (tlshd_debug &&
+	    gnutls_certificate_type_get(session) == GNUTLS_CRT_X509) {
+		const gnutls_datum_t *peercerts;
+		unsigned int i, num_certs = 0;
+
+		peercerts = gnutls_certificate_get_peers(session, &num_certs);
+		for (i = 0; i < num_certs; i++) {
+			gnutls_x509_crt_t cert;
+			gnutls_datum_t cinfo;
+
+			gnutls_x509_crt_init(&cert);
+			gnutls_x509_crt_import(cert, &peercerts[i],
+					       GNUTLS_X509_FMT_DER);
+			if (gnutls_x509_crt_print(cert, GNUTLS_CRT_PRINT_ONELINE,
+						  &cinfo) == 0) {
+				tlshd_log_debug("Peer certificate: %s", cinfo.data);
+				gnutls_free(cinfo.data);
+			}
+			gnutls_x509_crt_deinit(cert);
+		}
+	}
+
 	gnutls_deinit(session);
 
 out_free_creds:
