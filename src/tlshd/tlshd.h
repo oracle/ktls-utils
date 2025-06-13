@@ -116,6 +116,7 @@ void tlshd_log_nl_error(const char *msg, int err);
 /* netlink.c */
 extern void tlshd_genl_dispatch(void);
 extern int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms);
+extern void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms);
 extern void tlshd_genl_done(struct tlshd_handshake_parms *parms);
 
 /* server.c */

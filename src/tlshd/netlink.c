@@ -405,6 +405,18 @@ out_close:
 	return ret;
 }
 
+/**
+ * tlshd_genl_put_handshake_parms - Release handshake resources
+ * @parms: handshake parameters to be released
+ *
+ */
+void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
+{
+	if (parms->keyring)
+		keyctl_unlink(parms->keyring, KEY_SPEC_SESSION_KEYRING);
+	free(parms->peerids);
+}
+
 static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 					 struct tlshd_handshake_parms *parms)
 {
@@ -423,7 +435,7 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 }
 
 /**
- * tlshd_genl_done - Indicate anon handshake has completed successfully
+ * tlshd_genl_done - Indicate handshake has completed successfully
  * @parms: buffer filled in with parameters
  *
  */
