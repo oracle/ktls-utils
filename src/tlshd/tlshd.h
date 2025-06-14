@@ -96,11 +96,7 @@ extern void tlshd_log_init(const char *progname);
 extern void tlshd_log_shutdown(void);
 extern void tlshd_log_close(void);
 
-extern void tlshd_log_success(const char *hostname,
-			      const struct sockaddr *sap, socklen_t salen);
-extern void tlshd_log_failure(const char *hostname,
-			      const struct sockaddr *sap, socklen_t salen);
-
+extern void tlshd_log_completion(struct tlshd_handshake_parms *parms);
 extern void tlshd_log_debug(const char *fmt, ...);
 extern void tlshd_log_notice(const char *fmt, ...);
 extern void tlshd_log_error(const char *fmt, ...);

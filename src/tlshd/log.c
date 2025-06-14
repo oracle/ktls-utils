@@ -45,40 +45,31 @@ int tlshd_tls_debug;
 int tlshd_stderr;
 
 /**
- * tlshd_log_success - Emit "handshake successful" notification
- * @hostname: peer's DNS name
- * @sap: peer's IP address
- * @salen: length of IP address
+ * tlshd_log_completion - Emit completion notification
+ * @parms: handshake parameters
  *
  */
-void tlshd_log_success(const char *hostname, const struct sockaddr *sap,
-		       socklen_t salen)
+void tlshd_log_completion(struct tlshd_handshake_parms *parms)
 {
-	char buf[NI_MAXHOST];
+	const char *status = "succeeded";
+	int priority = LOG_INFO;
 
-	getnameinfo(sap, salen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
-	syslog(LOG_INFO, "Handshake with %s (%s) was successful\n",
-		hostname, buf);
-}
+	if (!tlshd_debug)
+		return;
 
-/**
- * tlshd_log_failure - Emit "handshake failed" notification
- * @hostname: peer's DNS name
- * @sap: peer's IP address
- * @salen: length of IP address
- *
- */
-void tlshd_log_failure(const char *hostname, const struct sockaddr *sap,
-		       socklen_t salen)
-{
-	if (salen) {
+	if (parms->session_status) {
+		status = "failed";
+		priority = LOG_ERR;
+	}
+	if (parms->peeraddr_len) {
 		char buf[NI_MAXHOST];
 
-		getnameinfo(sap, salen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
-		syslog(LOG_ERR, "Handshake with '%s' (%s) failed\n",
-		       hostname, buf);
+		getnameinfo(parms->peeraddr, parms->peeraddr_len, buf,
+			    sizeof(buf), NULL, 0, NI_NUMERICHOST);
+		syslog(priority, "Handshake with '%s' (%s) %s\n",
+		       parms->peername, buf, status);
 	} else
-		syslog(LOG_ERR, "Handshake request failed\n");
+		syslog(priority, "Handshake request %s\n", status);
 }
 
 /**
