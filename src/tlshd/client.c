@@ -417,9 +417,10 @@ out_free_creds:
 
 static void tlshd_tls13_client_psk_handshake(struct tlshd_handshake_parms *parms)
 {
-	unsigned int i;
+	key_serial_t peerid;
+	guint i;
 
-	if (!parms->peerids) {
+	if (parms->peerids->len == 0) {
 		tlshd_log_error("No key identities");
 		return;
 	}
@@ -428,8 +429,9 @@ static void tlshd_tls13_client_psk_handshake(struct tlshd_handshake_parms *parms
 	 * GnuTLS does not yet support multiple offered PskIdentities.
 	 * Retry ClientHello with each identity on the kernel's list.
 	 */
-	for (i = 0; i < parms->num_peerids; i++) {
-		tlshd_tls13_client_psk_handshake_one(parms, parms->peerids[i]);
+	for (i = 0; i < parms->peerids->len; i++) {
+		peerid = g_array_index(parms->peerids, key_serial_t, i);
+		tlshd_tls13_client_psk_handshake_one(parms, peerid);
 		if (parms->session_status != EACCES)
 			break;
 	}
