@@ -331,8 +331,7 @@ static int tlshd_server_psk_cb(gnutls_session_t session,
 	}
 
 	/* PSK uses the same identity for both client and server */
-	parms->remote_peerid[0] = psk;
-	parms->num_remote_peerids = 1;
+	g_array_append_val(parms->remote_peerids, psk);
 	return 0;
 }
 
@@ -468,8 +467,7 @@ found:
 	}
 
 	/* PSK uses the same identity for both client and server */
-	parms->remote_peerid[0] = psk;
-	parms->num_remote_peerids = 1;
+	g_array_append_val(parms->remote_peerids, psk);
 	return 0;
 }
 
