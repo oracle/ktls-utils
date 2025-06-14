@@ -404,11 +404,9 @@ static void tlshd_tls13_client_psk_handshake_one(struct tlshd_handshake_parms *p
 
 	tlshd_log_debug("start ClientHello handshake");
 	tlshd_start_tls_handshake(session, parms);
-	if (!parms->session_status) {
+	if (!parms->session_status)
 		/* PSK uses the same identity for both client and server */
-		parms->num_remote_peerids = 1;
-		parms->remote_peerid[0] = peerid;
-	}
+		g_array_append_val(parms->remote_peerids, peerid);
 
 	gnutls_deinit(session);
 

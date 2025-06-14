@@ -321,10 +321,9 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.x509_privkey		= TLS_NO_PRIVKEY,
 	.peerids		= NULL,
 	.num_peerids		= 0,
+	.remote_peerids		= NULL,
 	.msg_status		= 0,
 	.session_status		= EIO,
-
-	.num_remote_peerids	= 0,
 };
 
 /**
@@ -346,6 +345,8 @@ int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms)
 	tlshd_log_debug("Querying the handshake service\n");
 
 	*parms = tlshd_default_handshake_parms;
+
+	parms->remote_peerids = g_array_new(FALSE, FALSE, sizeof(key_serial_t));
 
 	ret = tlshd_genl_sock_open(&nls);
 	if (ret)
@@ -415,17 +416,19 @@ void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 	if (parms->keyring)
 		keyctl_unlink(parms->keyring, KEY_SPEC_SESSION_KEYRING);
 	free(parms->peerids);
+	g_array_free(parms->remote_peerids, TRUE);
 }
 
 static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 					 struct tlshd_handshake_parms *parms)
 {
-	unsigned int i;
+	key_serial_t peerid;
+	guint i;
 	int err;
 
-	for (i = 0; i < parms->num_remote_peerids; i++) {
-		err = nla_put_s32(msg, HANDSHAKE_A_DONE_REMOTE_AUTH,
-				  parms->remote_peerid[i]);
+	for (i = 0; i < parms->remote_peerids->len; i++) {
+		peerid = g_array_index(parms->remote_peerids, key_serial_t, i);
+		err = nla_put_s32(msg, HANDSHAKE_A_DONE_REMOTE_AUTH, peerid);
 		if (err < 0) {
 			tlshd_log_nl_error("nla_put peer id", err);
 			return -1;
