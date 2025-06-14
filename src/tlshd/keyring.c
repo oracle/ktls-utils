@@ -256,7 +256,7 @@ int tlshd_keyring_link_session(const char *keyring)
 	key_serial_t serial;
 	long ret;
 
-	if (!keyring) {
+	if (!keyring || keyring[0] == '\0') {
 		tlshd_log_error("No keyring specified");
 		return -1;
 	}
