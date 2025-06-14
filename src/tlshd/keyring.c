@@ -263,9 +263,8 @@ int tlshd_keyring_link_session(const char *keyring)
 	}
 
 	serial = find_key_by_type_and_desc("keyring", keyring, 0);
-	if (!serial) {
-		tlshd_log_debug("Failed to lookup keyring '%s'\n",
-				keyring);
+	if (serial == -1) {
+		tlshd_log_debug("Failed to find keyring '%s'\n", keyring);
 		errno = -ENOKEY;
 		return -1;
 	}
