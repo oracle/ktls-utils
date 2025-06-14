@@ -189,20 +189,15 @@ out_close:
 static void tlshd_parse_peer_identity(struct tlshd_handshake_parms *parms,
 				      struct nlattr *head)
 {
+	key_serial_t peerid;
+
 	if (!head) {
 		tlshd_log_debug("No peer identities found\n");
 		return;
 	}
 
-	parms->num_peerids = 1;
-
-	parms->peerids = calloc(parms->num_peerids, sizeof(key_serial_t));
-	if (!parms->peerids) {
-		parms->num_peerids = 0;
-		return;
-	}
-
-	parms->peerids[0] = nla_get_s32(head);
+	peerid = nla_get_s32(head);
+	g_array_append_val(parms->peerids, peerid);
 }
 
 #if LIBNL_VER_NUM >= LIBNL_VER(3,5)
@@ -320,7 +315,6 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.x509_cert		= TLS_NO_CERT,
 	.x509_privkey		= TLS_NO_PRIVKEY,
 	.peerids		= NULL,
-	.num_peerids		= 0,
 	.remote_peerids		= NULL,
 	.msg_status		= 0,
 	.session_status		= EIO,
@@ -346,6 +340,7 @@ int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms)
 
 	*parms = tlshd_default_handshake_parms;
 
+	parms->peerids = g_array_new(FALSE, FALSE, sizeof(key_serial_t));
 	parms->remote_peerids = g_array_new(FALSE, FALSE, sizeof(key_serial_t));
 
 	ret = tlshd_genl_sock_open(&nls);
@@ -415,7 +410,7 @@ void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 {
 	if (parms->keyring)
 		keyctl_unlink(parms->keyring, KEY_SPEC_SESSION_KEYRING);
-	free(parms->peerids);
+	g_array_free(parms->peerids, TRUE);
 	g_array_free(parms->remote_peerids, TRUE);
 }
 

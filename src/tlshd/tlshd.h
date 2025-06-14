@@ -39,8 +39,7 @@ struct tlshd_handshake_parms {
 	key_serial_t	keyring;
 	key_serial_t	x509_cert;
 	key_serial_t	x509_privkey;
-	key_serial_t	*peerids;
-	unsigned int	num_peerids;
+	GArray		*peerids;
 	GArray		*remote_peerids;
 	int		msg_status;
 
