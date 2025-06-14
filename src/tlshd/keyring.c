@@ -269,8 +269,8 @@ int tlshd_keyring_link_session(const char *keyring)
 
 	ret = keyctl_link(serial, KEY_SPEC_SESSION_KEYRING);
 	if (ret < 0) {
-		tlshd_log_debug("Failed to link keyring %s (%lx) error %d\n",
-				keyring, serial, errno);
+		tlshd_log_debug("Failed to link keyring '%s' (%lx): %s\n",
+				keyring, serial, strerror(errno));
 		return -1;
 	}
 
