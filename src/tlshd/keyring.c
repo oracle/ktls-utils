@@ -258,14 +258,12 @@ int tlshd_keyring_link_session(const char *keyring)
 
 	if (!keyring) {
 		tlshd_log_error("No keyring specified");
-		errno = -EINVAL;
 		return -1;
 	}
 
 	serial = find_key_by_type_and_desc("keyring", keyring, 0);
 	if (serial == -1) {
 		tlshd_log_debug("Failed to find keyring '%s'\n", keyring);
-		errno = -ENOKEY;
 		return -1;
 	}
 
