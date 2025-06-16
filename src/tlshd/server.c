@@ -142,10 +142,9 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
  * verification failed. The server sends an ALERT to the client.
  */
 static int tlshd_server_x509_verify_function(gnutls_session_t session,
-					     struct tlshd_handshake_parms *parms)
+		__attribute__ ((unused)) struct tlshd_handshake_parms *parms)
 {
-	const gnutls_datum_t *peercerts;
-	unsigned int i, status;
+	unsigned int status;
 	int ret;
 
 	ret = gnutls_certificate_verify_peers3(session, NULL, &status);
@@ -165,34 +164,6 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for
 	 * via a netlink attribute. */
-
-	peercerts = gnutls_certificate_get_peers(session,
-						 &parms->num_remote_peerids);
-	if (!peercerts || parms->num_remote_peerids == 0) {
-		tlshd_log_debug("The peer cert list is empty.");
-		goto certificate_error;
-	}
-
-	tlshd_log_debug("The peer offered %u certificate(s).",
-			parms->num_remote_peerids);
-
-	if (parms->num_remote_peerids > ARRAY_SIZE(parms->remote_peerid))
-		parms->num_remote_peerids = ARRAY_SIZE(parms->remote_peerid);
-	for (i = 0; i < parms->num_remote_peerids; i++) {
-		gnutls_x509_crt_t cert;
-
-		gnutls_x509_crt_init(&cert);
-		ret = gnutls_x509_crt_import(cert, &peercerts[i],
-					     GNUTLS_X509_FMT_DER);
-		if (ret != GNUTLS_E_SUCCESS) {
-			tlshd_log_gnutls_error(ret);
-			gnutls_x509_crt_deinit(cert);
-			return GNUTLS_E_CERTIFICATE_ERROR;
-		}
-		parms->remote_peerid[i] =
-			tlshd_keyring_create_cert(cert, parms->peername);
-		gnutls_x509_crt_deinit(cert);
-	}
 
 	return GNUTLS_E_SUCCESS;
 
