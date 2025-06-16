@@ -145,9 +145,7 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 					     struct tlshd_handshake_parms *parms)
 {
 	const gnutls_datum_t *peercerts;
-	gnutls_certificate_type_t type;
 	unsigned int i, status;
-	gnutls_datum_t out;
 	int ret;
 
 	ret = gnutls_certificate_verify_peers3(session, NULL, &status);
@@ -161,10 +159,6 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 		tlshd_log_gnutls_error(ret);
 		goto certificate_error;
 	}
-	type = gnutls_certificate_type_get(session);
-	gnutls_certificate_verification_status_print(status, type, &out, 0);
-	tlshd_log_debug("%s", out.data);
-	gnutls_free(out.data);
 	if (status)
 		goto certificate_error;
 
