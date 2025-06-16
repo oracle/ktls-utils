@@ -61,14 +61,10 @@ void tlshd_log_completion(struct tlshd_handshake_parms *parms)
 		status = "failed";
 		priority = LOG_ERR;
 	}
-	if (parms->peeraddr_len) {
-		char buf[NI_MAXHOST];
-
-		getnameinfo(parms->peeraddr, parms->peeraddr_len, buf,
-			    sizeof(buf), NULL, 0, NI_NUMERICHOST);
+	if (parms->peeraddr)
 		syslog(priority, "Handshake with '%s' (%s) %s\n",
-		       parms->peername, buf, status);
-	} else
+		       parms->peername, parms->peeraddr, status);
+	else
 		syslog(priority, "Handshake request %s\n", status);
 }
 

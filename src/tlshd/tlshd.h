@@ -29,8 +29,7 @@ struct nl_sock;
 
 struct tlshd_handshake_parms {
 	char		*peername;
-	struct sockaddr *peeraddr;
-	socklen_t	peeraddr_len;
+	char		*peeraddr;
 	int		sockfd;
 	int		ip_proto;
 	uint32_t	handshake_type;
