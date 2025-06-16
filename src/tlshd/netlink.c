@@ -233,14 +233,15 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 }
 
 static char tlshd_peername[NI_MAXHOST] = "unknown";
-static struct sockaddr_storage tlshd_peeraddr = { 0 };
 
 static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 {
 	struct nlattr *tb[HANDSHAKE_A_ACCEPT_MAX + 1];
 	struct tlshd_handshake_parms *parms = arg;
+	struct sockaddr_storage addr;
+	struct sockaddr *sap = NULL;
+	socklen_t salen, optlen;
 	char *peername = NULL;
-	socklen_t optlen;
 	int err;
 
 	tlshd_log_debug("Parsing a valid netlink message\n");
@@ -253,18 +254,32 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	}
 
 	if (tb[HANDSHAKE_A_ACCEPT_SOCKFD]) {
+		char buf[NI_MAXHOST];
+		int proto;
+
 		parms->sockfd = nla_get_s32(tb[HANDSHAKE_A_ACCEPT_SOCKFD]);
-		if (getpeername(parms->sockfd, parms->peeraddr,
-				&parms->peeraddr_len) == -1) {
+
+		salen = sizeof(addr);
+		sap = (struct sockaddr *)&addr;
+		if (getpeername(parms->sockfd, sap, &salen) == -1) {
 			tlshd_log_perror("getpeername");
 			return NL_STOP;
 		}
-		optlen = sizeof(parms->ip_proto);
+		err = getnameinfo(sap, salen, buf, sizeof(buf),
+				  NULL, 0, NI_NUMERICHOST);
+		if (err) {
+			tlshd_log_gai_error(err);
+			return NL_STOP;
+		}
+		parms->peeraddr = strdup(buf);
+
+		optlen = sizeof(proto);
 		if (getsockopt(parms->sockfd, SOL_SOCKET, SO_PROTOCOL,
-			       &parms->ip_proto, &optlen) == -1) {
+			       &proto, &optlen) == -1) {
 			tlshd_log_perror("getsockopt (SO_PROTOCOL)");
 			return NL_STOP;
 		}
+		parms->ip_proto = proto;
 	}
 	if (tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE])
 		parms->handshake_type = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_MESSAGE_TYPE]);
@@ -290,8 +305,8 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 
 	if (peername)
 		strncpy(tlshd_peername, peername, sizeof(tlshd_peername) - 1);
-	else {
-		err = getnameinfo(parms->peeraddr, parms->peeraddr_len,
+	else if (sap) {
+		err = getnameinfo(sap, salen,
 				  tlshd_peername, sizeof(tlshd_peername),
 				  NULL, 0, NI_NAMEREQD);
 		if (err) {
@@ -305,8 +320,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 
 static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.peername		= tlshd_peername,
-	.peeraddr		= (struct sockaddr *)&tlshd_peeraddr,
-	.peeraddr_len		= sizeof(tlshd_peeraddr),
+	.peeraddr		= NULL,
 	.sockfd			= -1,
 	.ip_proto		= -1,
 	.handshake_type		= HANDSHAKE_MSG_TYPE_UNSPEC,
@@ -412,6 +426,7 @@ void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 		keyctl_unlink(parms->keyring, KEY_SPEC_SESSION_KEYRING);
 	g_array_free(parms->peerids, TRUE);
 	g_array_free(parms->remote_peerids, TRUE);
+	free(parms->peeraddr);
 }
 
 static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
