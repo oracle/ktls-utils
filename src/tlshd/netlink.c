@@ -232,8 +232,6 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 		parms->x509_privkey = nla_get_s32(tb[HANDSHAKE_A_X509_PRIVKEY]);
 }
 
-static char tlshd_peername[NI_MAXHOST] = "unknown";
-
 static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 {
 	struct nlattr *tb[HANDSHAKE_A_ACCEPT_MAX + 1];
@@ -304,22 +302,24 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);
 
 	if (peername)
-		strncpy(tlshd_peername, peername, sizeof(tlshd_peername) - 1);
+		parms->peername = strdup(peername);
 	else if (sap) {
-		err = getnameinfo(sap, salen,
-				  tlshd_peername, sizeof(tlshd_peername),
+		char buf[NI_MAXHOST];
+
+		err = getnameinfo(sap, salen, buf, sizeof(buf),
 				  NULL, 0, NI_NAMEREQD);
 		if (err) {
 			tlshd_log_gai_error(err);
 			return NL_STOP;
 		}
+		parms->peername = strdup(buf);
 	}
 
 	return NL_SKIP;
 }
 
 static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
-	.peername		= tlshd_peername,
+	.peername		= NULL,
 	.peeraddr		= NULL,
 	.sockfd			= -1,
 	.ip_proto		= -1,
@@ -426,6 +426,7 @@ void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 		keyctl_unlink(parms->keyring, KEY_SPEC_SESSION_KEYRING);
 	g_array_free(parms->peerids, TRUE);
 	g_array_free(parms->remote_peerids, TRUE);
+	free(parms->peername);
 	free(parms->peeraddr);
 }
 
