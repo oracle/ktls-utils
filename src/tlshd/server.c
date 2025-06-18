@@ -148,6 +148,17 @@ static int tlshd_server_get_truststore(gnutls_certificate_credentials_t cred)
 		return ret;
 	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
+	if (tlshd_config_get_server_crl(&pathname)) {
+		ret = gnutls_certificate_set_x509_crl_file(cred, pathname,
+							   GNUTLS_X509_FMT_PEM);
+		free(pathname);
+		if (ret < 0 ) {
+			tlshd_log_gnutls_error(ret);
+			return ret;
+		}
+		tlshd_log_debug("System CRL: Loaded %d CRL(s).", ret);
+	}
+
 	return GNUTLS_E_SUCCESS;
 }
 
