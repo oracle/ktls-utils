@@ -100,7 +100,7 @@ and it consults the settings in the
 .I [server]
 subsection when handling the server end of a handshake.
 .P
-In each of these two subsections, there are three available options:
+In each of these two subsections, there are four available options:
 .TP
 .B x509.truststore
 This option specifies the pathname of a file containing a
@@ -109,6 +109,13 @@ certificate during a handshake.
 If this option is not specified,
 .B tlshd
 uses the system's trust store.
+.TP
+.B x509.crl
+This option specifies the pathname of a file containing
+PEM-encoded certificate revocation lists (CRL) that are to be
+used to verify the revocation status of certificates during
+each handshake.
+If this option is not specified, CRL checking is skipped.
 .TP
 .B x509.certificate
 This option specifies the pathname of a file containing
