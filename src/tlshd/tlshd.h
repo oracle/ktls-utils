@@ -57,6 +57,7 @@ extern void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms
 bool tlshd_config_init(const gchar *pathname);
 void tlshd_config_shutdown(void);
 bool tlshd_config_get_client_truststore(char **bundle);
+bool tlshd_config_get_client_crl(char **result);
 bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
 				   unsigned int *certs_len);
 bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey);
