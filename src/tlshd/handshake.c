@@ -94,6 +94,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 		parms->session_status = EACCES;
 		switch (ret) {
 		case GNUTLS_E_CERTIFICATE_ERROR:
+		case GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR:
 			tlshd_log_cert_verification_error(session);
 			break;
 		case -ETIMEDOUT:
