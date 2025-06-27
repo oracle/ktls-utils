@@ -350,31 +350,12 @@ static gnutls_priority_t	tlshd_gnutls_priority_psk;
 static gnutls_priority_t	tlshd_gnutls_priority_psk_sha256;
 static gnutls_priority_t	tlshd_gnutls_priority_psk_sha384;
 
-/**
- * tlshd_gnutls_priority_init - Initialize GnuTLS priority caches
- *
- */
-int tlshd_gnutls_priority_init(void)
+static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
+					   int cipher_count)
 {
-	const unsigned int *ciphers;
-	gnutls_priority_t pcache;
-	const char *errpos;
 	char *pstring, *pstring_sha256, *pstring_sha384;
+	const char *errpos;
 	int ret, i;
-
-	/* Retrieve the system default priority settings */
-	ret = gnutls_priority_init(&pcache, NULL, &errpos);
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		return -EIO;
-	}
-
-	ret = gnutls_priority_cipher_list(pcache, &ciphers);
-	gnutls_priority_deinit(pcache);
-	if (ret < 0) {
-		tlshd_log_gnutls_error(ret);
-		return -EIO;
-	}
 
 	pstring = strdup("SECURE256:+SECURE128:-COMP-ALL");
 	if (!pstring)
@@ -407,7 +388,7 @@ int tlshd_gnutls_priority_init(void)
 		return -ENOMEM;
 	}
 
-	for (i = 0; i < ret; ++i) {
+	for (i = 0; i < cipher_count; ++i) {
 		bool skip_sha256 = false;
 		bool skip_sha384 = false;
 
@@ -444,7 +425,6 @@ int tlshd_gnutls_priority_init(void)
 	}
 
 	tlshd_log_debug("x.509 priority string: %s\n", pstring);
-
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_x509, pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
 		free(pstring_sha256);
@@ -453,7 +433,6 @@ int tlshd_gnutls_priority_init(void)
 		tlshd_log_gnutls_error(ret);
 		return -EIO;
 	}
-
 	pstring = tlshd_string_concat(pstring, ":+PSK:+DHE-PSK:+ECDHE-PSK");
 	if (!pstring) {
 		free(pstring_sha256);
@@ -463,7 +442,6 @@ int tlshd_gnutls_priority_init(void)
 	}
 
 	tlshd_log_debug("PSK priority string: %s\n", pstring);
-
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk, pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
 		free(pstring_sha256);
@@ -473,9 +451,7 @@ int tlshd_gnutls_priority_init(void)
 		tlshd_log_gnutls_error(ret);
 		return -EIO;
 	}
-
 	free(pstring);
-
 	pstring = tlshd_string_concat(pstring_sha256, ":+DHE-PSK:+ECDHE-PSK");
 	if (!pstring) {
 		free(pstring_sha384);
@@ -485,7 +461,6 @@ int tlshd_gnutls_priority_init(void)
 	}
 
 	tlshd_log_debug("PSK SHA256 priority string: %s\n", pstring);
-
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk_sha256,
 				   pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -496,9 +471,7 @@ int tlshd_gnutls_priority_init(void)
 		tlshd_log_gnutls_error(ret);
 		return -EIO;
 	}
-
 	free(pstring);
-
 	pstring = tlshd_string_concat(pstring_sha384, ":+DHE-PSK:+ECDHE-PSK");
 	if (!pstring) {
 		gnutls_priority_deinit(tlshd_gnutls_priority_psk_sha256);
@@ -509,7 +482,6 @@ int tlshd_gnutls_priority_init(void)
 	}
 
 	tlshd_log_debug("PSK SHA384 priority string: %s\n", pstring);
-
 	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk_sha384,
 				   pstring, &errpos);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -520,10 +492,43 @@ int tlshd_gnutls_priority_init(void)
 		tlshd_log_gnutls_error(ret);
 		return -EIO;
 	}
-
 	free(pstring);
 
 	return 0;
+}
+
+/**
+ * tlshd_gnutls_priority_init - Initialize GnuTLS priority caches
+ *
+ * Returns zero on success, or a negative errno value if a failure
+ * occurred.
+ */
+int tlshd_gnutls_priority_init(void)
+{
+	const unsigned int *ciphers;
+	gnutls_priority_t pcache;
+	const char *errpos;
+	int ret;
+
+	/* Retrieve the system default priority settings */
+	ret = gnutls_priority_init(&pcache, NULL, &errpos);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return -EIO;
+	}
+
+	ret = gnutls_priority_cipher_list(pcache, &ciphers);
+	if (ret < 0) {
+		tlshd_log_gnutls_error(ret);
+		ret = -EIO;
+		goto out;
+	}
+
+	ret = tlshd_gnutls_priority_init_list(ciphers, ret);
+
+out:
+	gnutls_priority_deinit(pcache);
+	return ret;
 }
 
 /**
