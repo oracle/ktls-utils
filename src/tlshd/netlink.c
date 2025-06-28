@@ -104,6 +104,8 @@ tlshd_accept_nl_policy[HANDSHAKE_A_ACCEPT_MAX + 1] = {
 	[HANDSHAKE_A_ACCEPT_KEYRING]		= { .type = NLA_U32, },
 };
 
+static struct nl_sock *tlshd_notification_nls;
+
 static int tlshd_genl_event_handler(struct nl_msg *msg,
 				    __attribute__ ((unused)) void *arg)
 {
@@ -126,6 +128,7 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
 	if (!fork()) {
 		/* child */
 		nlmsg_free(msg);
+		tlshd_genl_sock_close(tlshd_notification_nls);
 
 		tlshd_service_socket();
 
@@ -143,24 +146,23 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
  */
 void tlshd_genl_dispatch(void)
 {
-	struct nl_sock *nls;
 	int err, mcgrp;
 
-	err = tlshd_genl_sock_open(&nls);
+	err = tlshd_genl_sock_open(&tlshd_notification_nls);
 	if (err)
 		return;
 
-	nl_socket_modify_cb(nls, NL_CB_VALID, NL_CB_CUSTOM,
+	nl_socket_modify_cb(tlshd_notification_nls, NL_CB_VALID, NL_CB_CUSTOM,
 			    tlshd_genl_event_handler, NULL);
 
 	/* Let the kernel know we are running */
-	mcgrp = genl_ctrl_resolve_grp(nls, HANDSHAKE_FAMILY_NAME,
+	mcgrp = genl_ctrl_resolve_grp(tlshd_notification_nls, HANDSHAKE_FAMILY_NAME,
 				      HANDSHAKE_MCGRP_TLSHD);
 	if (mcgrp < 0) {
 		tlshd_log_error("Kernel handshake service is not available");
 		goto out_close;
 	}
-	err = nl_socket_add_membership(nls, mcgrp);
+	err = nl_socket_add_membership(tlshd_notification_nls, mcgrp);
 	if (err != NLE_SUCCESS) {
 		tlshd_log_nl_error("nl_socket_add_membership", err);
 		goto out_close;
@@ -171,9 +173,9 @@ void tlshd_genl_dispatch(void)
 		goto out_close;
 	}
 
-	nl_socket_disable_seq_check(nls);
+	nl_socket_disable_seq_check(tlshd_notification_nls);
 	while (true) {
-		err = nl_recvmsgs_default(nls);
+		err = nl_recvmsgs_default(tlshd_notification_nls);
 		if (err < 0) {
 			tlshd_log_nl_error("nl_recvmsgs", err);
 			break;
@@ -181,7 +183,7 @@ void tlshd_genl_dispatch(void)
 	};
 
 out_close:
-	tlshd_genl_sock_close(nls);
+	tlshd_genl_sock_close(tlshd_notification_nls);
 }
 
 static void tlshd_parse_peer_identity(struct tlshd_handshake_parms *parms,
