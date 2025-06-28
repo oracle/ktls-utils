@@ -116,9 +116,6 @@ static gnutls_privkey_t tlshd_privkey;
 static unsigned int tlshd_certs_len = TLSHD_MAX_CERTS;
 static gnutls_pcert_st tlshd_certs[TLSHD_MAX_CERTS];
 
-/*
- * XXX: After this point, tlshd_certs should be deinited on error.
- */
 static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 {
 	if (parms->x509_cert != TLS_NO_CERT)
@@ -127,15 +124,25 @@ static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 	return tlshd_config_get_client_certs(tlshd_certs, &tlshd_certs_len);
 }
 
-/*
- * XXX: After this point, tlshd_privkey should be deinited on error.
- */
+static void tlshd_x509_client_put_certs(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < tlshd_certs_len; i++)
+		gnutls_pcert_deinit(&tlshd_certs[i]);
+}
+
 static bool tlshd_x509_client_get_privkey(struct tlshd_handshake_parms *parms)
 {
 	if (parms->x509_privkey != TLS_NO_PRIVKEY)
 		return tlshd_keyring_get_privkey(parms->x509_privkey,
 						 &tlshd_privkey);
 	return tlshd_config_get_client_privkey(&tlshd_privkey);
+}
+
+static void tlshd_x509_client_put_privkey(void)
+{
+	gnutls_privkey_deinit(tlshd_privkey);
 }
 
 static void tlshd_x509_log_issuers(const gnutls_datum_t *req_ca_rdn, int nreqs)
@@ -261,7 +268,7 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 	if (!tlshd_x509_client_get_certs(parms))
 		goto out_free_creds;
 	if (!tlshd_x509_client_get_privkey(parms))
-		goto out_free_creds;
+		goto out_free_certs;
 	gnutls_certificate_set_retrieve_function2(xcred,
 						  tlshd_x509_retrieve_key_cb);
 
@@ -269,7 +276,7 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 	ret = gnutls_init(&session, flags);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
-		goto out_free_creds;
+		goto out_free_certs;
 	}
 	gnutls_transport_set_int(session, parms->sockfd);
 	gnutls_session_set_ptr(session, parms);
@@ -278,17 +285,17 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 				     parms->peername, strlen(parms->peername));
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
-		goto out_free_creds;
+		goto out_free_certs;
 	}
 	ret = gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
-		goto out_free_creds;
+		goto out_free_certs;
 	}
 	ret = tlshd_gnutls_priority_set(session, parms, 0);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
-		goto out_free_creds;
+		goto out_free_certs;
 	}
 	gnutls_certificate_set_verify_function(xcred,
 					       tlshd_tls13_client_x509_verify_function);
@@ -296,6 +303,10 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 	tlshd_start_tls_handshake(session, parms);
 
 	gnutls_deinit(session);
+
+out_free_certs:
+	tlshd_x509_client_put_privkey();
+	tlshd_x509_client_put_certs();
 
 out_free_creds:
 	gnutls_certificate_free_credentials(xcred);
@@ -509,6 +520,8 @@ err_session:
 err_cred:
 	gnutls_certificate_free_credentials(cred);
 err:
+	tlshd_x509_client_put_privkey();
+	tlshd_x509_client_put_certs();
 	tlshd_log_gnutls_error(ret);
 	return ret;
 }
