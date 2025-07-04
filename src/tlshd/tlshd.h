@@ -41,6 +41,7 @@ struct tlshd_handshake_parms {
 	GArray		*peerids;
 	GArray		*remote_peerids;
 	int		msg_status;
+	uint32_t        record_size_limit;
 
 	unsigned int	session_status;
 };
