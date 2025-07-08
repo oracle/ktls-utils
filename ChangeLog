@@ -1,5 +1,11 @@
 Change Log - In newest-release-first order
 
+ktls-utils 1.2.0 2025-07-11
+ * Implement Certificate Revocation Lists
+ * Add a default keyring for NFS consumers
+ * Improvements to error reporting and logging
+ * Manage per-session resources more effectively
+
 ktls-utils 1.1.0 2025-06-02
  * Return to the old release process
  * Update the contribution process
