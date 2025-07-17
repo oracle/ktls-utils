@@ -505,7 +505,6 @@ static int tlshd_quic_server_set_x509_session(struct tlshd_quic_conn *conn)
 	gnutls_datum_t ticket_key;
 	gnutls_session_t session;
 	int ret = -EINVAL;
-	char *cafile;
 
 	if (!tlshd_x509_server_get_certs(parms) || !tlshd_x509_server_get_privkey(parms)) {
 		tlshd_log_error("cert/privkey get error %d", -ret);
