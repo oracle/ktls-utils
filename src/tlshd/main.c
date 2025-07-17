@@ -61,17 +61,6 @@ static void usage(char *progname)
 	fprintf(stderr, "usage: %s [-chsv]\n", progname);
 }
 
-static void tlshd_sigint(int signum)
-{
-	if (signum == SIGINT) {
-		tlshd_gnutls_priority_deinit();
-		tlshd_config_shutdown();
-		tlshd_log_shutdown();
-		tlshd_log_close();
-		exit(EXIT_SUCCESS);
-	}
-}
-
 int main(int argc, char **argv)
 {
 	static gchar config_file[PATH_MAX + 1] = "/etc/tlshd.conf";
@@ -123,8 +112,6 @@ int main(int argc, char **argv)
 		tlshd_log_close();
 		return EXIT_FAILURE;
 	}
-
-	signal(SIGINT, tlshd_sigint);
 
 	tlshd_genl_dispatch();
 
