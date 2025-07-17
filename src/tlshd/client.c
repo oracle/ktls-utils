@@ -513,7 +513,7 @@ static int tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 	ret = gnutls_certificate_allocate_credentials(&cred);
 	if (ret)
 		goto err;
-	ret = tlshd_client_get_truststore(xcred);
+	ret = tlshd_client_get_truststore(cred);
 	if (ret != GNUTLS_E_SUCCESS)
 		goto err_cred;
 
@@ -568,7 +568,7 @@ static int tlshd_quic_client_set_anon_session(struct tlshd_quic_conn *conn)
 
 static int tlshd_quic_client_set_psk_session(struct tlshd_quic_conn *conn)
 {
-	key_serial_t peerid = conn->parms->peerids[0];
+	key_serial_t peerid = g_array_index(conn->parms->peerids, key_serial_t, 0);
 	gnutls_psk_client_credentials_t cred;
 	gnutls_session_t session;
 	char *identity = NULL;
