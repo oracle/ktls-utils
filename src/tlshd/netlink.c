@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/signalfd.h>
 
 #include <stdbool.h>
 #include <unistd.h>
@@ -106,6 +107,9 @@ tlshd_accept_nl_policy[HANDSHAKE_A_ACCEPT_MAX + 1] = {
 
 static struct nl_sock *tlshd_notification_nls;
 
+static sigset_t tlshd_sig_poll_mask;
+static int tlshd_sig_poll_fd;
+
 static int tlshd_genl_event_handler(struct nl_msg *msg,
 				    __attribute__ ((unused)) void *arg)
 {
@@ -127,6 +131,9 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
 
 	if (!fork()) {
 		/* child */
+		close(tlshd_sig_poll_fd);
+		sigprocmask(SIG_UNBLOCK, &tlshd_sig_poll_mask, NULL);
+
 		nlmsg_free(msg);
 		tlshd_genl_sock_close(tlshd_notification_nls);
 
@@ -146,7 +153,12 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
  */
 void tlshd_genl_dispatch(void)
 {
+	struct pollfd poll_fds[2];
 	int err, mcgrp;
+
+	/* Initialise signal poll mask */
+	sigemptyset(&tlshd_sig_poll_mask);
+	sigaddset(&tlshd_sig_poll_mask, SIGINT);
 
 	err = tlshd_genl_sock_open(&tlshd_notification_nls);
 	if (err)
@@ -174,13 +186,45 @@ void tlshd_genl_dispatch(void)
 	}
 
 	nl_socket_disable_seq_check(tlshd_notification_nls);
-	while (true) {
-		err = nl_recvmsgs_default(tlshd_notification_nls);
-		if (err < 0) {
-			tlshd_log_nl_error("nl_recvmsgs", err);
+
+	err = nl_socket_set_nonblocking(tlshd_notification_nls);
+	if (err != NLE_SUCCESS) {
+		tlshd_log_nl_error("nl_socket_set_nonblocking", err);
+		goto out_close;
+	}
+
+	if (sigprocmask(SIG_BLOCK, &tlshd_sig_poll_mask, NULL)) {
+		tlshd_log_perror("sigprocmask");
+		goto out_close;
+	}
+
+	tlshd_sig_poll_fd = signalfd(-1, &tlshd_sig_poll_mask,
+				     SFD_NONBLOCK | SFD_CLOEXEC);
+	if (tlshd_sig_poll_fd < 0) {
+		tlshd_log_perror("signalfd");
+		goto out_close;
+	}
+
+	poll_fds[0].fd = nl_socket_get_fd(tlshd_notification_nls);
+	poll_fds[0].events = POLLIN;
+	poll_fds[1].fd = tlshd_sig_poll_fd;
+	poll_fds[1].events = POLLIN;
+
+	while (poll(poll_fds, ARRAY_SIZE(poll_fds), -1) >= 0) {
+		if (poll_fds[1].revents)
+			/* exit signal received */
 			break;
+
+		if (poll_fds[0].revents) {
+			err = nl_recvmsgs_default(tlshd_notification_nls);
+			if (err < 0) {
+				tlshd_log_nl_error("nl_recvmsgs", err);
+				break;
+			}
 		}
 	};
+
+	close(tlshd_sig_poll_fd);
 
 out_close:
 	tlshd_genl_sock_close(tlshd_notification_nls);
