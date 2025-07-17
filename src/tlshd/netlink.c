@@ -159,6 +159,7 @@ void tlshd_genl_dispatch(void)
 	/* Initialise signal poll mask */
 	sigemptyset(&tlshd_sig_poll_mask);
 	sigaddset(&tlshd_sig_poll_mask, SIGINT);
+	sigaddset(&tlshd_sig_poll_mask, SIGTERM);
 
 	err = tlshd_genl_sock_open(&tlshd_notification_nls);
 	if (err)
