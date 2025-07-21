@@ -1669,3 +1669,31 @@ void tlshd_tags_config_shutdown(void)
 	tlshd_tags_filter_type_hash_destroy();
 	tlshd_tags_name_destroy();
 }
+
+/**
+ * tlshd_tags_for_each_matched - Call @cb for each matched tag
+ * @cb: callback function
+ * @data: data to be passed to each callback
+ *
+ * Returns zero if the callback returned only zeroes. Otherwise, the
+ * first non-zero callback return stops the loop and returns that
+ * non-zero value.
+ */
+int tlshd_tags_for_each_matched(int (*cb)(const char *name, void *data),
+			        void *data)
+{
+	GHashTableIter iter;
+	gpointer key, value;
+
+	if (!tlshd_tags_tag_hash)
+		return 0;
+
+	g_hash_table_iter_init(&iter, tlshd_tags_tag_hash);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		struct tlshd_tags_tag *tag = (struct tlshd_tags_tag *)value;
+
+		if (tag->ta_matched)
+			(cb)(tag->ta_name, data);
+	}
+	return 0;
+}
