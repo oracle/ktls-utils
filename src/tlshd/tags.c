@@ -1241,3 +1241,41 @@ void tlsdh_tags_x509_match_session(gnutls_session_t session)
 			    tlshd_tags_x509_match_cb, (gpointer)&peercert);
 	gnutls_x509_crt_deinit(peercert);
 }
+
+struct tlshd_tags_matched_args {
+	int		(*ma_cb)(const char *name, void *data);
+	void		*ma_data;
+};
+
+static void tlshd_tags_matched_cb(gpointer data, gpointer user_data)
+{
+	struct tlshd_tags_tag *tag = (struct tlshd_tags_tag *)data;
+	struct tlshd_tags_matched_args *args =
+		(struct tlshd_tags_matched_args *)user_data;
+
+	if (tag->ta_matched)
+		(args->ma_cb)(tag->ta_name, args->ma_data);
+}
+
+/**
+ * tlshd_for_each_matched_tag - Call @cb for all matched tags
+ * @cb: callback function
+ * @data: data to be passed to each callback
+ *
+ * Returns zero if the callback returned only zeroes. Otherwise, the
+ * first non-zero callback return stops the loop and returns that
+ * non-zero value.
+ */
+int tlshd_for_each_matched_tag(int (*cb)(const char *name, void *data),
+			       void *data)
+{
+	struct tlshd_tags_matched_args args = {
+		.ma_cb		= cb,
+		.ma_data	= data,
+	};
+
+	g_ptr_array_foreach(tlshd_tags_tag_all,
+			    tlshd_tags_matched_cb,
+			    (gpointer)&args);
+	return 0;
+}

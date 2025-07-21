@@ -493,6 +493,25 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 	return 0;
 }
 
+static int tlshd_genl_put_tag(const char *name,
+			      __attribute__ ((unused)) void *data)
+{
+	struct nl_msg *msg = data;
+	int err;
+
+	err = nla_put_string(msg, HANDSHAKE_A_DONE_TAG, name);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put tag", err);
+		return -1;
+	}
+	return 0;
+}
+
+static int tlshd_genl_put_tag_list(struct nl_msg *msg)
+{
+	return tlshd_for_each_matched_tag(tlshd_genl_put_tag, (void *)msg);
+}
+
 /**
  * tlshd_genl_done - Indicate handshake has completed successfully
  * @parms: buffer filled in with parameters
@@ -549,6 +568,12 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 	err = tlshd_genl_put_remote_peerids(msg, parms);
 	if (err < 0)
 		goto out_free;
+
+	err = tlshd_genl_put_tag_list(msg);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put tag list", err);
+		goto out_free;
+	}
 
 sendit:
 	if (tlshd_delay_done) {
