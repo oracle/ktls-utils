@@ -2120,3 +2120,35 @@ bool tlshd_tags_config_reload(__attribute__ ((unused)) const char *tagsdir)
 }
 
 ///@}
+
+/**
+ * @brief Invoke "cb" for each global tag marked as a match
+ * @param[in]     cb     Function to be called for each matched tag
+ * @param[in]     data   Context to be passed on each call to "cb"
+ *
+ * @returns zero if the callback returned only zeroes; otherwise, the
+ * first non-zero callback return stops the loop and returns that
+ * non-zero value.
+ */
+int tlshd_tags_for_each_matched(int (*cb)(const char *name, void *data),
+				void *data)
+{
+	GHashTableIter iter;
+	gpointer key, value;
+
+	if (!tlshd_tags_tag_hash)
+		return 0;
+
+	g_hash_table_iter_init(&iter, tlshd_tags_tag_hash);
+	while (g_hash_table_iter_next(&iter, &key, &value)) {
+		struct tlshd_tags_tag *tag = (struct tlshd_tags_tag *)value;
+		int ret;
+
+		if (tag->ta_matched) {
+			ret = (cb)(tag->ta_name, data);
+			if (ret)
+				return ret;
+		}
+	}
+	return 0;
+}

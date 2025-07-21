@@ -140,6 +140,8 @@ extern bool tlshd_tags_config_init(const char *tagsdir);
 extern void tlshd_tags_config_shutdown(void);
 extern bool tlshd_tags_config_reload(const char *tagsdir);
 extern void tlshd_tags_match_session(gnutls_session_t session);
+extern int tlshd_tags_for_each_matched(int (*cb)(const char *name, void *data),
+				       void *data);
 
 #ifdef HAVE_GNUTLS_QUIC
 #include "quic.h"

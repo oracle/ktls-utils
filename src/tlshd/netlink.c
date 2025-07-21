@@ -688,6 +688,41 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 }
 
 /**
+ * @brief Serialize a matched tag name into the netlink message
+ * @param[in]     name  Tag name to serialize
+ * @param[in]     data  Netlink message buffer
+ *
+ * Callback for tlshd_tags_for_each_matched().
+ *
+ * @retval  0  Tag serialized successfully
+ * @retval -1  Serialization failed
+ */
+static int tlshd_genl_put_tag(const char *name, void *data)
+{
+	struct nl_msg *msg = data;
+	int err;
+
+	err = nla_put_string(msg, HANDSHAKE_A_DONE_TAG, name);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put DONE_TAG", err);
+		return -1;
+	}
+	return 0;
+}
+
+/**
+ * @brief Serialize all matched tags into the netlink message
+ * @param[in]     msg  Netlink message buffer
+ *
+ * @retval  0  All tags serialized successfully
+ * @retval -1  Serialization failed
+ */
+static int tlshd_genl_put_tag_list(struct nl_msg *msg)
+{
+	return tlshd_tags_for_each_matched(tlshd_genl_put_tag, (void *)msg);
+}
+
+/**
  * @brief Indicate handshake has completed successfully
  * @param[in]     parms  Buffer filled in with parameters
  */
@@ -742,6 +777,12 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 	err = tlshd_genl_put_remote_peerids(msg, parms);
 	if (err < 0)
 		goto out_free;
+
+	err = tlshd_genl_put_tag_list(msg);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put DONE_TAGs", err);
+		goto out_free;
+	}
 
 sendit:
 	if (tlshd_delay_done) {
