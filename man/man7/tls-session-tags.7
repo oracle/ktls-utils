@@ -237,6 +237,60 @@ filters:
 This example defines a filter named "monsters-university".
 The filter performs a wildcard match for "O=Monsters University"
 in the issuer field of each incoming X.509 certificate.
+.SS Tags
+The definition of each tag is a YAML mapping that specifies
+the unique name of the tag
+and
+a list of filters, as defined in the Filters mapping,
+that all must match for the tag to be assigned to
+a TLS session.
+.P
+A filter name can be prefixed with "not " to invert its matching
+behavior.
+When a filter is negated, the tag matches only if that filter does
+not match.
+A tag matches when all non-negated filters match and all negated
+filters do not match.
+.P
+For example:
+.P
+.RS
+.nf
+tags:
+  ...
+  ror-mu-chapter:
+    filter:
+      - monsters-university
+      - not fear-tech
+      - fraternity-ror
+  ...
+.fi
+.RE
+.P
+This example defines a tag named "ror-mu-chapter".
+The peer's certificate must satisfy both the "monsters-university"
+and "fraternity-ror" filter conditions,
+and must fail to satisfy the "fear-tech" filter condition,
+in order for the
+.B tlshd
+program to assign the
+.I ror-mu-chapter
+tag to an incoming TLS session.
+.SS Handshake completion
+Once a TLS handshake is successful, the
+.B tlshd
+program scans the peer's certificate using the configured filter and
+tag definitions.
+For each tag whose filter conditions the certificate satisfies,
+the
+.B tlshd
+program attaches that tag's name to the new TLS session.
+The kernel consumer receives only the list of matching tag names;
+the session's authentication material,
+filter types,
+and filter names remain private to the
+.B tlshd
+program.
 .SH STANDARDS
 .TP
 .B X.509
