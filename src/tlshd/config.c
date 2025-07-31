@@ -203,6 +203,11 @@ bool tlshd_config_reload(void)
 
 	tlshd_config_apply();
 
+	if (!tlshd_tags_config_reload("/etc/tlshd/tags.d")) {
+		tlshd_log_error("Failed to reload tags configuration");
+		return false;
+	}
+
 	tlshd_log_notice("Configuration reloaded successfully");
 	return true;
 }
