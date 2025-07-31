@@ -108,11 +108,13 @@ bool tlshd_config_init(const gchar *pathname, bool legacy)
 	tlshd_keyring_link_session(".nfs");
 	tlshd_keyring_link_session(".nfsd");
 
-	return true;
+	/* Eventually the tags directory might become a tlshd config option */
+	return tlshd_tags_config_init("/etc/tlshd/tags.d");
 }
 
 void tlshd_config_shutdown(void)
 {
+	tlshd_tags_config_shutdown();
 	g_key_file_free(tlshd_configuration);
 }
 
