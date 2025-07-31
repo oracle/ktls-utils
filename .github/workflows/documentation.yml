@@ -41,7 +41,8 @@ jobs:
             libkeyutils-dev \
             libnl-3-dev \
             libnl-genl-3-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libyaml-dev
 
       - name: Install documentation tools
         run: |

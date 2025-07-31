@@ -26,7 +26,8 @@ jobs:
             libkeyutils-dev \
             libnl-3-dev \
             libnl-genl-3-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libyaml-dev
 
       - name: Configure
         run: |
@@ -69,6 +70,7 @@ jobs:
             keyutils-dev \
             libnl3-dev \
             glib-dev \
+            yaml-dev \
             linux-headers \
             tar
 
