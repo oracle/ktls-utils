@@ -22,11 +22,11 @@ EXTRA_DIST		= $(man8_MANS)
 sbin_PROGRAMS		= tlshd
 tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
 			  $(LIBKEYUTILS_CFLAGS) $(GLIB_CFLAGS) $(LIBNL3_CFLAGS) \
-			  $(LIBNL_GENL3_CFLAGS)
+			  $(LIBNL_GENL3_CFLAGS) $(LIBYAML_CFLAGS)
 tlshd_SOURCES		= client.c config.c handshake.c keyring.c ktls.c log.c \
 			  main.c netlink.c netlink.h server.c tlshd.h quic.c
 tlshd_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS) $(GLIB_LIBS) \
-			  $(LIBNL3_LIBS) $(LIBNL_GENL3_LIBS)
+			  $(LIBNL3_LIBS) $(LIBNL_GENL3_LIBS) $(LIBYAML_LIBS)
 
 SUBDIRS			= etc
 MAINTAINERCLEANFILES	= Makefile.in cscope.out
