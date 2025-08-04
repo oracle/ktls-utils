@@ -16,8 +16,6 @@
 # 02110-1301, USA.
 #
 
-dist_sysconf_DATA	= tlshd.conf
-
 sbin_PROGRAMS		= tlshd
 tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
 			  $(LIBKEYUTILS_CFLAGS) $(GLIB_CFLAGS) $(LIBNL3_CFLAGS) \

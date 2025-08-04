@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 Oracle and/or its affiliates.
+# Copyright (c) 2025 Oracle and/or its affiliates.
 #
 # ktls-utils is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -16,9 +16,14 @@
 # 02110-1301, USA.
 #
 
-AUTOMAKE_OPTIONS	= foreign
+tlshdconfigdir		= $(sysconfdir)/tlshd
 
-EXTRA_DIST		= autogen.sh CONTRIBUTING.md LICENSE.txt \
-			  README.md SECURITY.md
-SUBDIRS			= etc man src systemd
-MAINTAINERCLEANFILES	= Makefile.in cscope.* ktls-utils*.tar.gz
+dist_tlshdconfig_DATA	= config
+
+MAINTAINERCLEANFILES	= Makefile.in
+
+install-exec-hook:
+	mkdir -p $(DESTDIR)$(tlshdconfigdir)
+
+uninstall-hook:
+	rm -rf $(DESTDIR)$(tlshdconfigdir)

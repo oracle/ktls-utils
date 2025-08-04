@@ -82,6 +82,8 @@ AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
 AC_SUBST([AM_CPPFLAGS])
 
 AC_CONFIG_FILES([Makefile \
+                 etc/Makefile \
+                 etc/tlshd/Makefile \
                  man/Makefile \
                  man/man5/Makefile \
                  man/man8/Makefile \
