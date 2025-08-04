@@ -23,7 +23,8 @@ dist_tlshdconfig_DATA	= config
 dist_tlshdtags_DATA	= tags.example
 
 man5_MANS		= tlshd.conf.man
-EXTRA_DIST		= $(man5_MANS)
+man7_MANS		= tls-session-tags.man
+EXTRA_DIST		= $(man5_MANS) $(man7_MANS)
 
 MAINTAINERCLEANFILES	= Makefile.in
 
