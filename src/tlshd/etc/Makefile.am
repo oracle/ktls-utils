@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 Oracle and/or its affiliates.
+# Copyright (c) 2025 Oracle and/or its affiliates.
 #
 # ktls-utils is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -16,17 +16,14 @@
 # 02110-1301, USA.
 #
 
-man8_MANS		= tlshd.man
-EXTRA_DIST		= $(man8_MANS)
+tlshdconfigdir		= $(sysconfdir)/tlshd
 
-sbin_PROGRAMS		= tlshd
-tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
-			  $(LIBKEYUTILS_CFLAGS) $(GLIB_CFLAGS) $(LIBNL3_CFLAGS) \
-			  $(LIBNL_GENL3_CFLAGS)
-tlshd_SOURCES		= client.c config.c handshake.c keyring.c ktls.c log.c \
-			  main.c netlink.c netlink.h server.c tlshd.h quic.c
-tlshd_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS) $(GLIB_LIBS) \
-			  $(LIBNL3_LIBS) $(LIBNL_GENL3_LIBS)
+dist_tlshdconfig_DATA	= config
 
-SUBDIRS			= etc
-MAINTAINERCLEANFILES	= Makefile.in cscope.out
+man5_MANS		= tlshd.conf.man
+EXTRA_DIST		= $(man5_MANS)
+
+MAINTAINERCLEANFILES	= Makefile.in
+
+install-exec-hook:
+	mkdir -p $(DESTDIR)$(tlshdconfigdir)
