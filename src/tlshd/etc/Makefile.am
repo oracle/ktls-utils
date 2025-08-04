@@ -21,7 +21,8 @@ tlshdconfigdir		= $(sysconfdir)/tlshd
 dist_tlshdconfig_DATA	= config
 
 man5_MANS		= tlshd.conf.man
-EXTRA_DIST		= $(man5_MANS)
+man7_MANS		= tls-session-tags.man
+EXTRA_DIST		= $(man5_MANS) $(man7_MANS)
 
 MAINTAINERCLEANFILES	= Makefile.in
 
