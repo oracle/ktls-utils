@@ -75,6 +75,13 @@ enabling decryption of recorded sessions.
 .B GNUTLS_FORCE_FIPS_MODE
 When set to `1', this variable forces the TLS library into FIPS mode
 if FIPS140-2 support is available.
+.SH FILES
+.TP
+.I /etc/tlshd/config
+Primary configuration file
+.TP
+.I /etc/tlshd.conf
+Legacy configuration file (deprecated)
 .SH SEE ALSO
 .BR tlshd.conf (5),
 .BR ssl (7)
