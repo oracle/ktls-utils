@@ -1,0 +1,110 @@
+.\"
+.\" Copyright (c) 2025 Oracle and/or its affiliates.
+.\"
+.\" ktls-utils is free software; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; version 2.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+.\" General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+.\" 02110-1301, USA.
+.\"
+.\" tls-session-tags(7)
+.\"
+.TH tls-session-tags 7 "28 Dec 2025"
+.SH NAME
+tls-session-tags \- TLS session tags
+.SH SYNOPSIS
+.B /etc/tlshd/tags.d/
+.SH DESCRIPTION
+The
+.B tlshd
+program implements a user agent that services TLS handshake requests
+on behalf of kernel TLS consumers.
+Its configuration files, found under the
+.I /etc/tlshd
+directory, contain information that the
+.B tlshd
+program reads when it starts up.
+The configuration files direct the
+.B tlshd
+program to information about which trust store and signing
+and encryption algorithms are to be used.
+The configuration files are considered a trusted source of information.
+.P
+When a peer presents an X.509 certificate during a TLS handshake, the
+.B tlshd
+program is responsible for verifying that the certificate was
+issued by a certificate authority that the receiver recognizes and
+trusts.
+Once that verification is successful, the receiver can trust
+the content of that certificate, including information about
+the peer identity presented in that certificate (e.g., a DNS hostname
+or IP address, and so on).
+.P
+Once a peer's certificate is trusted,
+the
+.B tlshd
+program can be configured to scan the fields in the peer's certificate.
+Based on the scan,
+the
+.B tlshd
+program can assign tags to the new TLS session that
+indicate that the server recognizes the peer's identity.
+For example,
+the
+.B tlshd
+program can be configured to look for a specific string in
+.I subject
+fields, and assign tags to TLS sessions where the peer presented
+a certificate with matching content in that field.
+Kernel consumers can use those tags to authorize or deny access
+to resources based on the identity presented in peer certificates.
+.P
+The following sections describe how to configure this facility.
+.SH FORMAT
+TLS session tag definitions are YAML documents stored in files in the
+.I /etc/tlshd/tags.d
+directory.
+When it launches, the
+.B tlshd
+program reads all files in that directory with either the
+.I .yml
+or
+.I .yaml
+extension.
+Modifications to the content of these files take effect only when the
+.B tlshd
+program is restarted.
+.P
+The
+.B tlshd
+program
+populates two dictionaries from the contents of these files:
+.TP
+.B filters
+Each filter defined in this dictionary specifies the name of a
+field in an X.509 certificate, and the conditions under which the
+contents of that field are to be considered a match.
+.TP
+.B tags
+Each tag is a list of one or more filters (defined in the
+.B filters
+dictionary)
+that all must be matched in order for the tag to be assigned to a
+new TLS session.
+.SH STANDARDS
+.TP
+.B X.509
+RFC 5280, RFC 6125
+.SH SEE ALSO
+.BR tlshd (8),
+.BR tlshd.conf (5)
+.SH AUTHOR
+Chuck Lever

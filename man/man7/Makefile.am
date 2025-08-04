@@ -16,6 +16,7 @@
 # 02110-1301, USA.
 #
 
-SUBDIRS			= man5 man7 man8
+man7_MANS		= tls-session-tags.7
+EXTRA_DIST		= $(man7_MANS)
 
 MAINTAINERCLEANFILES	= Makefile.in

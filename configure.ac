@@ -123,6 +123,7 @@ AC_CONFIG_FILES([Makefile \
                  etc/tlshd/Makefile \
                  man/Makefile \
                  man/man5/Makefile \
+                 man/man7/Makefile \
                  man/man8/Makefile \
                  src/Makefile \
                  src/tlshd/Makefile \
