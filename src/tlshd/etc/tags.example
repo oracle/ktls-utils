@@ -1,0 +1,51 @@
+---
+filters:
+  monsters-university:
+    field: "issuer"
+    type: "wildcard"
+    expression: "*,O=Monsters University,*"
+  fear-tech:
+    field: "issuer"
+    type: "wildcard"
+    expression: "*,O=Fear Technology Institute,*"
+  school-scaring:
+    field: "subject"
+    type: "wildcard"
+    expression: "*,OU=School of Scaring,*"
+  school-can-design:
+    field: "subject"
+    type: "wildcard"
+    expression: "*,OU=School of Scream Can Design,*"
+  sorority-hss:
+    field: "subject"
+    type: "wildcard"
+    expression: "*,OU=Eta Hiss Hiss,*"
+  fraternity-ror:
+    field: "subject"
+    type: "wildcard"
+    expression: "*,OU=Roar Omega Roar,*"
+  fraternity-ok:
+    field: "subject"
+    type: "wildcard"
+    expression: "*,OU=Oozma Kappa,*"
+  valid-keyusage:
+    field: "keyUsage"
+    type: "list"
+    expression:
+      - "digitalSignature"
+      - "nonRepudiation"
+
+tags:
+  ror-mu-chapter:
+    filter:
+      - "monsters-univerity"
+      - "fraternity-ror"
+      - "valid-keyusage"
+  ror-ft-chapter:
+    filter:
+      - "fear-tech"
+      - "fraternity-ror"
+      - "valid-keyusage"
+  can-design-student-materials:
+    filter:
+      - "school-can-design"

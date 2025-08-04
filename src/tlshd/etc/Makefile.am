@@ -17,8 +17,10 @@
 #
 
 tlshdconfigdir		= $(sysconfdir)/tlshd
+tlshdtagsdir		= $(tlshdconfigdir)/tags.d
 
 dist_tlshdconfig_DATA	= config
+dist_tlshdtags_DATA	= tags.example
 
 man5_MANS		= tlshd.conf.man
 EXTRA_DIST		= $(man5_MANS)
@@ -27,3 +29,4 @@ MAINTAINERCLEANFILES	= Makefile.in
 
 install-exec-hook:
 	mkdir -p $(DESTDIR)$(tlshdconfigdir)
+	mkdir -p $(DESTDIR)$(tlshdtagsdir)
