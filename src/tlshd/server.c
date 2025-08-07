@@ -372,7 +372,7 @@ static void tlshd_tls13_server_psk_handshake(struct tlshd_handshake_parms *parms
 
 #ifdef HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2
 	ret = gnutls_psk_allocate_server_credentials2(&psk_cred,
-						      GNUTLS_MAC_NONE);
+						      GNUTLS_MAC_UNKNOWN);
 #else
 	ret = gnutls_psk_allocate_server_credentials(&psk_cred);
 #endif
