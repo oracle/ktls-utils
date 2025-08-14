@@ -1,0 +1,47 @@
+---
+name: Static analysis
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  cppcheck:
+    runs-on: ubuntu-latest
+    permissions: read-all
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install \
+            build-essential \
+            autoconf \
+            automake \
+            gnutls-dev \
+            libkeyutils-dev \
+            libnl-3-dev \
+            libnl-genl-3-dev \
+            libglib2.0-dev
+
+      - name: Install tools
+        run: |
+          sudo apt-get install -y bear cppcheck
+
+      - name: Configure
+        run: |
+          ./autogen.sh
+          ./configure --with-systemd
+
+      - name: Generate compile commands
+        run: |
+          bear -- make
+
+      - name: Run Cppcheck
+        run: |
+          echo "::group::Cppcheck Analysis"
+          cppcheck --enable=all -I. \
+            --suppress=missingIncludeSystem \
+            --suppress=unusedFunction \
+            src/
+          echo "::endgroup::"
