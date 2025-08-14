@@ -1,6 +1,7 @@
+---
 name: Multi-platform CI
 
-on: [ push, pull_request, workflow_dispatch ]
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
@@ -17,23 +18,28 @@ jobs:
           - linux/arm64
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install gnutls-dev libkeyutils-dev libnl-3-dev libnl-genl-3-dev libglib2.0-dev
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install \
+            gnutls-dev \
+            libkeyutils-dev \
+            libnl-3-dev \
+            libnl-genl-3-dev \
+            libglib2.0-dev
 
-    - name: Configure
-      run: |
-        ./autogen.sh
-        ./configure --with-systemd
+      - name: Configure
+        run: |
+          ./autogen.sh
+          ./configure --with-systemd
 
-    - name: Build
-      run: make
+      - name: Build
+        run: make
 
-    - name: Check
-      run: make check
+      - name: Check
+        run: make check
 
-    - name: Distcheck
-      run: make distcheck
+      - name: Distcheck
+        run: make distcheck
