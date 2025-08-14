@@ -1,5 +1,5 @@
 ---
-name: Multi-platform CI
+name: Build tests
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -13,8 +13,6 @@ jobs:
       matrix:
         platform:
           - linux/amd64
-          - linux/arm/v6
-          - linux/arm/v7
           - linux/arm64
 
     steps:
