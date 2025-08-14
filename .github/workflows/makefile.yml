@@ -4,7 +4,7 @@ name: Build tests
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  build:
+  build-glibc:
 
     runs-on: ubuntu-latest
     permissions: read-all
@@ -27,6 +27,48 @@ jobs:
             libnl-3-dev \
             libnl-genl-3-dev \
             libglib2.0-dev
+
+      - name: Configure
+        run: |
+          ./autogen.sh
+          ./configure --with-systemd
+
+      - name: Build
+        run: make
+
+      - name: Check
+        run: make check
+
+      - name: Distcheck
+        run: make distcheck
+
+  build-musl:
+
+    runs-on: ubuntu-latest
+    container: alpine:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          apk update
+          apk add --no-cache \
+            build-base \
+            autoconf \
+            automake \
+            libtool \
+            gnutls-dev \
+            keyutils-dev \
+            libnl3-dev \
+            glib-dev \
+            linux-headers
 
       - name: Configure
         run: |
