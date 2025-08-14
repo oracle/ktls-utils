@@ -15,9 +15,24 @@ this package is released.
 
 ## Dependencies
 
-* The local kernel must have net/handshake support and be built with
-  CONFIG_TLS enabled
-* The local build environment requires GnuTLS and keyutils
+### Run-time dependencies
+
+The kernel must have net/handshake support (v6.5 or later) and be
+built with the following CONFIG options enabled:
+
+* CONFIG_TLS
+* CONFIG_KEYS
+* CONFIG_KEYS_REQUEST_CACHE
+
+### Build dependencies
+
+The build environment requires the development packages for the
+following libraries to be installed:
+
+* GnuTLS
+* keyutils
+* GLib-2.0
+* libnl3
 
 ## Installation
 
