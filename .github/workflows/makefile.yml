@@ -45,6 +45,7 @@ jobs:
   build-musl:
 
     runs-on: ubuntu-latest
+    permissions: read-all
     container: alpine:latest
     strategy:
       fail-fast: false
