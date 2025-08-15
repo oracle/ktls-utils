@@ -18,7 +18,7 @@
  * 02110-1301, USA.
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <stdbool.h>
 #include <unistd.h>

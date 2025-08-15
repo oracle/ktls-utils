@@ -18,6 +18,8 @@
  * 02110-1301, USA.
  */
 
+#include <config.h>
+
 #include <gnutls/abstract.h>
 #include <sys/socket.h>
 #include <linux/tls.h>
@@ -26,7 +28,6 @@
 #include <unistd.h>
 #include <glib.h>
 
-#include "config.h"
 #include "tlshd.h"
 
 #ifdef HAVE_GNUTLS_QUIC

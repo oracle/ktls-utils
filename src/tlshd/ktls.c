@@ -19,7 +19,7 @@
  * 02110-1301, USA.
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
