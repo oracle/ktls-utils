@@ -64,7 +64,7 @@ static void tlshd_save_nagle(gnutls_session_t session, int *saved)
 			 IPPROTO_TCP, TCP_NODELAY, saved, &len);
 	if (ret < 0) {
 		tlshd_log_perror("getsockopt (NODELAY)");
-		saved = 0;
+		*saved = 0;
 		return;
 	}
 
