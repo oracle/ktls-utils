@@ -283,8 +283,8 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	struct tlshd_handshake_parms *parms = arg;
 	struct sockaddr_storage addr;
 	struct sockaddr *sap = NULL;
+	const char *peername = NULL;
 	socklen_t salen, optlen;
-	char *peername = NULL;
 	int err;
 
 	tlshd_log_debug("Parsing a valid netlink message\n");
@@ -390,8 +390,8 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
  */
 int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms)
 {
+	const struct nlmsghdr *hdr;
 	int family_id, err, ret;
-	struct nlmsghdr *hdr;
 	struct nl_sock *nls;
 	struct nl_msg *msg;
 
@@ -480,9 +480,10 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 {
 	key_serial_t peerid;
 	guint i;
-	int err;
 
 	for (i = 0; i < parms->remote_peerids->len; i++) {
+		int err;
+
 		peerid = g_array_index(parms->remote_peerids, key_serial_t, i);
 		err = nla_put_s32(msg, HANDSHAKE_A_DONE_REMOTE_AUTH, peerid);
 		if (err < 0) {
@@ -500,7 +501,7 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
  */
 void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 {
-	struct nlmsghdr *hdr;
+	const struct nlmsghdr *hdr;
 	struct nl_sock *nls;
 	struct nl_msg *msg;
 	int family_id, err;
