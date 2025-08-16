@@ -361,7 +361,8 @@ static void tlshd_tls13_client_psk_handshake_one(struct tlshd_handshake_parms *p
 	gnutls_psk_client_credentials_t psk_cred;
 	gnutls_session_t session;
 #ifdef HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2
-	int version, type, hash;
+	int version, hash;
+	char type;
 #endif
 	gnutls_datum_t key;
 	unsigned int flags;
