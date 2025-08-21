@@ -99,6 +99,122 @@ Each tag is a list of one or more filters (defined in the
 dictionary)
 that all must be matched in order for the tag to be assigned to a
 new TLS session.
+.SS Filter types
+A filter's
+.I type
+determines the part of the incoming authentication material that the
+.B tlshd
+program examines to determine if there is a match.
+For example, for the
+.I x509.tbs.subject
+filter type, a string argument specifies a simple wildcard pattern
+that is matched against an incoming X.509 certificate's subject field.
+A complete list of filter types appears in the
+.B FILTER TYPE REFERENCE
+section below.
+
+.SH FILTER TYPE REFERENCE
+The
+.B tlshd
+program currently implements the following filter types:
+.TP
+.B x509.cert.signatureAlgorithm
+Filters of this type examine an incoming X.509 certificate's
+signatureAlgorithm field,
+as defined in RFC 5280, Section 4.1.1.2.
+The filter takes an additional string wildcard pattern that
+can be an algorithm name or an algorithm OID.
+.TP
+.B x509.tbs.version
+Filters of this type examine an incoming X.509 certificate's
+version field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.1.
+The filter takes an additional numeric value that is matched
+against the certificate's version.
+.TP
+.B x509.tbs.serialNumber
+Filters of this type examine an incoming X.509 certificate's
+serialNumber field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.2.
+The filter takes an additional string wildcard pattern that
+matches a hexadecimal number.
+.TP
+.B x509.tbs.issuer
+Filters of this type examine an incoming X.509 certificate's
+issuer field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.4.
+The filter takes an additional string wildcard pattern that
+matches the distinguished name part of the certificate's
+issuer field.
+.TP
+.B x509.tbs.validity.notBefore
+Filters of this type examine an incoming X.509 certificate's
+activation time field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.5.
+The filter takes a date and time string.
+The filter matches when the certificate's activation time
+is equal to or later than the specified threshold.
+Use this filter to accept only certificates issued on or
+after a particular date.
+.TP
+.B x509.tbs.validity.notAfter
+Filters of this type examine an incoming X.509 certificate's
+expiration time field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.5.
+The filter takes a date and time string.
+The filter matches when the certificate's expiration time
+is equal to or earlier than the specified threshold.
+Use this filter to accept only certificates that expire on
+or before a particular date.
+.TP
+.B x509.tbs.subject
+Filters of this type examine an incoming X.509 certificate's
+subject field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.6.
+The filter takes an additional string wildcard pattern that
+matches the distinguished name part of the certificate's
+subject field.
+
+.TP
+.B x509.extension.keyUsage
+Filters of this type examine an incoming X.509 certificate's
+keyUsage field,
+one of the standard certificate extensions.
+The filter takes a list of bit names that must be set in the
+field in order for the filter to match.
+This list contains zero or more of the following bit names:
+.IR digitalSignature ,
+.IR nonRepudiation ,
+.IR keyEncipherment ,
+.IR dataEncipherment ,
+.IR keyAgreement ,
+.IR keyCertSign ,
+.IR cRLSign ,
+.IR encipherOnly ", or"
+.IR decipherOnly .
+.TP
+.B x509.extension.extendedKeyUsage
+Filters of this type examine an incoming X.509 certificate's
+extendedKeyUsage field,
+one of the standard certificate extensions.
+This filter type is not yet implemented.
+.TP
+.B x509.derived.fingerprint
+Filters of this type locally compute an incoming X.509 certificate's
+SHA1 and SHA256 fingerprint.
+The filter takes an additional string wildcard pattern that
+matches the hexadecimal value of either the derived SHA1 or
+derived SHA256 fingerprint.
+.TP
+.B x509.derived.selfSigned
+Filters of this type match when an incoming X.509 certificate's
+issuer and subject distinguished names are exactly equal.
 .SH STANDARDS
 .TP
 .B X.509
