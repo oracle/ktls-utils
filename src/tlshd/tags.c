@@ -25,6 +25,7 @@
 #include <config.h>
 
 #include <stdbool.h>
+#include <sys/stat.h>
 #include <keyutils.h>
 
 #include <gnutls/gnutls.h>
@@ -34,6 +35,91 @@
 #include <yaml.h>
 
 #include "tlshd.h"
+
+/** @name tagsNameValidation
+ *
+ * Filter & tag name validation
+ */
+
+///@{
+
+/**
+ * @var tlshd_tags_name_valid
+ * @brief Regular expression that defines a valid tag or filter name
+ */
+static const gchar *tlshd_tags_name_valid = "[a-zA-Z0-9_\\-]+";
+
+/**
+ * @var tlshd_tags_name_regex
+ * @brief Compiled regular expression
+ */
+static GRegex *tlshd_tags_name_regex;
+
+/**
+ * @brief Free the compiled regular expression for verifying names
+ */
+static void tlshd_tags_name_destroy(void)
+{
+	if (tlshd_tags_name_regex)
+		g_regex_unref(tlshd_tags_name_regex);
+}
+
+/**
+ * @brief Initialize the compiled regular expression for verifying names
+ *
+ * @retval true   Regex initialization succeeded
+ * @retval false  Regex initialization failed
+ */
+static bool tlshd_tags_name_init(void)
+{
+	GError *error;
+
+	error = NULL;
+	tlshd_tags_name_regex = g_regex_new(tlshd_tags_name_valid, 0,
+					    G_REGEX_MATCH_ANCHORED, &error);
+	if (tlshd_tags_name_regex == NULL) {
+		tlshd_log_gerror("Failed to compile name regex", error);
+		g_error_free(error);
+		return false;
+	}
+	return true;
+}
+
+/**
+ * @brief Predicate: is a tag or filter name valid?
+ * @param[in]     name  NUL-terminated name to validate
+ *
+ * @retval true   "name" is a valid tag or filter name
+ * @retval false  "name" is not a valid tag or filter name
+ */
+static bool tlshd_tags_name_is_valid(const gchar *name)
+{
+	g_autoptr(GMatchInfo) match_info = NULL;
+	int namelen = strlen(name);
+	int start_pos, end_pos;
+	bool res;
+
+	if (namelen < 1 || namelen > 255) {
+		tlshd_log_error("Filter or tag name length %d outside valid range [1, 255]",
+				namelen);
+		return false;
+	}
+
+	res = g_regex_match(tlshd_tags_name_regex, name,
+			    G_REGEX_MATCH_ANCHORED, &match_info);
+	if (!res)
+		goto invalid;
+	g_match_info_fetch_pos(match_info, 0, &start_pos, &end_pos);
+	if (start_pos != 0 || end_pos != namelen)
+		goto invalid;
+	return true;
+
+invalid:
+	tlshd_log_debug("Name '%s' contains invalid characters", name);
+	return false;
+}
+
+///@}
 
 /** @name tagsLibYamlHelpers
  *
@@ -85,6 +171,15 @@ enum tlshd_tags_fsm_state_index {
 	PS_DOCUMENT,
 	PS_TOP_LEVEL,
 
+	PS_FILTERS,
+	PS_FILTER,
+	PS_FILTER_KEYS,
+	PS_FILTER_KEY,
+	PS_FILTER_TYPE_VALUE,
+	PS_FILTER_PATTERN_VALUE,
+	PS_FILTER_PURPOSE_LIST,
+	PS_FILTER_KEY_USAGE,
+
 	PS_UNEXPECTED_INPUT_TOKEN,
 	PS_FAILURE,
 };
@@ -113,6 +208,28 @@ struct tlshd_tags_filter_type {
 static GHashTable *tlshd_tags_filter_type_hash;
 
 /**
+ * @struct tlshd_tags_filter
+ * @brief In-memory tag filter
+ */
+struct tlshd_tags_filter {
+	gchar				*fi_name;
+	gchar				*fi_filename;
+	struct tlshd_tags_filter_type	*fi_filter_type;
+
+	/* filter arguments */
+	gchar				*fi_pattern;
+	GPatternSpec			*fi_pattern_spec;
+	unsigned int			fi_purpose_mask;
+	time_t				fi_time;
+};
+
+/**
+ * @var tlshd_tags_filter_hash
+ * @brief Hash table of all tag filters
+ */
+static GHashTable *tlshd_tags_filter_hash;
+
+/**
  * @struct tlshd_tags_parser_state
  * @brief Global parser state
  */
@@ -120,6 +237,9 @@ struct tlshd_tags_parser_state {
 	yaml_event_t			ps_yaml_event;
 
 	enum tlshd_tags_fsm_state_index	ps_fsm_state;
+
+	const char			*ps_current_filename;
+	struct tlshd_tags_filter	*ps_current_filter;
 };
 
 static enum tlshd_tags_fsm_state_index
@@ -134,9 +254,312 @@ tlshd_tags_top_level(struct tlshd_tags_parser_state *current)
 	}
 
 	mapping = (const char *)event->data.scalar.value;
+	if (strcmp(mapping, "filters") == 0)
+		return PS_FILTERS;
+
 	tlshd_log_error("Unexpected mapping name: %s", mapping);
 	return PS_UNEXPECTED_INPUT_TOKEN;
 }
+
+/** @name tagsFilters
+ *
+ * TLS session tag filters
+ */
+
+///@{
+
+/**
+ * @brief Free one tag filter
+ * @param[in]     filter  Filter object to be freed
+ */
+static void tlshd_tags_filter_free(struct tlshd_tags_filter *filter)
+{
+	if (!filter)
+		return;
+
+	if (tlshd_debug > 3)
+		tlshd_log_debug("Removing filter '%s' from the filter hash",
+				filter->fi_name);
+
+	if (filter->fi_pattern_spec)
+		g_pattern_spec_free(filter->fi_pattern_spec);
+	g_free(filter->fi_pattern);
+	g_free(filter->fi_filename);
+	g_free(filter->fi_name);
+	g_free(filter);
+}
+
+/**
+ * @brief Free the tag filter hash table
+ */
+static void tlshd_tags_filter_hash_destroy(void)
+{
+	if (!tlshd_tags_filter_hash)
+		return;
+
+	g_hash_table_destroy(tlshd_tags_filter_hash);
+	tlshd_tags_filter_hash = NULL;
+}
+
+/**
+ * @brief Initialize the tag filter hash table
+ *
+ * @retval true   Tag filter hash table initialization succeeded
+ * @retval false  Tag filter hash table initialization failed
+ */
+static bool tlshd_tags_filter_hash_init(void)
+{
+	tlshd_tags_filter_hash = g_hash_table_new_full(g_str_hash, g_str_equal,
+						       NULL,
+						       (GDestroyNotify)tlshd_tags_filter_free);
+	return tlshd_tags_filter_hash != NULL;
+}
+
+/**
+ * @brief Create a new tag filter and make it the current filter
+ * @param [in,out]  current  Current YAML parser state
+ *
+ * @returns the next FSM state
+ */
+static enum tlshd_tags_fsm_state_index
+tlshd_tags_filter_create(struct tlshd_tags_parser_state *current)
+{
+	const yaml_event_t *event = &current->ps_yaml_event;
+	gchar *value = (gchar *)event->data.scalar.value;
+	struct tlshd_tags_filter *filter;
+
+	if (!tlshd_tags_name_is_valid(value))
+		return PS_FAILURE;
+
+	filter = g_malloc0(sizeof(*filter));
+	if (!filter) {
+		tlshd_log_error("Failed to allocate new filter");
+		return PS_FAILURE;
+	}
+
+	filter->fi_name = g_strdup((const char *)value);
+	if (!filter->fi_name) {
+		g_free(filter);
+		tlshd_log_error("Failed to allocate new filter");
+		return PS_FAILURE;
+	}
+	filter->fi_filename = g_strdup(current->ps_current_filename);
+	if (!filter->fi_filename) {
+		g_free(filter->fi_name);
+		g_free(filter);
+		tlshd_log_error("Failed to allocate new filter");
+		return PS_FAILURE;
+	}
+
+	current->ps_current_filter = filter;
+	return PS_FILTER_KEYS;
+}
+
+/**
+ * @brief Start parsing a new filter specification
+ * @param [in,out]  current  Current YAML parser state
+ *
+ * @returns the next FSM state
+ */
+static enum tlshd_tags_fsm_state_index
+tlshd_tags_filter_type_add(struct tlshd_tags_parser_state *current)
+{
+	const yaml_event_t *event = &current->ps_yaml_event;
+	const char *name = (const char *)event->data.scalar.value;
+	gpointer filter_type;
+
+	if (!current->ps_current_filter) {
+		tlshd_log_error("No current filter");
+		return PS_FAILURE;
+	}
+
+	if (current->ps_current_filter->fi_filter_type) {
+		tlshd_log_error("Filter type already set for filter '%s'",
+				name);
+		return PS_FAILURE;
+	}
+
+	filter_type = g_hash_table_lookup(tlshd_tags_filter_type_hash,
+					  (gconstpointer)name);
+	if (!filter_type) {
+		tlshd_log_debug("Filter type '%s' is not supported", name);
+		return PS_UNEXPECTED_INPUT_TOKEN;
+	}
+
+	current->ps_current_filter->fi_filter_type = filter_type;
+	return PS_FILTER_KEY;
+}
+
+/**
+ * @brief Parse a filter type
+ * @param [in,out]  current  Current YAML parser state
+ *
+ * @returns the next FSM state
+ */
+static enum tlshd_tags_fsm_state_index
+tlshd_tags_filter_key_set(struct tlshd_tags_parser_state *current)
+{
+	const yaml_event_t *event = &current->ps_yaml_event;
+	const char *key = (const char *)event->data.scalar.value;
+
+	if (strcmp(key, "type") == 0)
+		return PS_FILTER_TYPE_VALUE;
+	else if (strcmp(key, "pattern") == 0)
+		return PS_FILTER_PATTERN_VALUE;
+	else if (strcmp(key, "purpose") == 0)
+		return PS_FILTER_PURPOSE_LIST;
+
+	tlshd_log_error("Unexpected token: %s", key);
+	return PS_UNEXPECTED_INPUT_TOKEN;
+}
+
+/**
+ * @brief Parse a pattern-based filter-specification
+ * @param [in,out]  current  Current YAML parser state
+ *
+ * @returns the next FSM state
+ */
+static enum tlshd_tags_fsm_state_index
+tlshd_tags_filter_pattern_set(struct tlshd_tags_parser_state *current)
+{
+	const yaml_event_t *event = &current->ps_yaml_event;
+	const char *pattern = (const char *)event->data.scalar.value;
+	int wildcard_count = 0;
+	const char *p;
+
+	if (!current->ps_current_filter) {
+		tlshd_log_error("No current filter");
+		return PS_FAILURE;
+	}
+
+	for (p = pattern; *p; p++)
+		if (*p == '*' || *p == '?')
+			wildcard_count++;
+	if (wildcard_count > 16) {
+		tlshd_log_error("Pattern for filter '%s' contains too many wildcards (%d > 16)",
+				current->ps_current_filter->fi_name,
+				wildcard_count);
+		return PS_FAILURE;
+	}
+
+	current->ps_current_filter->fi_pattern = g_strdup(pattern);
+	if (!current->ps_current_filter->fi_pattern) {
+		tlshd_log_error("Failed to allocate filter pattern");
+		return PS_FAILURE;
+	}
+
+	current->ps_current_filter->fi_pattern_spec = g_pattern_spec_new(pattern);
+	if (!current->ps_current_filter->fi_pattern_spec) {
+		tlshd_log_error("Failed to compile filter pattern");
+		g_free(current->ps_current_filter->fi_pattern);
+		current->ps_current_filter->fi_pattern = NULL;
+		return PS_FAILURE;
+	}
+
+	return PS_FILTER_KEY;
+}
+
+/**
+ * @brief Parse a keyUsage filter specification
+ * @param [in,out]  current  Current YAML parser state
+ *
+ * @returns the next FSM state
+ */
+static enum tlshd_tags_fsm_state_index
+tlshd_tags_filter_key_usage_set(struct tlshd_tags_parser_state *current)
+{
+	const yaml_event_t *event = &current->ps_yaml_event;
+	const char *name = (const char *)event->data.scalar.value;
+	unsigned int key_usage = 0;
+
+	if (strcmp(name, "digitalSignature") == 0)
+		key_usage = GNUTLS_KEY_DIGITAL_SIGNATURE;
+	else if (strcmp(name, "nonRepudiation") == 0)
+		key_usage = GNUTLS_KEY_NON_REPUDIATION;
+	else if (strcmp(name, "keyEncipherment") == 0)
+		key_usage = GNUTLS_KEY_KEY_ENCIPHERMENT;
+	else if (strcmp(name, "dataEncipherment") == 0)
+		key_usage = GNUTLS_KEY_DATA_ENCIPHERMENT;
+	else if (strcmp(name, "keyAgreement") == 0)
+		key_usage = GNUTLS_KEY_KEY_AGREEMENT;
+	else if (strcmp(name, "keyCertSign") == 0)
+		key_usage = GNUTLS_KEY_KEY_CERT_SIGN;
+	else if (strcmp(name, "cRLSign") == 0)
+		key_usage = GNUTLS_KEY_CRL_SIGN;
+	else if (strcmp(name, "encipherOnly") == 0)
+		key_usage = GNUTLS_KEY_ENCIPHER_ONLY;
+	else if (strcmp(name, "decipherOnly") == 0)
+		key_usage = GNUTLS_KEY_DECIPHER_ONLY;
+	else {
+		tlshd_log_error("Unrecognized key usage: %s", name);
+		return PS_UNEXPECTED_INPUT_TOKEN;
+	}
+
+	current->ps_current_filter->fi_purpose_mask |= key_usage;
+	return PS_FILTER_KEY_USAGE;
+}
+
+/**
+ * @brief Validate a filter and insert it into the filter hash table
+ * @param [in,out]  current  Current YAML parser state
+ *
+ * @returns the next FSM state
+ */
+static enum tlshd_tags_fsm_state_index
+tlshd_tags_filter_validate(struct tlshd_tags_parser_state *current)
+{
+	struct tlshd_tags_filter *filter = current->ps_current_filter;
+
+	if (!filter) {
+		tlshd_log_error("No current filter");
+		return PS_FAILURE;
+	}
+
+	if (!filter->fi_filter_type) {
+		tlshd_log_error("Filter '%s' has no type specified",
+				filter->fi_name);
+		tlshd_tags_filter_free(filter);
+		current->ps_current_filter = NULL;
+		return PS_FAILURE;
+	}
+	if (!filter->fi_filter_type->ft_validate) {
+		tlshd_log_error("Filter '%s' uses unimplemented filter type",
+				filter->fi_name);
+		tlshd_tags_filter_free(filter);
+		current->ps_current_filter = NULL;
+		return PS_FAILURE;
+	}
+	if (!filter->fi_filter_type->ft_validate(filter)) {
+		tlshd_tags_filter_free(filter);
+		current->ps_current_filter = NULL;
+		return PS_FAILURE;
+	}
+
+	{
+		struct tlshd_tags_filter *existing;
+
+		existing = g_hash_table_lookup(tlshd_tags_filter_hash,
+					       filter->fi_name);
+		if (existing) {
+			tlshd_log_error("Duplicate filter name '%s' (defined in %s and %s)",
+					filter->fi_name, existing->fi_filename,
+					filter->fi_filename);
+			tlshd_tags_filter_free(filter);
+			current->ps_current_filter = NULL;
+			return PS_FAILURE;
+		}
+	}
+
+	if (tlshd_debug > 3)
+		tlshd_log_debug("Adding filter '%s' to the filter hash",
+				filter->fi_name);
+	g_hash_table_insert(tlshd_tags_filter_hash, filter->fi_name,
+			    (gpointer)filter);
+	current->ps_current_filter = NULL;
+	return PS_FILTER;
+}
+
+///@}
 
 /** @name tagsYamlFsm
  *
@@ -189,6 +612,41 @@ static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_top_level[]
 	NEXT_STATE(YAML_MAPPING_END_EVENT, PS_DOCUMENT),
 };
 
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filters[] = {
+	NEXT_STATE(YAML_MAPPING_START_EVENT, PS_FILTER),
+};
+
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filter[] = {
+	NEXT_ACTION(YAML_SCALAR_EVENT, tlshd_tags_filter_create),
+	NEXT_STATE(YAML_MAPPING_END_EVENT, PS_TOP_LEVEL),
+};
+
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filter_keys[] = {
+	NEXT_STATE(YAML_MAPPING_START_EVENT, PS_FILTER_KEY),
+};
+
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filter_key[] = {
+	NEXT_ACTION(YAML_SCALAR_EVENT, tlshd_tags_filter_key_set),
+	NEXT_ACTION(YAML_MAPPING_END_EVENT, tlshd_tags_filter_validate),
+};
+
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filter_type_value[] = {
+	NEXT_ACTION(YAML_SCALAR_EVENT, tlshd_tags_filter_type_add),
+};
+
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filter_pattern_value[] = {
+	NEXT_ACTION(YAML_SCALAR_EVENT, tlshd_tags_filter_pattern_set),
+};
+
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filter_purpose_list[] = {
+	NEXT_STATE(YAML_SEQUENCE_START_EVENT, PS_FILTER_KEY_USAGE),
+};
+
+static const struct tlshd_tags_fsm_transition tlshd_tags_transitions_filter_key_usage[] = {
+	NEXT_ACTION(YAML_SCALAR_EVENT, tlshd_tags_filter_key_usage_set),
+	NEXT_STATE(YAML_SEQUENCE_END_EVENT, PS_FILTER_KEY),
+};
+
 struct tlshd_tags_fsm_state {
 	const char			*ts_name;
 	const struct tlshd_tags_fsm_transition *ts_transitions;
@@ -218,6 +676,14 @@ static const struct tlshd_tags_fsm_state tlshd_tags_fsm_state_table[] = {
 	FSM_STATE(PS_STREAM, tlshd_tags_transitions_stream),
 	FSM_STATE(PS_DOCUMENT, tlshd_tags_transitions_document),
 	FSM_STATE(PS_TOP_LEVEL, tlshd_tags_transitions_top_level),
+	FSM_STATE(PS_FILTERS, tlshd_tags_transitions_filters),
+	FSM_STATE(PS_FILTER, tlshd_tags_transitions_filter),
+	FSM_STATE(PS_FILTER_KEYS, tlshd_tags_transitions_filter_keys),
+	FSM_STATE(PS_FILTER_KEY, tlshd_tags_transitions_filter_key),
+	FSM_STATE(PS_FILTER_TYPE_VALUE, tlshd_tags_transitions_filter_type_value),
+	FSM_STATE(PS_FILTER_PATTERN_VALUE, tlshd_tags_transitions_filter_pattern_value),
+	FSM_STATE(PS_FILTER_PURPOSE_LIST, tlshd_tags_transitions_filter_purpose_list),
+	FSM_STATE(PS_FILTER_KEY_USAGE, tlshd_tags_transitions_filter_key_usage),
 	TERMINAL_STATE(PS_UNEXPECTED_INPUT_TOKEN),
 	TERMINAL_STATE(PS_FAILURE),
 };
@@ -294,10 +760,16 @@ static void tlshd_tags_parse_file(const char *filename)
 	tlshd_log_debug("Parsing tags config file '%s'", filename);
 
 	current.ps_fsm_state = PS_START;
+	current.ps_current_filename = filename;
+	current.ps_current_filter = NULL;
 	do {
 		if (!yaml_parser_parse(&parser, &current.ps_yaml_event)) {
-			tlshd_log_error("Parser error %d",
-					parser.error);
+			tlshd_log_error("Parser error %d in file '%s'",
+					parser.error, filename);
+			if (current.ps_current_filter) {
+				tlshd_tags_filter_free(current.ps_current_filter);
+				current.ps_current_filter = NULL;
+			}
 			break;
 		}
 		tlshd_tags_process_yaml_event(&current);
@@ -312,6 +784,11 @@ static void tlshd_tags_parse_file(const char *filename)
 			break;
 		}
 	} while (current.ps_fsm_state != PS_STOP);
+
+	if (current.ps_current_filter) {
+		tlshd_tags_filter_free(current.ps_current_filter);
+		current.ps_current_filter = NULL;
+	}
 
 	yaml_parser_delete(&parser);
 	fclose(fh);
@@ -487,16 +964,24 @@ static bool tlshd_tags_filter_type_hash_init(void)
  */
 bool tlshd_tags_config_init(const char *tagsdir)
 {
-	if (!tlshd_tags_filter_type_hash_init())
+	if (!tlshd_tags_name_init())
 		goto out;
+	if (!tlshd_tags_filter_type_hash_init())
+		goto name;
+	if (!tlshd_tags_filter_hash_init())
+		goto filter_type_hash;
 
 	if (!tlshd_tags_read_directory(tagsdir))
-		goto filter_type_hash;
+		goto filter_hash;
 
 	return true;
 
+filter_hash:
+	tlshd_tags_filter_hash_destroy();
 filter_type_hash:
 	tlshd_tags_filter_type_hash_destroy();
+name:
+	tlshd_tags_name_destroy();
 out:
 	return false;
 }
@@ -507,7 +992,9 @@ out:
  */
 void tlshd_tags_config_shutdown(void)
 {
+	tlshd_tags_filter_hash_destroy();
 	tlshd_tags_filter_type_hash_destroy();
+	tlshd_tags_name_destroy();
 }
 
 /**
