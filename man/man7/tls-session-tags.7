@@ -221,6 +221,24 @@ derived SHA256 fingerrint.
 .B x509.derived.selfSigned
 Filters of this type match when an incoming x.509 certificate's
 issuer and subject distinguished names are exactly equal.
+.SS Filters
+The definition of each filter is YAML mapping that specifies
+the unique name of the filter,
+its filter type,
+and
+zero or more specific match arguments to be used.
+For example:
+
+  filters:
+    ...
+    monsters-university:
+      type: "x509.tbs.issuer"
+      pattern: "*,O=Monsters University,*"
+    ...
+
+This blurb defines a filter named "monsters-university".
+It uses a wildcard match that looks for "O=Monsters Univerity"
+in the "issuer" field of each incoming x.509 certificate.
 .SH STANDARDS
 x.509
 .BR
