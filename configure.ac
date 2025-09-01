@@ -81,5 +81,12 @@ AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
                         [Define to 1 if you have the gnutls_psk_allocate_client_credentials2 function.])])
 AC_SUBST([AM_CPPFLAGS])
 
-AC_CONFIG_FILES([Makefile src/Makefile src/tlshd/Makefile systemd/Makefile])
+AC_CONFIG_FILES([Makefile \
+                 man/Makefile \
+                 man/man5/Makefile \
+                 man/man8/Makefile \
+                 src/Makefile \
+                 src/tlshd/Makefile \
+                 systemd/Makefile])
+
 AC_OUTPUT
