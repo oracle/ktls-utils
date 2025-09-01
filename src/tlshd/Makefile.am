@@ -18,10 +18,6 @@
 
 dist_sysconf_DATA	= tlshd.conf
 
-man5_MANS		= tlshd.conf.man
-man8_MANS		= tlshd.man
-EXTRA_DIST		= $(man5_MANS) $(man8_MANS)
-
 sbin_PROGRAMS		= tlshd
 tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
 			  $(LIBKEYUTILS_CFLAGS) $(GLIB_CFLAGS) $(LIBNL3_CFLAGS) \
