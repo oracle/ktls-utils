@@ -19,7 +19,7 @@
  * 02110-1301, USA.
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -80,8 +80,7 @@ static void tlshd_x509_server_put_privkey(void)
 static void tlshd_x509_log_issuers(const gnutls_datum_t *req_ca_rdn, int nreqs)
 {
 	char issuer_dn[256];
-	size_t len;
-	int i, ret;
+	int i;
 
 	if (nreqs < 1)
 		return;
@@ -89,6 +88,9 @@ static void tlshd_x509_log_issuers(const gnutls_datum_t *req_ca_rdn, int nreqs)
 	tlshd_log_debug("Server's trusted authorities:");
 
 	for (i = 0; i < nreqs; i++) {
+		size_t len;
+		int ret;
+
 		len = sizeof(issuer_dn);
 		ret = gnutls_x509_rdn_get(&req_ca_rdn[i], issuer_dn, &len);
 		if (ret >= 0)

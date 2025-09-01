@@ -18,6 +18,8 @@
  * 02110-1301, USA.
  */
 
+#include <config.h>
+
 #include <gnutls/abstract.h>
 #include <sys/socket.h>
 #include <linux/tls.h>
@@ -26,7 +28,6 @@
 #include <unistd.h>
 #include <glib.h>
 
-#include "config.h"
 #include "tlshd.h"
 
 #ifdef HAVE_GNUTLS_QUIC
@@ -106,7 +107,7 @@ static int quic_secret_func(gnutls_session_t session, gnutls_record_encryption_l
 	struct tlshd_quic_conn *conn = gnutls_session_get_ptr(session);
 	gnutls_cipher_algorithm_t type  = gnutls_cipher_get(session);
 	struct quic_crypto_secret secret = {};
-	int sockfd, ret, len = sizeof(secret);
+	int sockfd, len = sizeof(secret);
 
 	if (conn->completed)
 		return 0;
@@ -134,6 +135,8 @@ static int quic_secret_func(gnutls_session_t session, gnutls_record_encryption_l
 		}
 		if (secret.level == QUIC_CRYPTO_APP) {
 			if (conn->is_serv) {
+				int ret;
+
 				ret = gnutls_session_ticket_send(session, 1, 0);
 				if (ret) {
 					tlshd_log_gnutls_error(ret);
@@ -383,13 +386,14 @@ static int quic_handshake_recvmsg(int sockfd, struct tlshd_quic_msg *msg)
 	return ret;
 }
 
-static int quic_handshake_completed(struct tlshd_quic_conn *conn)
+static int quic_handshake_completed(const struct tlshd_quic_conn *conn)
 {
 	return conn->completed || conn->errcode;
 }
 
-static int quic_handshake_crypto_data(struct tlshd_quic_conn *conn, uint8_t level,
-				      const uint8_t *data, size_t datalen)
+static int quic_handshake_crypto_data(const struct tlshd_quic_conn *conn,
+				      uint8_t level, const uint8_t *data,
+				      size_t datalen)
 {
 	gnutls_session_t session = conn->session;
 	int ret;

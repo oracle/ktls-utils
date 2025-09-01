@@ -19,7 +19,7 @@
  * 02110-1301, USA.
  */
 
-#include "config.h"
+#include <config.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -540,7 +540,7 @@ out:
  * Returns GNUTLS_E_SUCCESS on success, otherwise an error code.
  */
 int tlshd_gnutls_priority_set(gnutls_session_t session,
-			      struct tlshd_handshake_parms *parms,
+			      const struct tlshd_handshake_parms *parms,
 			      unsigned int psk_len)
 {
 	gnutls_priority_t priority = tlshd_gnutls_priority_x509;
