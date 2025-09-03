@@ -20,5 +20,6 @@ AUTOMAKE_OPTIONS	= foreign
 
 EXTRA_DIST		= autogen.sh CONTRIBUTING.md LICENSE.txt \
 			  README.md SECURITY.md
-SUBDIRS			= etc man src systemd
+SUBDIRS			= docs etc man src systemd
+
 MAINTAINERCLEANFILES	= Makefile.in cscope.* ktls-utils*.tar.gz

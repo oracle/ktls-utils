@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 Oracle and/or its affiliates.
+# Copyright (c) 2025 Oracle and/or its affiliates.
 #
 # ktls-utils is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -16,7 +16,14 @@
 # 02110-1301, USA.
 #
 
-EXTRA_DIST		= mainpage.c
+EXTRA_DIST		= Doxyfile.in
 
-SUBDIRS			= tlshd
+if HAVE_DOXYGEN
+doxygen: Doxyfile
+	$(DOXYGEN) Doxyfile
+endif
+
+clean-local:
+	-rm -rf doxygen/ latex/ man/
+
 MAINTAINERCLEANFILES	= Makefile.in

@@ -51,6 +51,22 @@
 
 #include "tlshd.h"
 
+/**
+ * @page tlshd TLS handshake daemon
+ *
+ * The tlshd daemon is a user agent that services TLS handshake
+ * requests on behalf of kernel TLS consumers. It materializes kernel
+ * socket endpoints in user space in order to perform TLS handshakes
+ * using a standard TLS library. After each handshake completes, tlshd
+ * plants the TLS session key into the socket to enable the use of
+ * kTLS to secure subsequent communication on that socket. The socket
+ * is then passed back to the kernel.
+ *
+ * @section man8 Man pages
+ * @subsection tlshd_8 tlshd.8
+ * @htmlinclude tlshd.8.html
+ */
+
 static const char *optstring = "c:hsv";
 static const struct option longopts[] = {
 	{ "config",	required_argument,	NULL,	'c' },

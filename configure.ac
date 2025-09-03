@@ -64,6 +64,12 @@ PKG_CHECK_MODULES([LIBNL_GENL3], libnl-genl-3.0 >= 3.1)
 AC_SUBST([LIBNL_GENL3_CFLAGS])
 AC_SUBST([LIBNL_GENL3_LIBS])
 
+AC_CHECK_PROG(DOXYGEN, doxygen, doxygen, false)
+if test "$DOXYGEN" = false; then
+   AC_MSG_WARN([Doxygen not found - documentation will not be built])
+fi
+AM_CONDITIONAL([HAVE_DOXYGEN], [test "$DOXYGEN" != "false"])
+
 AC_CHECK_LIB([gnutls], [gnutls_handshake_set_secret_function],
              [AC_DEFINE([HAVE_GNUTLS_QUIC], [1],
 			[Define to 1 if you have the gnutls_handshake_set_secret_function function.])])
@@ -94,6 +100,8 @@ fi
 AC_SUBST([AM_CPPFLAGS])
 
 AC_CONFIG_FILES([Makefile \
+                 docs/Doxyfile \
+                 docs/Makefile \
                  etc/Makefile \
                  etc/tlshd/Makefile \
                  man/Makefile \
