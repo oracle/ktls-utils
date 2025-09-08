@@ -1,8 +1,12 @@
-/*
- * Record audit and debugging information in the system log.
+/**
+ * @file log.c
+ * @brief Record audit and debugging information in the system log
  *
+ * @copyright
  * Copyright (c) 2022 Oracle and/or its affiliates.
- *
+ */
+
+/*
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2.
@@ -40,14 +44,27 @@
 
 #include "tlshd.h"
 
+/**
+ * @var int tlshd_debug
+ * Global debug verbosity setting
+ */
 int tlshd_debug;
+
+/**
+ * @var int tlshd_tls_debug
+ * Global debug verbosity setting for TLS library calls
+ */
 int tlshd_tls_debug;
+
+/**
+ * @var int tlshd_stderr
+ * Global setting to output on stderr as well as syslog
+ */
 int tlshd_stderr;
 
 /**
- * tlshd_log_completion - Emit completion notification
- * @parms: handshake parameters
- *
+ * @brief Emit completion notification
+ * @param[in]     parms  Handshake parameters
  */
 void tlshd_log_completion(struct tlshd_handshake_parms *parms)
 {
@@ -69,9 +86,8 @@ void tlshd_log_completion(struct tlshd_handshake_parms *parms)
 }
 
 /**
- * tlshd_log_debug - Emit a debugging notification
- * @fmt - printf-style format string
- *
+ * @brief Emit a debugging notification
+ * @param[in]     fmt  printf-style format string
  */
 void tlshd_log_debug(const char *fmt, ...)
 {
@@ -86,9 +102,8 @@ void tlshd_log_debug(const char *fmt, ...)
 }
 
 /**
- * tlshd_log_error - Emit a generic error notification
- * @fmt - printf-style format string
- *
+ * @brief Emit a generic error notification
+ * @param[in]     fmt  printf-style format string
  */
 void tlshd_log_error(const char *fmt, ...)
 {
@@ -100,9 +115,8 @@ void tlshd_log_error(const char *fmt, ...)
 }
 
 /**
- * tlshd_log_notice - Emit a generic warning
- * @fmt - printf-style format string
- *
+ * @brief Emit a generic warning
+ * @param[in]     fmt  printf-style format string
  */
 void tlshd_log_notice(const char *fmt, ...)
 {
@@ -114,9 +128,8 @@ void tlshd_log_notice(const char *fmt, ...)
 }
 
 /**
- * tlshd_log_perror - Emit "system call failed" notification
- * @sap: remote address to log
- *
+ * @brief Emit "system call failed" notification
+ * @param[in]     prefix  Identifier string
  */
 void tlshd_log_perror(const char *prefix)
 {
@@ -124,9 +137,8 @@ void tlshd_log_perror(const char *prefix)
 }
 
 /**
- * tlshd_log_gai_error - Emit "getaddr/nameinfo failed" notification
- * @error: error code returned by getaddrinfo(3) or getnameinfo(3)
- *
+ * @brief Emit "getaddr/nameinfo failed" notification
+ * @param[in]      error  error code returned by getaddrinfo(3) or getnameinfo(3)
  */
 void tlshd_log_gai_error(int error)
 {
@@ -160,9 +172,8 @@ static const struct tlshd_cert_status_bit tlshd_cert_status_names[] = {
 };
 
 /**
- * tlshd_log_cert_verification_error - Report a failed certificate verification
- * @session: Session with a failed handshake
- *
+ * @brief Report a failed certificate verification
+ * @param[in]     session  Session with a failed handshake
  */
 void tlshd_log_cert_verification_error(gnutls_session_t session)
 {
@@ -178,9 +189,8 @@ void tlshd_log_cert_verification_error(gnutls_session_t session)
 }
 
 /**
- * tlshd_log_gnutls_error - Emit "library call failed" notification
- * @error: GnuTLS error code to log
- *
+ * @brief Emit "library call failed" notification
+ * @param[in]     error  GnuTLS error code to log
  */
 void tlshd_log_gnutls_error(int error)
 {
@@ -188,10 +198,9 @@ void tlshd_log_gnutls_error(int error)
 }
 
 /**
- * tlshd_gnutls_log_func - Library callback function to log a message
- * @level: log level
- * @msg: message to log
- *
+ * @brief Library callback function to log a message
+ * @param[in]     level  Log level
+ * @param[in]     msg    Message to log
  */
 void tlshd_gnutls_log_func(int level, const char *msg)
 {
@@ -199,10 +208,9 @@ void tlshd_gnutls_log_func(int level, const char *msg)
 }
 
 /**
- * tlshd_gnutls_audit_func - Library callback function to log an audit message
- * @session: controlling GnuTLS session
- * @msg: message to log
- *
+ * @brief Library callback function to log an audit message
+ * @param[in]     session  Controlling GnuTLS session
+ * @param[in]     msg      Message to log
  */
 void tlshd_gnutls_audit_func(__attribute__ ((unused)) gnutls_session_t session,
 			     const char *msg)
@@ -211,10 +219,9 @@ void tlshd_gnutls_audit_func(__attribute__ ((unused)) gnutls_session_t session,
 }
 
 /**
- * tlshd_log_gerror - Emit glib2 "library call failed" notification
- * @msg: message to log
- * @error: error information
- *
+ * @brief Emit glib2 "library call failed" notification
+ * @param[in]     msg    Message to log
+ * @param[in]     error  Error information
  */
 void tlshd_log_gerror(const char *msg, GError *error)
 {
@@ -222,10 +229,9 @@ void tlshd_log_gerror(const char *msg, GError *error)
 }
 
 /**
- * tlshd_log_nl_error - Log a netlink error
- * @msg: message to log
- * @err: error number
- *
+ * @brief Log a netlink error
+ * @param[in]     msg  Message to log
+ * @param[in]     err  Error number
  */
 void tlshd_log_nl_error(const char *msg, int err)
 {
@@ -233,8 +239,8 @@ void tlshd_log_nl_error(const char *msg, int err)
 }
 
 /**
- * tlshd_log_init - Initialize audit logging
- * @progname: NUL-terminated string containing program name
+ * @brief Initialize audit logging
+ * @param[in]     progname  NUL-terminated string containing program name
  *
  */
 void tlshd_log_init(const char *progname)
@@ -250,8 +256,7 @@ void tlshd_log_init(const char *progname)
 }
 
 /**
- * tlshd_log_shutdown - Log a tlshd shutdown notice
- *
+ * @brief Log a tlshd shutdown notice
  */
 void tlshd_log_shutdown(void)
 {
@@ -259,8 +264,7 @@ void tlshd_log_shutdown(void)
 }
 
 /**
- * tlshd_log_close - Release audit logging resources
- *
+ * @brief Release audit logging resources
  */
 void tlshd_log_close(void)
 {
