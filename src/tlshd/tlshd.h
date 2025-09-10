@@ -45,6 +45,11 @@ struct tlshd_handshake_parms {
 	unsigned int	session_status;
 };
 
+enum peer_type {
+	PEER_TYPE_CLIENT,
+	PEER_TYPE_SERVER,
+};
+
 /* client.c */
 extern void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parms);
 extern void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms);
@@ -52,16 +57,11 @@ extern void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms
 /* config.c */
 bool tlshd_config_init(const gchar *pathname);
 void tlshd_config_shutdown(void);
-bool tlshd_config_get_client_truststore(char **bundle);
-bool tlshd_config_get_client_crl(char **result);
-bool tlshd_config_get_client_certs(gnutls_pcert_st *certs,
-				   unsigned int *certs_len);
-bool tlshd_config_get_client_privkey(gnutls_privkey_t *privkey);
-bool tlshd_config_get_server_truststore(char **bundle);
-bool tlshd_config_get_server_crl(char **result);
-bool tlshd_config_get_server_certs(gnutls_pcert_st *certs,
-				   unsigned int *certs_len);
-bool tlshd_config_get_server_privkey(gnutls_privkey_t *privkey);
+bool tlshd_config_get_truststore(int peer_type, char **bundle);
+bool tlshd_config_get_crl(int peer_type, char **result);
+bool tlshd_config_get_certs(int peer_type, gnutls_pcert_st *certs,
+			    unsigned int *certs_len);
+bool tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *privkey);
 
 /* handshake.c */
 extern void tlshd_start_tls_handshake(gnutls_session_t session,

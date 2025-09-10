@@ -48,7 +48,7 @@ static int tlshd_client_get_truststore(gnutls_certificate_credentials_t cred)
 	char *pathname;
 	int ret;
 
-	if (tlshd_config_get_client_truststore(&pathname)) {
+	if (tlshd_config_get_truststore(PEER_TYPE_CLIENT, &pathname)) {
 		ret = gnutls_certificate_set_x509_trust_file(cred, pathname,
 							     GNUTLS_X509_FMT_PEM);
 		free(pathname);
@@ -60,7 +60,7 @@ static int tlshd_client_get_truststore(gnutls_certificate_credentials_t cred)
 	}
 	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
-	if (tlshd_config_get_client_crl(&pathname)) {
+	if (tlshd_config_get_crl(PEER_TYPE_CLIENT, &pathname)) {
 		ret = gnutls_certificate_set_x509_crl_file(cred, pathname,
 							   GNUTLS_X509_FMT_PEM);
 		free(pathname);
@@ -143,7 +143,8 @@ static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 	if (parms->x509_cert != TLS_NO_CERT)
 		return tlshd_keyring_get_certs(parms->x509_cert, tlshd_certs,
 					       &tlshd_certs_len);
-	return tlshd_config_get_client_certs(tlshd_certs, &tlshd_certs_len);
+	return tlshd_config_get_certs(PEER_TYPE_CLIENT, tlshd_certs,
+				      &tlshd_certs_len);
 }
 
 static void tlshd_x509_client_put_certs(void)
@@ -159,7 +160,7 @@ static bool tlshd_x509_client_get_privkey(struct tlshd_handshake_parms *parms)
 	if (parms->x509_privkey != TLS_NO_PRIVKEY)
 		return tlshd_keyring_get_privkey(parms->x509_privkey,
 						 &tlshd_privkey);
-	return tlshd_config_get_client_privkey(&tlshd_privkey);
+	return tlshd_config_get_privkey(PEER_TYPE_CLIENT, &tlshd_privkey);
 }
 
 static void tlshd_x509_client_put_privkey(void)
