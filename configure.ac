@@ -79,6 +79,18 @@ AC_CHECK_LIB([gnutls], [gnutls_get_system_config_file],
 AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
              [AC_DEFINE([HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2], [1],
                         [Define to 1 if you have the gnutls_psk_allocate_client_credentials2 function.])])
+
+AC_MSG_CHECKING(for ML-DSA support in gnutls)
+AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <gnutls/gnutls.h> ]],
+		[[ (void) GNUTLS_SIGN_MLDSA65; ]])],
+	[ have_mldsa=yes ],
+	[ have_mldsa=no ])
+AC_MSG_RESULT([$have_mldsa])
+if test "x$have_mldsa" = xyes ; then
+	AC_DEFINE([HAVE_GNUTLS_MLDSA], [1], [Define to 1 if gnutls supports ML-DSA])
+fi
+
 AC_SUBST([AM_CPPFLAGS])
 
 AC_CONFIG_FILES([Makefile src/Makefile src/tlshd/Makefile systemd/Makefile])

@@ -143,8 +143,8 @@ static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 	if (parms->x509_cert != TLS_NO_CERT)
 		return tlshd_keyring_get_certs(parms->x509_cert, tlshd_certs,
 					       &tlshd_certs_len);
-	return tlshd_config_get_certs(PEER_TYPE_CLIENT, tlshd_certs,
-				      &tlshd_certs_len);
+	return tlshd_config_get_certs(PEER_TYPE_CLIENT, tlshd_certs, NULL,
+				      &tlshd_certs_len, NULL);
 }
 
 static void tlshd_x509_client_put_certs(void)
@@ -160,7 +160,7 @@ static bool tlshd_x509_client_get_privkey(struct tlshd_handshake_parms *parms)
 	if (parms->x509_privkey != TLS_NO_PRIVKEY)
 		return tlshd_keyring_get_privkey(parms->x509_privkey,
 						 &tlshd_privkey);
-	return tlshd_config_get_privkey(PEER_TYPE_CLIENT, &tlshd_privkey);
+	return tlshd_config_get_privkey(PEER_TYPE_CLIENT, NULL, &tlshd_privkey);
 }
 
 static void tlshd_x509_client_put_privkey(void)

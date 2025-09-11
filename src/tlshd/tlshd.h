@@ -60,8 +60,11 @@ void tlshd_config_shutdown(void);
 bool tlshd_config_get_truststore(int peer_type, char **bundle);
 bool tlshd_config_get_crl(int peer_type, char **result);
 bool tlshd_config_get_certs(int peer_type, gnutls_pcert_st *certs,
-			    unsigned int *certs_len);
-bool tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *privkey);
+			    unsigned int *pq_certs_len,
+			    unsigned int *certs_len,
+			    gnutls_pk_algorithm_t *pkalg);
+bool tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *pq_privkey,
+			      gnutls_privkey_t *privkey);
 
 /* handshake.c */
 extern void tlshd_start_tls_handshake(gnutls_session_t session,
