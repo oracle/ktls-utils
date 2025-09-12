@@ -40,7 +40,6 @@ struct tlshd_handshake_parms {
 	key_serial_t	x509_privkey;
 	GArray		*peerids;
 	GArray		*remote_peerids;
-	int		msg_status;
 
 	unsigned int	session_status;
 };

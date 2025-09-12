@@ -375,7 +375,6 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.x509_privkey		= TLS_NO_PRIVKEY,
 	.peerids		= NULL,
 	.remote_peerids		= NULL,
-	.msg_status		= 0,
 	.session_status		= EIO,
 };
 
@@ -451,7 +450,7 @@ int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms)
 		goto out_msgfree;
 	}
 
-	ret = parms->msg_status;
+	ret = 0;
 
 out_msgfree:
 	nlmsg_free(msg);
