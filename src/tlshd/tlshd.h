@@ -40,7 +40,6 @@ struct tlshd_handshake_parms {
 	key_serial_t	x509_privkey;
 	GArray		*peerids;
 	GArray		*remote_peerids;
-	int		msg_status;
 
 	unsigned int	session_status;
 };
@@ -162,7 +161,6 @@ extern void tlshd_quic_conn_destroy(struct tlshd_quic_conn *conn);
 extern void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn);
 #endif
 
-#define TLS_DEFAULT_PRIORITIES	(NULL)
 #define TLS_DEFAULT_PSK_TYPE	"psk"
 #define TLS_NO_PEERID		(0)
 #define TLS_NO_CERT		(0)
