@@ -287,7 +287,7 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 			gnutls_x509_crt_deinit(cert);
 			return GNUTLS_E_CERTIFICATE_ERROR;
 		}
-		peerid = tlshd_keyring_create_cert(cert, parms->peername);
+		peerid = UINT_MAX;
 		g_array_append_val(parms->remote_peerids, peerid);
 		gnutls_x509_crt_deinit(cert);
 	}
