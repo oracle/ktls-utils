@@ -28,14 +28,13 @@ The
 .B tlshd
 program implements a user agent that services TLS handshake requests
 on behalf of kernel TLS consumers.
-Using the
-.BR accept (2)
-system call, it materializes kernel socket endpoints in user space
-in order to perform TLS handshakes using a TLS library.
+It materializes kernel socket endpoints in user space
+in order to perform TLS handshakes using a standard TLS library.
 After each handshake completes,
 .B tlshd
 plants TLS session metadata into the kernel socket to enable
-the use of kTLS to secure subsequent communication on that socket.
+the use of kTLS to secure subsequent communication on that socket,
+and passes the socket back to the kernel.
 .SH OPTIONS
 .TP
 .B \-c " or " \-\-config

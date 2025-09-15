@@ -29,6 +29,7 @@ AC_USE_SYSTEM_EXTENSIONS
 AC_LANG(C)
 AC_PROG_CC
 AC_PROG_INSTALL
+AC_PROG_MKDIR_P
 
 unitdir=/usr/lib/systemd/system
 AC_ARG_WITH(systemd,
@@ -93,5 +94,12 @@ fi
 
 AC_SUBST([AM_CPPFLAGS])
 
-AC_CONFIG_FILES([Makefile src/Makefile src/tlshd/Makefile systemd/Makefile])
+AC_CONFIG_FILES([Makefile \
+                 man/Makefile \
+                 man/man5/Makefile \
+                 man/man8/Makefile \
+                 src/Makefile \
+                 src/tlshd/Makefile \
+                 systemd/Makefile])
+
 AC_OUTPUT
