@@ -357,7 +357,7 @@ static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
 	const char *errpos;
 	int ret, i;
 
-	pstring = strdup("SECURE256:+SECURE128:-COMP-ALL");
+	pstring = strdup("@SYSTEM:-COMP-ALL");
 	if (!pstring)
 		return -ENOMEM;
 

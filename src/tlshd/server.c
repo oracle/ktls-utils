@@ -42,9 +42,12 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+static gnutls_privkey_t tlshd_server_pq_privkey;
 static gnutls_privkey_t tlshd_server_privkey;
+static unsigned int tlshd_server_pq_certs_len = TLSHD_MAX_CERTS;
 static unsigned int tlshd_server_certs_len = TLSHD_MAX_CERTS;
 static gnutls_pcert_st tlshd_server_certs[TLSHD_MAX_CERTS];
+static gnutls_pk_algorithm_t tlshd_server_pq_pkalg = GNUTLS_PK_UNKNOWN;
 
 static bool tlshd_x509_server_get_certs(struct tlshd_handshake_parms *parms)
 {
@@ -52,15 +55,17 @@ static bool tlshd_x509_server_get_certs(struct tlshd_handshake_parms *parms)
 		return tlshd_keyring_get_certs(parms->x509_cert,
 					       tlshd_server_certs,
 					       &tlshd_server_certs_len);
-	return tlshd_config_get_server_certs(tlshd_server_certs,
-					     &tlshd_server_certs_len);
+	return tlshd_config_get_certs(PEER_TYPE_SERVER, tlshd_server_certs,
+				      &tlshd_server_pq_certs_len,
+				      &tlshd_server_certs_len,
+				      &tlshd_server_pq_pkalg);
 }
 
 static void tlshd_x509_server_put_certs(void)
 {
 	unsigned int i;
 
-	for (i = 0; i < tlshd_server_certs_len; i++)
+	for (i = 0; i < TLSHD_MAX_CERTS; i++)
 		gnutls_pcert_deinit(&tlshd_server_certs[i]);
 }
 
@@ -69,11 +74,14 @@ static bool tlshd_x509_server_get_privkey(struct tlshd_handshake_parms *parms)
 	if (parms->x509_privkey != TLS_NO_PRIVKEY)
 		return tlshd_keyring_get_privkey(parms->x509_privkey,
 						 &tlshd_server_privkey);
-	return tlshd_config_get_server_privkey(&tlshd_server_privkey);
+	return tlshd_config_get_privkey(PEER_TYPE_SERVER,
+					&tlshd_server_pq_privkey,
+					&tlshd_server_privkey);
 }
 
 static void tlshd_x509_server_put_privkey(void)
 {
+	gnutls_privkey_deinit(tlshd_server_pq_privkey);
 	gnutls_privkey_deinit(tlshd_server_privkey);
 }
 
@@ -122,6 +130,11 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 			   gnutls_privkey_t *privkey)
 {
 	gnutls_certificate_type_t type;
+#ifdef HAVE_GNUTLS_MLDSA
+	gnutls_sign_algorithm_t client_alg;
+	bool use_pq_cert = false;
+	int i, ret;
+#endif /* HAVE_GNUTLS_MLDSA */
 
 	tlshd_x509_log_issuers(req_ca_rdn, nreqs);
 
@@ -129,9 +142,58 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 	if (type != GNUTLS_CRT_X509)
 		return -1;
 
+#ifdef HAVE_GNUTLS_MLDSA
+	/*
+ 	 * NB: Unfortunately when the callback function is invoked server-side,
+ 	 * pk_algos is NULL and pk_algos_length is 0. So we check the signature
+ 	 * algorithms the client supports and try to match one of them to the
+ 	 * public-key algorithm used by the server cert.
+ 	 */
+	if (tlshd_server_pq_pkalg != GNUTLS_PK_UNKNOWN) {
+		for (i = 0; ; i++) {
+			ret = gnutls_sign_algorithm_get_requested(session, i, &client_alg);
+			if (ret != GNUTLS_E_SUCCESS)
+				break;
+			switch (client_alg) {
+			case GNUTLS_SIGN_MLDSA44:
+				if (tlshd_server_pq_pkalg == GNUTLS_PK_MLDSA44)
+					use_pq_cert = true;
+				break;
+			case GNUTLS_SIGN_MLDSA65:
+				if (tlshd_server_pq_pkalg == GNUTLS_PK_MLDSA65)
+					use_pq_cert = true;
+				break;
+			case GNUTLS_SIGN_MLDSA87:
+				if (tlshd_server_pq_pkalg == GNUTLS_PK_MLDSA87)
+					use_pq_cert = true;
+				break;
+			default:
+				break;
+			}
+			if (use_pq_cert == true) {
+				tlshd_log_debug("%s: Client supports %s", __func__,
+						gnutls_sign_get_name(client_alg));
+				break;
+			}
+		}
+	}
+
+	if (use_pq_cert == true) {
+		tlshd_log_debug("%s: Selecting x509.pq.certificate from conf file", __func__);
+		*pcert_length = tlshd_server_pq_certs_len;
+		*pcert = tlshd_server_certs;
+		*privkey = tlshd_server_pq_privkey;
+	} else {
+		tlshd_log_debug("%s: Selecting x509.certificate from conf file", __func__);
+		*pcert_length = tlshd_server_certs_len;
+		*pcert = tlshd_server_certs + tlshd_server_pq_certs_len;
+		*privkey = tlshd_server_privkey;
+	}
+#else
 	*pcert_length = tlshd_server_certs_len;
 	*pcert = tlshd_server_certs;
 	*privkey = tlshd_server_privkey;
+#endif /* HAVE_GNUTLS_MLDSA */
 	return 0;
 }
 
@@ -140,7 +202,7 @@ static int tlshd_server_get_truststore(gnutls_certificate_credentials_t cred)
 	char *pathname;
 	int ret;
 
-	if (tlshd_config_get_server_truststore(&pathname)) {
+	if (tlshd_config_get_truststore(PEER_TYPE_SERVER, &pathname)) {
 		ret = gnutls_certificate_set_x509_trust_file(cred, pathname,
 							     GNUTLS_X509_FMT_PEM);
 		free(pathname);
@@ -150,7 +212,7 @@ static int tlshd_server_get_truststore(gnutls_certificate_credentials_t cred)
 		return ret;
 	tlshd_log_debug("System trust: Loaded %d certificate(s).", ret);
 
-	if (tlshd_config_get_server_crl(&pathname)) {
+	if (tlshd_config_get_crl(PEER_TYPE_SERVER, &pathname)) {
 		ret = gnutls_certificate_set_x509_crl_file(cred, pathname,
 							   GNUTLS_X509_FMT_PEM);
 		free(pathname);
