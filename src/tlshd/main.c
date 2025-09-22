@@ -63,13 +63,14 @@ static void usage(const char *progname)
 
 int main(int argc, char **argv)
 {
-	static gchar config_file[PATH_MAX + 1] = "/etc/tlshd.conf";
+	static gchar config_file[PATH_MAX + 1];
 	char *progname;
 	int c;
 	size_t len;
 
 	tlshd_tls_debug = 0;
 	progname = basename(argv[0]);
+	config_file[0] = '\0';
 	while ((c = getopt_long(argc, argv, optstring, longopts, NULL)) != -1) {
 		switch (c) {
 		case 'c':
@@ -100,10 +101,20 @@ int main(int argc, char **argv)
 
 	tlshd_log_init(progname);
 
-	if (!tlshd_config_init(config_file)) {
-		tlshd_log_shutdown();
-		tlshd_log_close();
-		return EXIT_FAILURE;
+	if (config_file[0] != '\0') {
+		if (!tlshd_config_init(config_file, false)) {
+			tlshd_log_shutdown();
+			tlshd_log_close();
+			return EXIT_FAILURE;
+		}
+	} else {
+		if (tlshd_config_init("/etc/tlshd.conf", true)) {
+			tlshd_log_notice("Please relocate /etc/tlshd.conf to /etc/tlshd/config");
+		} else if (!tlshd_config_init("/etc/tlshd/config", false)) {
+			tlshd_log_shutdown();
+			tlshd_log_close();
+			return EXIT_FAILURE;
+		}
 	}
 
 	if (tlshd_gnutls_priority_init()) {

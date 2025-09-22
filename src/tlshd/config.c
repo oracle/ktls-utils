@@ -49,12 +49,13 @@ static GKeyFile *tlshd_configuration;
 /**
  * tlshd_config_init - Read tlshd's config file
  * @pathname: Pathname to config file
+ * @legacy: Don't generate an error if the config file doesn't exist
  *
  * Return values:
  *   %true: Config file read successfully
  *   %false: Unable to read config file
  */
-bool tlshd_config_init(const gchar *pathname)
+bool tlshd_config_init(const gchar *pathname, bool legacy)
 {
 	gchar **keyrings;
 	gsize i, length;
@@ -67,7 +68,8 @@ bool tlshd_config_init(const gchar *pathname)
 	if (!g_key_file_load_from_file(tlshd_configuration, pathname,
 				       G_KEY_FILE_KEEP_COMMENTS,
 				       &error)) {
-		tlshd_log_gerror("Failed to load config file", error);
+		if (!legacy)
+			tlshd_log_gerror("Failed to load config file", error);
 		g_error_free(error);
 		return false;
 	}

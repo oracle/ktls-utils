@@ -54,7 +54,7 @@ extern void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parm
 extern void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms);
 
 /* config.c */
-bool tlshd_config_init(const gchar *pathname);
+bool tlshd_config_init(const gchar *pathname, bool legacy);
 void tlshd_config_shutdown(void);
 bool tlshd_config_get_truststore(int peer_type, char **bundle);
 bool tlshd_config_get_crl(int peer_type, char **result);
