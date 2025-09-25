@@ -188,7 +188,7 @@ static int quic_tp_send_func(gnutls_session_t session, gnutls_buffer_t extdata)
 	ret = gnutls_buffer_append_data(extdata, buf, len);
 	if (ret) {
 		tlshd_log_gnutls_error(ret);
-		return ret;
+		return -1;
 	}
 
 	return 0;
@@ -230,6 +230,7 @@ static char quic_priority[] =
 static int quic_session_set_priority(gnutls_session_t session, uint32_t cipher)
 {
 	char p[136] = {};
+	int ret;
 
 	memcpy(p, quic_priority, strlen(quic_priority));
 	switch (cipher) {
@@ -249,14 +250,19 @@ static int quic_session_set_priority(gnutls_session_t session, uint32_t cipher)
 		strcat(p, "AES-128-GCM:+AES-256-GCM:+AES-128-CCM:+CHACHA20-POLY1305");
 	}
 
-	return gnutls_priority_set_direct(session, p, NULL);
+	ret = gnutls_priority_set_direct(session, p, NULL);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		return -1;
+	}
+	return 0;
 }
 
 static int quic_session_set_alpns(gnutls_session_t session, char *alpn_data)
 {
 	gnutls_datum_t alpns[TLSHD_QUIC_MAX_ALPNS_LEN / 2];
 	char *alpn = strtok(alpn_data, ",");
-	int count = 0;
+	int count = 0, ret;
 
 	while (alpn) {
 		while (*alpn == ' ')
@@ -267,7 +273,12 @@ static int quic_session_set_alpns(gnutls_session_t session, char *alpn_data)
 		alpn = strtok(NULL, ",");
 	}
 
-	return gnutls_alpn_set_protocols(session, alpns, count, GNUTLS_ALPN_MANDATORY);
+	ret = gnutls_alpn_set_protocols(session, alpns, count, GNUTLS_ALPN_MANDATORY);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		return -1;
+	}
+	return 0;
 }
 
 static gnutls_record_encryption_level_t quic_get_encryption_level(uint8_t level)
@@ -401,7 +412,7 @@ static int quic_handshake_crypto_data(const struct tlshd_quic_conn *conn,
 	level = quic_get_encryption_level(level);
 	if (datalen > 0) {
 		ret = gnutls_handshake_write(session, level, data, datalen);
-		if (ret != 0) {
+		if (ret) {
 			if (!gnutls_error_is_fatal(ret))
 				return 0;
 			goto err;
@@ -418,7 +429,7 @@ static int quic_handshake_crypto_data(const struct tlshd_quic_conn *conn,
 err:
 	gnutls_alert_send_appropriate(session, ret);
 	tlshd_log_gnutls_error(ret);
-	return ret;
+	return -1;
 }
 
 /**
@@ -486,24 +497,25 @@ static int tlshd_quic_session_configure(struct tlshd_quic_conn *conn)
 	gnutls_session_t session = conn->session;
 	int ret;
 
-	ret = quic_session_set_priority(session, conn->cipher);
-	if (ret)
-		return ret;
+	if (quic_session_set_priority(session, conn->cipher))
+		return -1;
 
-	if (conn->alpns[0]) {
-		ret = quic_session_set_alpns(session, conn->alpns);
-		if (ret)
-			return ret;
-	}
+	if (conn->alpns[0] && quic_session_set_alpns(session, conn->alpns))
+		return -1;
 
 	gnutls_handshake_set_secret_function(session, quic_secret_func);
 	gnutls_handshake_set_read_function(session, quic_read_func);
 	gnutls_alert_set_read_function(session, quic_alert_read_func);
 
-	return gnutls_session_ext_register(
+	ret = gnutls_session_ext_register(
 		session, "QUIC Transport Parameters", QUIC_TLSEXT_TP_PARAM,
 		GNUTLS_EXT_TLS, quic_tp_recv_func, quic_tp_send_func, NULL, NULL, NULL,
 		GNUTLS_EXT_FLAG_TLS | GNUTLS_EXT_FLAG_CLIENT_HELLO | GNUTLS_EXT_FLAG_EE);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		return -1;
+	}
+	return 0;
 }
 
 static void tlshd_quic_recv_session_ticket(struct tlshd_quic_conn *conn)
@@ -532,16 +544,16 @@ static void tlshd_quic_recv_session_ticket(struct tlshd_quic_conn *conn)
 		return;
 
 	/* process new session ticket msg and get the generated session data */
-	ret = quic_handshake_crypto_data(conn, QUIC_CRYPTO_APP, conn->ticket, len);
-	if (ret) {
-		conn->errcode = -ret;
+	if (quic_handshake_crypto_data(conn, QUIC_CRYPTO_APP, conn->ticket, len)) {
+		conn->errcode = EACCES;
 		return;
 	}
+
 	size = sizeof(conn->ticket);
 	ret = gnutls_session_get_data(session, conn->ticket, &size);
 	if (ret) {
 		tlshd_log_gnutls_error(ret);
-		conn->errcode = -ret;
+		conn->errcode = EACCES;
 		return;
 	}
 
@@ -569,17 +581,14 @@ void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn)
 	FD_ZERO(&readfds);
 	FD_SET(sockfd, &readfds);
 
-	ret = tlshd_quic_session_configure(conn);
-	if (ret) {
-		tlshd_log_gnutls_error(ret);
-		conn->errcode = -ret;
+	if (tlshd_quic_session_configure(conn)) {
+		conn->errcode = EACCES;
 		return;
 	}
 
 	if (!conn->is_serv) {
-		ret = quic_handshake_crypto_data(conn, QUIC_CRYPTO_INITIAL, NULL, 0);
-		if (ret) {
-			conn->errcode = -ret;
+		if (quic_handshake_crypto_data(conn, QUIC_CRYPTO_INITIAL, NULL, 0)) {
+			conn->errcode = EACCES;
 			return;
 		}
 
@@ -614,9 +623,8 @@ void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn)
 				return tlshd_log_error("socket recvmsg error %d", errno);
 			}
 			tlshd_log_debug("> Handshake RECV: %u %u", msg->len, msg->level);
-			ret = quic_handshake_crypto_data(conn, msg->level, msg->data, msg->len);
-			if (ret) {
-				conn->errcode = -ret;
+			if (quic_handshake_crypto_data(conn, msg->level, msg->data, msg->len)) {
+				conn->errcode = EACCES;
 				return;
 			}
 		}
