@@ -530,17 +530,17 @@ static int tlshd_quic_client_x509_verify_function(gnutls_session_t session)
 
 #define TLSHD_QUIC_NO_CERT_AUTH	3
 
-static int tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
+static void tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 {
 	struct tlshd_handshake_parms *parms = conn->parms;
 	gnutls_certificate_credentials_t cred;
 	gnutls_session_t session;
-	int ret = -EINVAL;
+	int ret;
 
 	if (conn->cert_req != TLSHD_QUIC_NO_CERT_AUTH) {
 		if (!tlshd_x509_client_get_certs(parms) || !tlshd_x509_client_get_privkey(parms)) {
-			tlshd_log_error("cert/privkey get error %d", -ret);
-			return ret;
+			tlshd_log_error("Failed to get cert or privkey");
+			return;
 		}
 	}
 	ret = gnutls_certificate_allocate_credentials(&cred);
@@ -581,7 +581,8 @@ static int tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 			goto err_session;
 	}
 	conn->session = session;
-	return 0;
+	return;
+
 err_session:
 	gnutls_deinit(session);
 err_cred:
@@ -590,29 +591,28 @@ err:
 	tlshd_x509_client_put_privkey();
 	tlshd_x509_client_put_certs();
 	tlshd_log_gnutls_error(ret);
-	return ret;
 }
 
-static int tlshd_quic_client_set_anon_session(struct tlshd_quic_conn *conn)
+static void tlshd_quic_client_set_anon_session(struct tlshd_quic_conn *conn)
 {
 	conn->cert_req = TLSHD_QUIC_NO_CERT_AUTH;
-	return tlshd_quic_client_set_x509_session(conn);
+	tlshd_quic_client_set_x509_session(conn);
 }
 
-static int tlshd_quic_client_set_psk_session(struct tlshd_quic_conn *conn)
+static void tlshd_quic_client_set_psk_session(struct tlshd_quic_conn *conn)
 {
 	key_serial_t peerid = g_array_index(conn->parms->peerids, key_serial_t, 0);
 	gnutls_psk_client_credentials_t cred;
 	gnutls_session_t session;
 	char *identity = NULL;
 	gnutls_datum_t key;
-	int ret = -EINVAL;
+	int ret;
 
 	if (!tlshd_keyring_get_psk_username(peerid, &identity) ||
 	    !tlshd_keyring_get_psk_key(peerid, &key)) {
 		free(identity);
-		tlshd_log_error("identity/key get error %d", -ret);
-		return ret;
+		tlshd_log_error("Failed to get key identity or read key");
+		return;
 	}
 
 	ret = gnutls_psk_allocate_client_credentials(&cred);
@@ -630,7 +630,8 @@ static int tlshd_quic_client_set_psk_session(struct tlshd_quic_conn *conn)
 	if (ret)
 		goto err_session;
 	conn->session = session;
-	return 0;
+	return;
+
 err_session:
 	gnutls_deinit(session);
 err_cred:
@@ -638,7 +639,6 @@ err_cred:
 err:
 	free(identity);
 	tlshd_log_gnutls_error(ret);
-	return ret;
 }
 
 /**
@@ -659,26 +659,24 @@ void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms)
 
 	switch (parms->auth_mode) {
 	case HANDSHAKE_AUTH_UNAUTH:
-		ret = tlshd_quic_client_set_anon_session(conn);
+		tlshd_quic_client_set_anon_session(conn);
 		break;
 	case HANDSHAKE_AUTH_X509:
-		ret = tlshd_quic_client_set_x509_session(conn);
+		tlshd_quic_client_set_x509_session(conn);
 		break;
 	case HANDSHAKE_AUTH_PSK:
-		ret = tlshd_quic_client_set_psk_session(conn);
+		tlshd_quic_client_set_psk_session(conn);
 		break;
 	default:
-		ret = -EINVAL;
 		tlshd_log_debug("Unrecognized auth mode (%d)", parms->auth_mode);
 	}
-	if (ret) {
-		conn->errcode = -ret;
+
+	if (!conn->session)
 		goto out;
-	}
 
 	tlshd_quic_start_handshake(conn);
-out:
 	parms->session_status = conn->errcode;
+out:
 	tlshd_quic_conn_destroy(conn);
 }
 #else

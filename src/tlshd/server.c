@@ -562,17 +562,17 @@ found:
 	return 0;
 }
 
-static int tlshd_quic_server_set_x509_session(struct tlshd_quic_conn *conn)
+static void tlshd_quic_server_set_x509_session(struct tlshd_quic_conn *conn)
 {
 	struct tlshd_handshake_parms *parms = conn->parms;
 	gnutls_certificate_credentials_t cred;
 	gnutls_datum_t ticket_key;
 	gnutls_session_t session;
-	int ret = -EINVAL;
+	int ret;
 
 	if (!tlshd_x509_server_get_certs(parms) || !tlshd_x509_server_get_privkey(parms)) {
-		tlshd_log_error("cert/privkey get error %d", -ret);
-		return ret;
+		tlshd_log_error("Failed to get cert or privkey");
+		return;
 	}
 
 	ret = gnutls_certificate_allocate_credentials(&cred);
@@ -619,7 +619,8 @@ static int tlshd_quic_server_set_x509_session(struct tlshd_quic_conn *conn)
 
 	conn->is_serv = 1;
 	conn->session = session;
-	return 0;
+	return;
+
 err_session:
 	gnutls_deinit(session);
 err_cred:
@@ -628,10 +629,9 @@ err:
 	tlshd_x509_server_put_privkey();
 	tlshd_x509_server_put_certs();
 	tlshd_log_gnutls_error(ret);
-	return ret;
 }
 
-static int tlshd_quic_server_set_psk_session(struct tlshd_quic_conn *conn)
+static void tlshd_quic_server_set_psk_session(struct tlshd_quic_conn *conn)
 {
 	gnutls_psk_server_credentials_t cred;
 	gnutls_session_t session;
@@ -654,14 +654,14 @@ static int tlshd_quic_server_set_psk_session(struct tlshd_quic_conn *conn)
 
 	conn->is_serv = 1;
 	conn->session = session;
-	return 0;
+	return;
+
 err_session:
 	gnutls_deinit(session);
 err_cred:
 	gnutls_psk_free_server_credentials(cred);
 err:
 	tlshd_log_gnutls_error(ret);
-	return ret;
 }
 
 /**
@@ -682,23 +682,20 @@ void tlshd_quic_serverhello_handshake(struct tlshd_handshake_parms *parms)
 
 	switch (parms->auth_mode) {
 	case HANDSHAKE_AUTH_X509:
-		ret = tlshd_quic_server_set_x509_session(conn);
+		tlshd_quic_server_set_x509_session(conn);
 		break;
 	case HANDSHAKE_AUTH_PSK:
-		ret = tlshd_quic_server_set_psk_session(conn);
+		tlshd_quic_server_set_psk_session(conn);
 		break;
 	default:
-		ret = -EINVAL;
 		tlshd_log_debug("Unrecognized auth mode (%d)", parms->auth_mode);
 	}
-	if (ret) {
-		conn->errcode = -ret;
+	if (!conn->session)
 		goto out;
-	}
 
 	tlshd_quic_start_handshake(conn);
-out:
 	parms->session_status = conn->errcode;
+out:
 	tlshd_quic_conn_destroy(conn);
 }
 #else
