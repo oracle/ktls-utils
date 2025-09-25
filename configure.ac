@@ -64,10 +64,9 @@ PKG_CHECK_MODULES([LIBNL_GENL3], libnl-genl-3.0 >= 3.1)
 AC_SUBST([LIBNL_GENL3_CFLAGS])
 AC_SUBST([LIBNL_GENL3_LIBS])
 
-AC_CHECK_HEADER([linux/quic.h],
-              [AC_CHECK_LIB([gnutls], [gnutls_handshake_set_secret_function],
-                            [AC_DEFINE([HAVE_GNUTLS_QUIC], [1], [Define to 1 if QUIC is found.])])])
-
+AC_CHECK_LIB([gnutls], [gnutls_handshake_set_secret_function],
+             [AC_DEFINE([HAVE_GNUTLS_QUIC], [1],
+			[Define to 1 if you have the gnutls_handshake_set_secret_function function.])])
 AC_CHECK_LIB([gnutls], [gnutls_transport_is_ktls_enabled],
              [AC_DEFINE([HAVE_GNUTLS_TRANSPORT_IS_KTLS_ENABLED], [1],
                         [Define to 1 if you have the gnutls_transport_is_ktls_enabled function.])])

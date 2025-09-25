@@ -122,7 +122,14 @@ extern void tlshd_tls13_serverhello_handshake(struct tlshd_handshake_parms *parm
 extern void tlshd_quic_serverhello_handshake(struct tlshd_handshake_parms *parms);
 
 #ifdef HAVE_GNUTLS_QUIC
-#include <linux/quic.h>
+#include "quic.h"
+
+#ifndef SOL_QUIC
+#define SOL_QUIC	288
+#endif
+#ifndef IPPROTO_QUIC
+#define IPPROTO_QUIC	261
+#endif
 
 #define TLSHD_QUIC_MAX_DATA_LEN		4096
 #define TLSHD_QUIC_MAX_ALPNS_LEN	128
