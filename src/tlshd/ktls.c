@@ -357,7 +357,7 @@ static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
 	const char *errpos;
 	int ret, i;
 
-	pstring = strdup("@SYSTEM:-COMP-ALL");
+	pstring = strdup("-COMP-ALL");
 	if (!pstring)
 		return -ENOMEM;
 
@@ -425,7 +425,8 @@ static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
 	}
 
 	tlshd_log_debug("x.509 priority string: %s\n", pstring);
-	ret = gnutls_priority_init(&tlshd_gnutls_priority_x509, pstring, &errpos);
+	ret = gnutls_priority_init2(&tlshd_gnutls_priority_x509, pstring, &errpos,
+				    GNUTLS_PRIORITY_INIT_DEF_APPEND);
 	if (ret != GNUTLS_E_SUCCESS) {
 		free(pstring_sha256);
 		free(pstring_sha384);
@@ -442,7 +443,8 @@ static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
 	}
 
 	tlshd_log_debug("PSK priority string: %s\n", pstring);
-	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk, pstring, &errpos);
+	ret = gnutls_priority_init2(&tlshd_gnutls_priority_psk, pstring, &errpos,
+				    GNUTLS_PRIORITY_INIT_DEF_APPEND);
 	if (ret != GNUTLS_E_SUCCESS) {
 		free(pstring_sha256);
 		free(pstring_sha384);
@@ -461,8 +463,9 @@ static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
 	}
 
 	tlshd_log_debug("PSK SHA256 priority string: %s\n", pstring);
-	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk_sha256,
-				   pstring, &errpos);
+	ret = gnutls_priority_init2(&tlshd_gnutls_priority_psk_sha256,
+				   pstring, &errpos,
+				   GNUTLS_PRIORITY_INIT_DEF_APPEND);
 	if (ret != GNUTLS_E_SUCCESS) {
 		free(pstring);
 		free(pstring_sha384);
@@ -482,8 +485,9 @@ static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
 	}
 
 	tlshd_log_debug("PSK SHA384 priority string: %s\n", pstring);
-	ret = gnutls_priority_init(&tlshd_gnutls_priority_psk_sha384,
-				   pstring, &errpos);
+	ret = gnutls_priority_init2(&tlshd_gnutls_priority_psk_sha384,
+				   pstring, &errpos,
+				   GNUTLS_PRIORITY_INIT_DEF_APPEND);
 	if (ret != GNUTLS_E_SUCCESS) {
 		free(pstring);
 		gnutls_priority_deinit(tlshd_gnutls_priority_psk_sha256);
