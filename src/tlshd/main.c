@@ -1,9 +1,13 @@
-/*
- * Handle a request for a TLS handshake on behalf of an
- * in-kernel TLS consumer.
+/**
+ * @file main.c
+ * @brief Handle a request for a TLS handshake on behalf of an
+ *	  in-kernel TLS consumer
  *
+ * @copyright
  * Copyright (c) 2022 - 2023 Oracle and/or its affiliates.
- *
+ */
+
+/*
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2.
@@ -47,6 +51,22 @@
 
 #include "tlshd.h"
 
+/**
+ * @page tlshd TLS handshake daemon
+ *
+ * The tlshd daemon is a user agent that services TLS handshake
+ * requests on behalf of kernel TLS consumers. It materializes kernel
+ * socket endpoints in user space in order to perform TLS handshakes
+ * using a standard TLS library. After each handshake completes, tlshd
+ * plants the TLS session key into the socket to enable the use of
+ * kTLS to secure subsequent communication on that socket. The socket
+ * is then passed back to the kernel.
+ *
+ * @section man8 Man pages
+ * @subsection tlshd_8 tlshd.8
+ * @htmlinclude tlshd.8.html
+ */
+
 static const char *optstring = "c:hsv";
 static const struct option longopts[] = {
 	{ "config",	required_argument,	NULL,	'c' },
@@ -56,11 +76,23 @@ static const struct option longopts[] = {
 	{ NULL,		0,			NULL,	 0 }
 };
 
-static void usage(const char *progname)
+/**
+ * @brief Emit a program usage message on stderr
+ * @param[in]     progname  NUL-terminated C string containing program name
+ */
+static void usage(char *progname)
 {
 	fprintf(stderr, "usage: %s [-chsv]\n", progname);
 }
 
+/**
+ * @brief tlshd program entry point
+ * @param[in]     argc  Count of elements in "argv"
+ * @param[in]     argv  Command line parameters
+ *
+ * @retval EXIT_SUCCESS  Program terminated normally
+ * @retval EXIT_FAILURE  Program encountered an error
+ */
 int main(int argc, char **argv)
 {
 	static gchar config_file[PATH_MAX + 1];

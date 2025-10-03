@@ -1,9 +1,13 @@
-/*
- * Service a request for a TLS handshake on behalf of an
- * in-kernel TLS consumer.
+/**
+ * @file handshake.c
+ * @brief Service a request for a TLS handshake on behalf of an
+ *	  in-kernel TLS consumer
  *
+ * @copyright
  * Copyright (c) 2022 Oracle and/or its affiliates.
- *
+ */
+
+/*
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2.
@@ -43,6 +47,11 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+/**
+ * @brief Toggle the use of the Nagle algorithm
+ * @param[in]     session  TLS session to modify
+ * @param[in]     val      new setting
+ */
 static void tlshd_set_nagle(gnutls_session_t session, int val)
 {
 	int ret;
@@ -53,6 +62,11 @@ static void tlshd_set_nagle(gnutls_session_t session, int val)
 		tlshd_log_perror("setsockopt (NODELAY)");
 }
 
+/**
+ * @brief Retrieve the current Nagle algorithm setting
+ * @param[in]     session  TLS session to modify
+ * @param[out]    saved    where to save the current setting
+ */
 static void tlshd_save_nagle(gnutls_session_t session, int *saved)
 {
 	socklen_t len;
@@ -72,10 +86,9 @@ static void tlshd_save_nagle(gnutls_session_t session, int *saved)
 }
 
 /**
- * tlshd_start_tls_handshake - Drive the handshake interaction
- * @session: TLS session to initialize
- * @parms: handshake parameters
- *
+ * @brief Kick off a handshake interaction
+ * @param[in]     session  TLS session to initialize
+ * @param[in]     parms    Handshake parameters
  */
 void tlshd_start_tls_handshake(gnutls_session_t session,
 			       struct tlshd_handshake_parms *parms)
@@ -115,8 +128,7 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 }
 
 /**
- * tlshd_service_socket - Service a kernel socket needing a key operation
- *
+ * @brief Service a kernel socket needing a handshake operation
  */
 void tlshd_service_socket(void)
 {

@@ -1,0 +1,154 @@
+---
+name: Generate public documentation
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt
+            ~/.cache
+          key: ${{ runner.os }}-docs-${{ hashFiles('.github/workflows/documentation.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-docs-
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install \
+            build-essential \
+            autoconf \
+            automake \
+            gnutls-dev \
+            libkeyutils-dev \
+            libnl-3-dev \
+            libnl-genl-3-dev \
+            libglib2.0-dev
+
+      - name: Install documentation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            doxygen \
+            graphviz \
+            man2html
+
+      - name: Configure
+        run: |
+          ./autogen.sh
+          ./configure --with-systemd
+
+      - name: Generate HTML man pages
+        run: |
+          mkdir -p docs/man/html
+          if ! ls man/man* >/dev/null 2>&1; then
+            echo "No man page directories found, skipping HTML generation"
+            exit 0
+          fi
+          for section_dir in man/man*
+          do
+            if [ ! -d "$section_dir" ]; then
+              continue
+            fi
+            section_num=$(basename "$section_dir" | sed 's/man//')
+            echo "Processing section $section_num pages..."
+            find "$section_dir" -name "*.$section_num" -print0 | while IFS= read -r -d '' manpage; do
+              basename_file=$(basename "$manpage")
+              section=${basename_file##*.}
+              name=${basename_file%.*}
+              if ! man2html "$manpage" > "docs/man/html/${name}.${section}.html"; then
+                echo "Failed to convert $manpage"
+                exit 1
+              fi
+            done
+          done
+          ls -lR docs/man
+
+      - name: Generate Doxygen documentation
+        run: |
+          (cd docs && doxygen Doxyfile)
+
+      - name: Assemble final site
+        run: |
+          echo "::group::Assembling Documentation Site"
+
+          # Copy Doxygen HTML output
+          if [ -d docs/doxygen/html ]; then
+            cp -r docs/doxygen/html _site/
+            echo "✓ Doxygen HTML documentation copied"
+          else
+            echo "✗ No Doxygen HTML documentation found"
+            exit 1
+          fi
+
+          # Copy man page HTML and index
+          if [ -d docs/man/html ]; then
+            cp -r docs/man/html _site/
+            echo "✓ Manual page documentation copied"
+          else
+            echo "ℹ️  No manual pages to copy"
+            # Create empty man directory with placeholder
+            mkdir -p _site/man
+            cat > _site/man/index.html <<EOF
+          <!DOCTYPE html>
+          <html><head><title>Manual Pages</title></head>
+          <body>
+          <h1>Manual Pages</h1>
+          <p><a href="../index.html">← Back to Documentation Home</a></p>
+          <p><em>No manual pages available yet.</em></p>
+          </body></html>
+          EOF
+          fi
+
+          # Copy configuration examples
+          if [ -d docs/examples ]; then
+            cp -r docs/examples _site/
+            echo "✓ Configuration examples copied"
+          else
+            echo "ℹ️  No configuration examples to copy"
+          fi
+
+          # Add .nojekyll to disable Jekyll processing
+          touch _site/.nojekyll
+
+          # Create sitemap
+          find _site -name "*.html" | sed 's|_site/||' | while read file; do
+            echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/$file"
+          done > _site/sitemap.txt
+
+          echo "Documentation site assembled successfully"
+          echo "Total files: $(find _site -type f | wc -l)"
+          echo "Site size: $(du -sh _site | cut -f1)"
+
+          echo "::endgroup::"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        id: deployment
+        uses: actions/deploy-pages@v4

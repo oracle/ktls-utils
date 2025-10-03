@@ -5,6 +5,7 @@ configure.ac~
 configure
 configure~
 cscope.*
+docs/doxygen/
 Makefile
 Makefile.in
 .deps/

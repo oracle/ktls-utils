@@ -1,8 +1,12 @@
-/*
- * Netlink operations for tlshd
+/**
+ * @file netlink.c
+ * @brief Handle communication with the kernel via netlink
  *
+ * @copyright
  * Copyright (c) 2023 Oracle and/or its affiliates.
- *
+ */
+
+/*
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2.
@@ -51,8 +55,20 @@
 #include "tlshd.h"
 #include "netlink.h"
 
+/**
+ * @var unsigned int tlshd_delay_done
+ * Global number of seconds to delay each handshake completion
+ */
 unsigned int tlshd_delay_done;
 
+/**
+ * @brief Open a netlink socket
+ * @param [out]    sock  A netlink socket descriptor
+ *
+ * @retval  0        Success; caller must close "sock" with tlshd_genl_sock_close
+ * @retval  ENOMEM   Failed to allocate the socket
+ * @retval  ENOLINK  Failed to connect to the netlink service
+ */
 static int tlshd_genl_sock_open(struct nl_sock **sock)
 {
 	struct nl_sock *nls;
@@ -79,6 +95,10 @@ out:
 	return ret;
 }
 
+/**
+ * @brief Close a netlink socket
+ * @param[in]     nls  A netlink socket descriptor
+ */
 static void tlshd_genl_sock_close(struct nl_sock *nls)
 {
 	if (!nls)
@@ -88,6 +108,10 @@ static void tlshd_genl_sock_close(struct nl_sock *nls)
 	nl_socket_free(nls);
 }
 
+/**
+ * @var struct nla_policy tlshd_accept_nl_policy
+ * Netlink policies for ACCEPT arguments
+ */
 #if LIBNL_VER_NUM >= LIBNL_VER(3,5)
 static const struct nla_policy
 #else
@@ -105,11 +129,33 @@ tlshd_accept_nl_policy[HANDSHAKE_A_ACCEPT_MAX + 1] = {
 	[HANDSHAKE_A_ACCEPT_KEYRING]		= { .type = NLA_U32, },
 };
 
+/**
+ * @var struct nl_sock *tlshd_notification_nls
+ * Netlink socket on which notification events arrive
+ */
 static struct nl_sock *tlshd_notification_nls;
 
+/**
+ * @var sigset_t tlshd_sig_poll_mask
+ * Daemon's signal poll mask
+ */
 static sigset_t tlshd_sig_poll_mask;
+
+/**
+ * @var int tlshd_sig_poll_fd
+ * Daemon's signal poll file descriptor
+ */
 static int tlshd_sig_poll_fd;
 
+/**
+ * @brief Process one netlink notification event
+ * @param[in]     msg  A netlink event to be handled
+ * @param[in]     arg  Additional arguments
+ *
+ * @retval NL_OK    Proceed with the next message
+ * @retval NL_SKIP  Skip this message.
+ * @retval NL_STOP  Stop and discard remaining messages.
+ */
 static int tlshd_genl_event_handler(struct nl_msg *msg,
 				    __attribute__ ((unused)) void *arg)
 {
@@ -148,8 +194,7 @@ static int tlshd_genl_event_handler(struct nl_msg *msg,
 }
 
 /**
- * tlshd_genl_dispatch - handle notification events
- *
+ * @brief Handle notification events
  */
 void tlshd_genl_dispatch(void)
 {
@@ -231,6 +276,11 @@ out_close:
 	tlshd_genl_sock_close(tlshd_notification_nls);
 }
 
+/**
+ * @brief Extract the key serial number of the key with the remote peerid
+ * @param[in]     parms  Handshake parameters
+ * @param[in]     head   List of nlattrs to parse
+ */
 static void tlshd_parse_peer_identity(struct tlshd_handshake_parms *parms,
 				      struct nlattr *head)
 {
@@ -245,6 +295,10 @@ static void tlshd_parse_peer_identity(struct tlshd_handshake_parms *parms,
 	g_array_append_val(parms->peerids, peerid);
 }
 
+/**
+ * @var struct nla_policy tlshd_x509_nl_policy
+ * Netlink policies for x.509 key serial numbers
+ */
 #if LIBNL_VER_NUM >= LIBNL_VER(3,5)
 static const struct nla_policy
 #else
@@ -255,6 +309,11 @@ tlshd_x509_nl_policy[HANDSHAKE_A_X509_MAX + 1] = {
 	[HANDSHAKE_A_X509_PRIVKEY]	= { .type = NLA_U32, },
 };
 
+/**
+ * @brief Extract the key serial number of the key with the cert / privkey
+ * @param[in]     parms  Handshake parameters
+ * @param[in]     head   List of nlattrs to parse
+ */
 static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 				     struct nlattr *head)
 {
@@ -277,6 +336,15 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
 		parms->x509_privkey = nla_get_s32(tb[HANDSHAKE_A_X509_PRIVKEY]);
 }
 
+/**
+ * @brief Process an ACCESS argument
+ * @param[in]     msg  Message to be processed
+ * @param[out]    arg  Handshake parms to be filled in
+ *
+ * @retval NL_OK    Proceed with the next message
+ * @retval NL_SKIP  Skip this message.
+ * @retval NL_STOP  Stop and discard remaining messages.
+ */
 static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 {
 	struct nlattr *tb[HANDSHAKE_A_ACCEPT_MAX + 1];
@@ -363,6 +431,10 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	return NL_SKIP;
 }
 
+/**
+ * @var struct tlshd_handshake_parms tlshd_default_handshake_parms
+ * Starting parameter values for each handshake
+ */
 static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.peername		= NULL,
 	.peeraddr		= NULL,
@@ -379,13 +451,15 @@ static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 };
 
 /**
- * tlshd_genl_get_handshake_parms - Retrieve handshake parameters
- * @parms: buffer to fill in with parameters
+ * @brief Retrieve handshake parameters
+ * @param[in]     parms  Buffer to fill in with parameters
  *
- * Returns 0 if handshake parameters were retrieved successfully.
+ * Caller must release handshake resources by calling
+ * tlshd_genl_put_handshake_parms when finished.
  *
+ * @returns 0 if handshake parameters were retrieved successfully.
  * Otherwise a positive errno is returned, and the content of
- * @parms is indeterminant.
+ * "parms" is indeterminant.
  */
 int tlshd_genl_get_handshake_parms(struct tlshd_handshake_parms *parms)
 {
@@ -460,9 +534,8 @@ out_close:
 }
 
 /**
- * tlshd_genl_put_handshake_parms - Release handshake resources
- * @parms: handshake parameters to be released
- *
+ * @brief Release handshake resources
+ * @param[in]     parms  Handshake parameters to be released
  */
 void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 {
@@ -474,6 +547,14 @@ void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 	free(parms->peeraddr);
 }
 
+/**
+ * @brief Format all remote peerid arguments
+ * @param[in]     msg
+ * @param[in]     parms  Handshake parameters
+ *
+ * retval 0   Formatted all remote peerid arguments successfully
+ * retval -1  Failed to format
+ */
 static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 					 struct tlshd_handshake_parms *parms)
 {
@@ -494,9 +575,8 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 }
 
 /**
- * tlshd_genl_done - Indicate handshake has completed successfully
- * @parms: buffer filled in with parameters
- *
+ * @brief Indicate handshake has completed successfully
+ * @param[in]     parms  Buffer filled in with parameters
  */
 void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 {

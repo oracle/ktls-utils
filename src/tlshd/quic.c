@@ -1,8 +1,12 @@
-/*
- * Perform a QUIC server or client side handshake.
+/**
+ * @file quic.c
+ * @brief Utility functions for QUIC handshakes
  *
+ * @copyright
  * Copyright (c) 2024 Red Hat, Inc.
- *
+ */
+
+/*
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2.
@@ -31,6 +35,10 @@
 #include "tlshd.h"
 
 #ifdef HAVE_GNUTLS_QUIC
+/**
+ * @brief Callback to handle a timer expiry
+ * @param[in,out] arg  user data
+ */
 static void quic_timer_handler(union sigval arg)
 {
 	struct tlshd_quic_conn *conn = arg.sival_ptr;
@@ -39,6 +47,13 @@ static void quic_timer_handler(union sigval arg)
 	conn->errcode = ETIMEDOUT;
 }
 
+/**
+ * @brief Set a handshake timer
+ * @param[in,out] conn  QUIC handshake context
+ *
+ * @retval 0   Timer configured successfully
+ * @retval -1  Failed to configure timer
+ */
 static int quic_conn_setup_timer(struct tlshd_quic_conn *conn)
 {
 	uint64_t msec = conn->parms->timeout_ms;
@@ -62,11 +77,21 @@ static int quic_conn_setup_timer(struct tlshd_quic_conn *conn)
 	return 0;
 }
 
+/**
+ * @brief Delete a handshake timer
+ * @param[in,out] conn  QUIC handshake context
+ */
 static void quic_conn_delete_timer(struct tlshd_quic_conn *conn)
 {
 	timer_delete(conn->timer);
 }
 
+/**
+ * @brief Convert a GnuTLS cipher number to a kTLS cipher number
+ * @param[in]     cipher   kTLS cipher number to be converted
+ *
+ * @returns a kTLS cipher number.
+ */
 static uint32_t quic_get_tls_cipher_type(gnutls_cipher_algorithm_t cipher)
 {
 	switch (cipher) {
@@ -84,6 +109,12 @@ static uint32_t quic_get_tls_cipher_type(gnutls_cipher_algorithm_t cipher)
 	}
 }
 
+/**
+ * @brief Convert a GnuTLS encryption level number
+ * @param[in]     level    GnuTLS encryption level
+ *
+ * @returns a QUIC encryption level number.
+ */
 static enum quic_crypto_level quic_get_crypto_level(gnutls_record_encryption_level_t level)
 {
 	switch (level) {
@@ -101,6 +132,17 @@ static enum quic_crypto_level quic_get_crypto_level(gnutls_record_encryption_lev
 	}
 }
 
+/**
+ * @brief Callback to process a new traffic secret
+ * @param[in,out] session    GnuTLS session
+ * @param[in]     level      GnuTLS encryption level
+ * @param[in]     rx_secret  Receive secret, or NULL
+ * @param[in]     tx_secret  Transmit secret, or NULL
+ * @param[in]     secretlen  Length of secrets, in bytes
+ *
+ * @retval 0   Callback completed successfully
+ * @retval -1  Callback failed
+ */
 static int quic_secret_func(gnutls_session_t session, gnutls_record_encryption_level_t level,
 			    const void *rx_secret, const void *tx_secret, size_t secretlen)
 {
@@ -150,6 +192,15 @@ static int quic_secret_func(gnutls_session_t session, gnutls_record_encryption_l
 	return 0;
 }
 
+/**
+ * @brief Callback to handle an outgoing alert
+ * @param[in,out] session      GnuTLS session
+ * @param[in]     level        GnuTLS encryption level
+ * @param[in]     alert_level  TLS alert level number
+ * @param[in]     alert_desc   TLS alert description number
+ *
+ * @retval 0   Callback completed successfully
+ */
 static int quic_alert_read_func(gnutls_session_t session,
 				gnutls_record_encryption_level_t gtls_level,
 				gnutls_alert_level_t alert_level,
@@ -160,6 +211,15 @@ static int quic_alert_read_func(gnutls_session_t session,
 	return 0;
 }
 
+/**
+ * @brief Callback to receive handshake data
+ * @param[in,out] session  GnuTLS session
+ * @param[in]     buf      Buffer containing received data
+ * @param[in]     len      Length of content in "buf", in bytes
+ *
+ * @retval 0   Callback completed successfully
+ * @retval -1  Callback failed
+ */
 static int quic_tp_recv_func(gnutls_session_t session, const uint8_t *buf, size_t len)
 {
 	struct tlshd_quic_conn *conn = gnutls_session_get_ptr(session);
@@ -172,6 +232,14 @@ static int quic_tp_recv_func(gnutls_session_t session, const uint8_t *buf, size_
 	return 0;
 }
 
+/**
+ * @brief Callback to send handshake data
+ * @param[in,out] session  GnuTLS session
+ * @param[in]     buf      Buffer to be filled in with data to send
+ *
+ * @retval 0   Callback completed successfully
+ * @retval -1  Callback failed
+ */
 static int quic_tp_send_func(gnutls_session_t session, gnutls_buffer_t extdata)
 {
 	struct tlshd_quic_conn *conn = gnutls_session_get_ptr(session);
@@ -188,12 +256,23 @@ static int quic_tp_send_func(gnutls_session_t session, gnutls_buffer_t extdata)
 	ret = gnutls_buffer_append_data(extdata, buf, len);
 	if (ret) {
 		tlshd_log_gnutls_error(ret);
-		return ret;
+		return -1;
 	}
 
 	return 0;
 }
 
+/**
+ * @brief Callback to handle an outgoing handshake message
+ * @param[in,out] session  GnuTLS session
+ * @param[in]     level    GnuTLS encryption level
+ * @param[in]     htype    GnuTLS handshake description
+ * @param[in]     data     message to be processed
+ * @param[in]     datalen  length of "data" in bytes
+ *
+ * @retval 0   Callback completed successfully
+ * @retval -1  Callback failed
+ */
 static int quic_read_func(gnutls_session_t session, gnutls_record_encryption_level_t level,
 			  gnutls_handshake_description_t htype, const void *data, size_t datalen)
 {
@@ -224,12 +303,25 @@ static int quic_read_func(gnutls_session_t session, gnutls_record_encryption_lev
 	return 0;
 }
 
+/**
+ * @var char quic_priority
+ * Default GnuTLS priority string for QUIC connections
+ */
 static char quic_priority[] =
 	"%DISABLE_TLS13_COMPAT_MODE:NORMAL:-VERS-ALL:+VERS-TLS1.3:+PSK:-CIPHER-ALL:+";
 
+/**
+ * @brief Set the GnuTLS priority string for a session
+ * @param[in,out] session  GnuTLS session
+ * @param[in]     cipher   kTLS cipher number to set
+ *
+ * @retval 0   GnuTLS priority string set successfully
+ * @retval -1  Failed to set GnuTLS priority string
+ */
 static int quic_session_set_priority(gnutls_session_t session, uint32_t cipher)
 {
 	char p[136] = {};
+	int ret;
 
 	memcpy(p, quic_priority, strlen(quic_priority));
 	switch (cipher) {
@@ -249,14 +341,27 @@ static int quic_session_set_priority(gnutls_session_t session, uint32_t cipher)
 		strcat(p, "AES-128-GCM:+AES-256-GCM:+AES-128-CCM:+CHACHA20-POLY1305");
 	}
 
-	return gnutls_priority_set_direct(session, p, NULL);
+	ret = gnutls_priority_set_direct(session, p, NULL);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		return -1;
+	}
+	return 0;
 }
 
+/**
+ * @brief Set the ALPN information on a session
+ * @param[in,out] session    GnuTLS session
+ * @param[in]     alpn_data  ALPN string to set
+ *
+ * @retval 0   ALPN string set successfully
+ * @retval -1  Failed to set ALPN string
+ */
 static int quic_session_set_alpns(gnutls_session_t session, char *alpn_data)
 {
 	gnutls_datum_t alpns[TLSHD_QUIC_MAX_ALPNS_LEN / 2];
 	char *alpn = strtok(alpn_data, ",");
-	int count = 0;
+	int count = 0, ret;
 
 	while (alpn) {
 		while (*alpn == ' ')
@@ -267,9 +372,20 @@ static int quic_session_set_alpns(gnutls_session_t session, char *alpn_data)
 		alpn = strtok(NULL, ",");
 	}
 
-	return gnutls_alpn_set_protocols(session, alpns, count, GNUTLS_ALPN_MANDATORY);
+	ret = gnutls_alpn_set_protocols(session, alpns, count, GNUTLS_ALPN_MANDATORY);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		return -1;
+	}
+	return 0;
 }
 
+/**
+ * @brief Translate the encryption level value
+ * @param[in]     level  QUIC encryption level
+ *
+ * @returns an equivalent GNUTLS_ENCRYPTION value
+ */
 static gnutls_record_encryption_level_t quic_get_encryption_level(uint8_t level)
 {
 	switch (level) {
@@ -287,6 +403,13 @@ static gnutls_record_encryption_level_t quic_get_encryption_level(uint8_t level)
 	}
 }
 
+/**
+ * @brief Retrieve QUIC connection configuration
+ * @param[in]     conn  QUIC handshake context
+ *
+ * @retval 0   Connection configuration retrieved successfully
+ * @retval -1  Failed to retrieve configuration
+ */
 static int quic_conn_get_config(struct tlshd_quic_conn *conn)
 {
 	int sockfd = conn->parms->sockfd;
@@ -315,6 +438,13 @@ static int quic_conn_get_config(struct tlshd_quic_conn *conn)
 	return 0;
 }
 
+/**
+ * @brief Send one QUIC handshake message on a socket
+ * @param[in]     sockfd  Socket on which to send
+ * @param[in]     msg     Buffer containing message to send
+ *
+ * @returns the number of bytes sent, or -1 if an error occurred.
+ */
 static int quic_handshake_sendmsg(int sockfd, struct tlshd_quic_msg *msg)
 {
 	char outcmsg[CMSG_SPACE(sizeof(struct quic_handshake_info))];
@@ -348,6 +478,13 @@ static int quic_handshake_sendmsg(int sockfd, struct tlshd_quic_msg *msg)
 	return sendmsg(sockfd, &outmsg, flags);
 }
 
+/**
+ * @brief Receive one QUIC handshake message on a socket
+ * @param[in]     sockfd  Socket on which to receive
+ * @param[in,out] msg     Buffer in which to receive a message
+ *
+ * @returns the number of bytes received, or -1 if an error occurred.
+ */
 static int quic_handshake_recvmsg(int sockfd, struct tlshd_quic_msg *msg)
 {
 	char incmsg[CMSG_SPACE(sizeof(struct quic_handshake_info))];
@@ -386,11 +523,28 @@ static int quic_handshake_recvmsg(int sockfd, struct tlshd_quic_msg *msg)
 	return ret;
 }
 
-static int quic_handshake_completed(const struct tlshd_quic_conn *conn)
+/**
+ * @brief Predicate: Has the QUIC handshake completed
+ * @param[in]     conn     QUIC handshake context
+ *
+ * @retval true   The handshake completed
+ * @retval false  The handshake has not completed
+ */
+static bool quic_handshake_completed(const struct tlshd_quic_conn *conn)
 {
 	return conn->completed || conn->errcode;
 }
 
+/**
+ * @brief Get the generated session data
+ * @param[in]     conn     QUIC handshake context
+ * @param[in]     level    Encryption level
+ * @param[in]     data     Ticket blob
+ * @param[in]     datalen  length of "data" in bytes
+ *
+ * @retval 0   Session data retrieved successfully
+ * @retval -1  Session data is not available
+ */
 static int quic_handshake_crypto_data(const struct tlshd_quic_conn *conn,
 				      uint8_t level, const uint8_t *data,
 				      size_t datalen)
@@ -401,7 +555,7 @@ static int quic_handshake_crypto_data(const struct tlshd_quic_conn *conn,
 	level = quic_get_encryption_level(level);
 	if (datalen > 0) {
 		ret = gnutls_handshake_write(session, level, data, datalen);
-		if (ret != 0) {
+		if (ret) {
 			if (!gnutls_error_is_fatal(ret))
 				return 0;
 			goto err;
@@ -418,15 +572,15 @@ static int quic_handshake_crypto_data(const struct tlshd_quic_conn *conn,
 err:
 	gnutls_alert_send_appropriate(session, ret);
 	tlshd_log_gnutls_error(ret);
-	return ret;
+	return -1;
 }
 
 /**
- * tlshd_quic_conn_create - Create a context for QUIC handshake
- * @conn_p: pointer to accept the QUIC handshake context created
- * @parms: handshake parameters
+ * @brief Create a context for QUIC handshake
+ * @param[out]    conn_p  Pointer to accept the QUIC handshake context created
+ * @param[in]     parms   Handshake parameters
  *
- * Returns: %0 on success, or a negative error code
+ * @returns 0 on success, or a negative error code
  */
 int tlshd_quic_conn_create(struct tlshd_quic_conn **conn_p, struct tlshd_handshake_parms *parms)
 {
@@ -460,9 +614,8 @@ err:
 }
 
 /**
- * tlshd_quic_conn_destroy - Destroy a context for QUIC handshake
- * @conn: QUIC handshake context to destroy
- *
+ * @brief Destroy a context for QUIC handshake
+ * @param[in]     conn  QUIC handshake context to destroy
  */
 void tlshd_quic_conn_destroy(struct tlshd_quic_conn *conn)
 {
@@ -481,31 +634,43 @@ void tlshd_quic_conn_destroy(struct tlshd_quic_conn *conn)
 
 #define QUIC_TLSEXT_TP_PARAM	0x39u
 
+/**
+ * @brief Configure a tlshd_quic_conn
+ * @param[in,out] conn  QUIC handshake context
+ *
+ * @retval 0   Connection configured successfully
+ * @retval -1  Failed to configure the connection
+ */
 static int tlshd_quic_session_configure(struct tlshd_quic_conn *conn)
 {
 	gnutls_session_t session = conn->session;
 	int ret;
 
-	ret = quic_session_set_priority(session, conn->cipher);
-	if (ret)
-		return ret;
+	if (quic_session_set_priority(session, conn->cipher))
+		return -1;
 
-	if (conn->alpns[0]) {
-		ret = quic_session_set_alpns(session, conn->alpns);
-		if (ret)
-			return ret;
-	}
+	if (conn->alpns[0] && quic_session_set_alpns(session, conn->alpns))
+		return -1;
 
 	gnutls_handshake_set_secret_function(session, quic_secret_func);
 	gnutls_handshake_set_read_function(session, quic_read_func);
 	gnutls_alert_set_read_function(session, quic_alert_read_func);
 
-	return gnutls_session_ext_register(
+	ret = gnutls_session_ext_register(
 		session, "QUIC Transport Parameters", QUIC_TLSEXT_TP_PARAM,
 		GNUTLS_EXT_TLS, quic_tp_recv_func, quic_tp_send_func, NULL, NULL, NULL,
 		GNUTLS_EXT_FLAG_TLS | GNUTLS_EXT_FLAG_CLIENT_HELLO | GNUTLS_EXT_FLAG_EE);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		return -1;
+	}
+	return 0;
 }
 
+/**
+ * @brief Set up a QUIC receive session ticket
+ * @param[in,out] conn  QUIC handshake context
+ */
 static void tlshd_quic_recv_session_ticket(struct tlshd_quic_conn *conn)
 {
 	gnutls_session_t session = conn->session;
@@ -532,16 +697,16 @@ static void tlshd_quic_recv_session_ticket(struct tlshd_quic_conn *conn)
 		return;
 
 	/* process new session ticket msg and get the generated session data */
-	ret = quic_handshake_crypto_data(conn, QUIC_CRYPTO_APP, conn->ticket, len);
-	if (ret) {
-		conn->errcode = -ret;
+	if (quic_handshake_crypto_data(conn, QUIC_CRYPTO_APP, conn->ticket, len)) {
+		conn->errcode = EACCES;
 		return;
 	}
+
 	size = sizeof(conn->ticket);
 	ret = gnutls_session_get_data(session, conn->ticket, &size);
 	if (ret) {
 		tlshd_log_gnutls_error(ret);
-		conn->errcode = -ret;
+		conn->errcode = EACCES;
 		return;
 	}
 
@@ -555,9 +720,8 @@ static void tlshd_quic_recv_session_ticket(struct tlshd_quic_conn *conn)
 }
 
 /**
- * tlshd_quic_start_handshake - Drive the handshake interaction
- * @conn: QUIC handshake context
- *
+ * @brief Drive a QUIC handshake interaction
+ * @param[in,out] conn  QUIC handshake context
  */
 void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn)
 {
@@ -569,17 +733,14 @@ void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn)
 	FD_ZERO(&readfds);
 	FD_SET(sockfd, &readfds);
 
-	ret = tlshd_quic_session_configure(conn);
-	if (ret) {
-		tlshd_log_gnutls_error(ret);
-		conn->errcode = -ret;
+	if (tlshd_quic_session_configure(conn)) {
+		conn->errcode = EACCES;
 		return;
 	}
 
 	if (!conn->is_serv) {
-		ret = quic_handshake_crypto_data(conn, QUIC_CRYPTO_INITIAL, NULL, 0);
-		if (ret) {
-			conn->errcode = -ret;
+		if (quic_handshake_crypto_data(conn, QUIC_CRYPTO_INITIAL, NULL, 0)) {
+			conn->errcode = EACCES;
 			return;
 		}
 
@@ -614,9 +775,8 @@ void tlshd_quic_start_handshake(struct tlshd_quic_conn *conn)
 				return tlshd_log_error("socket recvmsg error %d", errno);
 			}
 			tlshd_log_debug("> Handshake RECV: %u %u", msg->len, msg->level);
-			ret = quic_handshake_crypto_data(conn, msg->level, msg->data, msg->len);
-			if (ret) {
-				conn->errcode = -ret;
+			if (quic_handshake_crypto_data(conn, msg->level, msg->data, msg->len)) {
+				conn->errcode = EACCES;
 				return;
 			}
 		}

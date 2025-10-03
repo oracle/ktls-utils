@@ -1,8 +1,12 @@
-/*
- * Scrape authentication information from kernel keyring.
+/**
+ * @file keyring.c
+ * @brief Linux keyring management
  *
+ * @copyright
  * Copyright (c) 2022 Oracle and/or its affiliates.
- *
+ */
+
+/*
  * ktls-utils is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
  * published by the Free Software Foundation; version 2.
@@ -40,15 +44,14 @@
 #include "tlshd.h"
 
 /**
- * tlshd_keyring_get_psk_username - Retrieve username for PSK handshake
- * @serial: Key serial number to look up
- * @username: On success, filled in with NUL-terminated user name
+ * @brief Retrieve username for PSK handshake
+ * @param[in]     serial    Key serial number to look up
+ * @param[out]    username  Filled in with NUL-terminated user name
  *
- * Caller must use gnutls_free() to free @username when finished.
+ * Caller must use gnutls_free() to free "username" when finished.
  *
- * Return values:
- *   %true: Success; @username has been initialized
- *   %false: Failure
+ * @retval true  Success; "username" has been initialized
+ * @retval false Failure
  */
 bool tlshd_keyring_get_psk_username(key_serial_t serial, char **username)
 {
@@ -80,15 +83,14 @@ bool tlshd_keyring_get_psk_username(key_serial_t serial, char **username)
 }
 
 /**
- * tlshd_keyring_get_psk_key - Retrieve pre-shared key for PSK handshake
- * @serial: Key serial number to look up
- * @key: On success, filled in with pre-shared key
+ * @brief Retrieve pre-shared key for PSK handshake
+ * @param[in]     serial   Key serial number to look up
+ * @param[out]    key      Filled in with pre-shared key
  *
- * Caller must use free() to free @key->data when finished.
+ * Caller must use free() to free "key->data" when finished.
  *
- * Return values:
- *   %true: Success; @key has been initialized
- *   %false: Failure
+ * @retval true   Success; "key" has been initialized
+ * @retval false  Failure
  */
 bool tlshd_keyring_get_psk_key(key_serial_t serial, gnutls_datum_t *key)
 {
@@ -111,15 +113,14 @@ bool tlshd_keyring_get_psk_key(key_serial_t serial, gnutls_datum_t *key)
 }
 
 /**
- * tlshd_keyring_get_privkey - Retrieve privkey for x.509 handshake
- * @serial: Key serial number to look up
- * @privkey: On success, filled in with a private key
+ * @brief Retrieve privkey for x.509 handshake
+ * @param[in]     serial   Key serial number to look up
+ * @param[out]    privkey  Filled in with a private key
  *
- * Caller must use gnutls_privkey_deinit() to free @privkey when finished.
+ * Caller must use gnutls_privkey_deinit() to free "privkey" when finished.
  *
- * Return values:
- *   %true: Success; @privkey has been initialized
- *   %false: Failure
+ * @retval true   Success; "privkey" has been initialized
+ * @retval false  Failure
  */
 bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t *privkey)
 {
@@ -157,16 +158,15 @@ bool tlshd_keyring_get_privkey(key_serial_t serial, gnutls_privkey_t *privkey)
 }
 
 /**
- * tlshd_keyring_get_certs - Retrieve certs for x.509 handshake
- * @serial: Key serial number to look up
- * @certs: On success, filled in with certificates
- * @certs_len: IN: maximum number of certs to get, OUT: number of certs found
+ * @brief Retrieve certs for x.509 handshake
+ * @param[in]     serial     Key serial number to look up
+ * @param[out]    certs      On success, filled in with certificates
+ * @param[in,out] certs_len  Maximum number of certs to get, number of certs found
  *
- * Caller must use gnutls_pcert_deinit() to free @cert when finished.
+ * Caller must use gnutls_pcert_deinit() to free "cert" when finished.
  *
- * Return values:
- *   %true: Success; @cert has been initialized
- *   %false: Failure
+ * @retval true   Success; "cert" has been initialized
+ * @retval false  Failure
  */
 bool tlshd_keyring_get_certs(key_serial_t serial, gnutls_pcert_st *certs,
 			     unsigned int *certs_len)
@@ -205,11 +205,11 @@ bool tlshd_keyring_get_certs(key_serial_t serial, gnutls_pcert_st *certs,
 }
 
 /**
- * tlshd_keyring_create_cert - Create key containing peer's certificate
- * @cert: Initialized x.509 certificate
- * @peername: hostname of the remote peer
+ * @brief Create key containing peer's certificate
+ * @param[in]     cert      Initialized x.509 certificate
+ * @param[in]     peername  Hostname of the remote peer
  *
- * Returns a positive key serial number on success; otherwise
+ * @returns a positive key serial number on success; otherwise
  * TLS_NO_PEERID.
  */
 key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
@@ -246,10 +246,11 @@ out:
 }
 
 /**
- * tlshd_keyring_link_session - Link a keyring into the session keyring
- * @keyring: keyring to be linked
+ * @brief Link a keyring into the session keyring
+ * @param[in]     keyring  keyring to be linked
  *
- * Returns 0 on success and -1 on error.
+ * @retval 0   Success
+ * @retval -1  Failure
  */
 int tlshd_keyring_link_session(const char *keyring)
 {
