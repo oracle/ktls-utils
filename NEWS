@@ -1,5 +1,5 @@
-ktls-utils 1.2.0 2025-07-11
- * Implement Certificate Revocation Lists
- * Add a default keyring for NFS consumers
- * Improvements to error reporting and logging
- * Manage per-session resources more effectively
+ktls-utils 1.3.0 2025-10-06
+ * Implement support for certificates using post-quantum encryption
+ * Add several new GitHub Action workflows, including a gh-pages generator
+ * Move /etc/tlshd.conf to /etc/tlshd/config
+ * Smarter signal handling
