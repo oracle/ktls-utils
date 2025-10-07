@@ -111,7 +111,8 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 			tlshd_log_cert_verification_error(session);
 			break;
 		case GNUTLS_E_PREMATURE_TERMINATION:
-			tlshd_log_error("Handshake timeout, retrying");
+			tlshd_log_error("Connection terminated prematurely");
+			/* Ask the kernel to retry */
 			parms->session_status = ETIMEDOUT;
 			break;
 		case GNUTLS_E_WARNING_ALERT_RECEIVED:
