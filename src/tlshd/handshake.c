@@ -43,6 +43,7 @@
 #include <gnutls/abstract.h>
 
 #include <glib.h>
+#include <linux/tls.h>
 
 #include "tlshd.h"
 #include "netlink.h"

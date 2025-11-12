@@ -85,6 +85,9 @@ AC_CHECK_LIB([gnutls], [gnutls_get_system_config_file],
 AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
              [AC_DEFINE([HAVE_GNUTLS_PSK_ALLOCATE_CREDENTIALS2], [1],
                         [Define to 1 if you have the gnutls_psk_allocate_client_credentials2 function.])])
+AC_CHECK_LIB([gnutls], [gnutls_record_get_max_send_size],
+             [AC_DEFINE([HAVE_GNUTLS_RECORD_GET_MAX_SEND_SIZE], [1],
+			[Define to 1 if you have the gnutls_record_get_max_send_size function.])])
 
 AC_MSG_CHECKING(for ML-DSA support in gnutls)
 AC_COMPILE_IFELSE(
@@ -95,6 +98,17 @@ AC_COMPILE_IFELSE(
 AC_MSG_RESULT([$have_mldsa])
 if test "x$have_mldsa" = xyes ; then
 	AC_DEFINE([HAVE_GNUTLS_MLDSA], [1], [Define to 1 if gnutls supports ML-DSA])
+fi
+
+AC_MSG_CHECKING(for TLS_TX_MAX_PAYLOAD_LEN in linux/tls.h)
+AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <linux/tls.h> ]],
+		[[ (void) TLS_TX_MAX_PAYLOAD_LEN; ]])],
+	[ have_tls_tx_max_payload_len=yes ],
+	[ have_tls_tx_max_payload_len=no ])
+AC_MSG_RESULT([$have_tls_tx_max_payload_len])
+if test "x$have_tls_tx_max_payload_len" = xyes ; then
+	AC_DEFINE([HAVE_TLS_TX_MAX_PAYLOAD_LEN], [1], [Define to 1 if linux/tls.h defines TLS_TX_MAX_PAYLOAD_LEN])
 fi
 
 AC_SUBST([AM_CPPFLAGS])
