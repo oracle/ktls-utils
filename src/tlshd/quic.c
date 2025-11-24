@@ -697,7 +697,10 @@ static void tlshd_quic_recv_session_ticket(struct tlshd_quic_conn *conn)
 		return;
 
 	/* process new session ticket msg and get the generated session data */
-	if (quic_handshake_crypto_data(conn, QUIC_CRYPTO_APP, conn->ticket, len)) {
+	ret = gnutls_handshake_write(session, GNUTLS_ENCRYPTION_LEVEL_APPLICATION,
+				     conn->ticket, len);
+	if (ret && gnutls_error_is_fatal(ret)) {
+		tlshd_log_gnutls_error(ret);
 		conn->errcode = EACCES;
 		return;
 	}
