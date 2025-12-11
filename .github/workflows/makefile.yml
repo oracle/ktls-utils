@@ -69,7 +69,8 @@ jobs:
             keyutils-dev \
             libnl3-dev \
             glib-dev \
-            linux-headers
+            linux-headers \
+            tar
 
       - name: Configure
         run: |
