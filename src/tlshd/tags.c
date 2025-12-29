@@ -2114,9 +2114,50 @@ void tlshd_tags_config_shutdown(void)
  * @retval true   Subsystem reload succeeded
  * @retval false  Subsystem reload failed, existing configuration retained
  */
-bool tlshd_tags_config_reload(__attribute__ ((unused)) const char *tagsdir)
+bool tlshd_tags_config_reload(const char *tagsdir)
 {
+	GHashTable *saved_filter_hash, *saved_tag_hash;
+
+	/* Save pointers to existing hash tables */
+	saved_filter_hash = tlshd_tags_filter_hash;
+	saved_tag_hash = tlshd_tags_tag_hash;
+
+	/* Clear global pointers to allow initialization of new tables */
+	tlshd_tags_filter_hash = NULL;
+	tlshd_tags_tag_hash = NULL;
+
+	/* Attempt to create new hash tables and load configuration */
+	if (!tlshd_tags_filter_hash_init())
+		goto restore_filter;
+	if (!tlshd_tags_tag_hash_init())
+		goto restore_tag;
+
+	if (!tlshd_tags_read_directory(tagsdir))
+		goto cleanup_new;
+
+	/* Success: destroy old tables and return */
+	if (saved_tag_hash)
+		g_hash_table_destroy(saved_tag_hash);
+	if (saved_filter_hash)
+		g_hash_table_destroy(saved_filter_hash);
+
+	tlshd_log_notice("TLS session tags configuration reloaded from %s",
+			 tagsdir);
 	return true;
+
+cleanup_new:
+	/* Failed to load new configuration; destroy new tables */
+	tlshd_tags_tag_hash_destroy();
+restore_tag:
+	tlshd_tags_filter_hash_destroy();
+restore_filter:
+	/* Restore saved configuration */
+	tlshd_tags_filter_hash = saved_filter_hash;
+	tlshd_tags_tag_hash = saved_tag_hash;
+
+	tlshd_log_error("Failed to reload TLS session tags configuration, "
+			"retaining existing configuration");
+	return false;
 }
 
 ///@}
