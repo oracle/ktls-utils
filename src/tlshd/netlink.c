@@ -56,6 +56,92 @@
 #include "netlink.h"
 
 /**
+ * @page netlinkThreading Threading Model and Process Architecture
+ *
+ * tlshd operates as a single-threaded daemon with a fork-per-request
+ * architecture. The main process runs an event loop that multiplexes
+ * between netlink messages from the kernel and signal notifications
+ * using poll(2). No background threads are created, and all event
+ * processing occurs sequentially in the main thread.
+ *
+ * @section netlinkThreadingEventLoop Event Loop Structure
+ *
+ * The event loop in tlshd_genl_dispatch() waits on two file
+ * descriptors:
+ * - Netlink socket for handshake requests from the kernel
+ * - signalfd for SIGINT, SIGTERM, SIGHUP, and SIGUSR1
+ *
+ * Signals are delivered synchronously through signalfd rather than
+ * asynchronous signal handlers, ensuring that signal processing
+ * integrates cleanly with the event loop without reentrancy concerns.
+ * SIGHUP and SIGUSR1 trigger configuration reload via
+ * tlshd_config_reload(), which updates global data structures
+ * atomically in the main thread.
+ *
+ * @section netlinkThreadingFork Fork-per-Request Model
+ *
+ * When a handshake request arrives via netlink, the parent process
+ * forks a child to service that request. This occurs in
+ * tlshd_genl_accept_handler() at the call to fork(2). The child
+ * process:
+ * - Closes the signalfd and unblocks signals
+ * - Closes the netlink socket
+ * - Calls tlshd_service_socket() to perform the TLS handshake
+ * - Exits after sending the handshake result back to the kernel
+ *
+ * The parent process:
+ * - Continues running the event loop
+ * - Ignores SIGCHLD (children are reaped automatically)
+ * - Remains responsive to new handshake requests
+ * - Handles configuration reload requests
+ *
+ * @section netlinkThreadingCOW Copy-on-Write and Configuration
+ *
+ * Child processes inherit a copy-on-write snapshot of the parent's
+ * address space at the moment of fork. This includes all loaded
+ * configuration data such as TLS session tag definitions, certificate
+ * stores, and GnuTLS priority strings. Because children only read
+ * this configuration data and never modify it, copy-on-write pages
+ * are never faulted, keeping memory usage efficient.
+ *
+ * When the parent reloads configuration in response to SIGHUP, it
+ * constructs new data structures and atomically replaces global
+ * pointers. Children forked before the reload continue using the old
+ * configuration through copy-on-write, while children forked after
+ * the reload see the new configuration. The kernel keeps old pages
+ * resident as long as any child references them, then reclaims the
+ * pages when the last child exits.
+ *
+ * @section netlinkThreadingLocking Locking and Synchronization
+ *
+ * No pthread mutexes, spinlocks, or other synchronization primitives
+ * are required because:
+ * - The parent process is single-threaded
+ * - Signal processing is synchronous via signalfd
+ * - Child processes never communicate with each other
+ * - Child processes never modify global configuration
+ * - Configuration reload occurs atomically in the parent
+ *
+ * Subsystems that maintain global state (such as the TLS session
+ * tagging subsystem in tags.c) rely on this single-threaded event
+ * loop model and do not require internal locking.
+ *
+ * @section netlinkThreadingFuture Future Considerations
+ *
+ * Converting tlshd to a multi-threaded architecture would require:
+ * - Thread-safe reference counting for configuration structures
+ * - Read-write locks around configuration reload operations
+ * - Careful ordering of pointer updates with memory barriers
+ * - Audit of all global state for thread safety
+ * - Conversion of GLib data structures to thread-safe variants
+ *
+ * The current fork-per-request model provides process isolation,
+ * clear failure domains, and simple reasoning about concurrency at
+ * the cost of higher per-request overhead. A thread-per-request
+ * model would reduce overhead but increase complexity.
+ */
+
+/**
  * @var unsigned int tlshd_delay_done
  * Global number of seconds to delay each handshake completion
  */
