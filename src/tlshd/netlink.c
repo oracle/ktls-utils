@@ -148,6 +148,24 @@
 unsigned int tlshd_delay_done;
 
 /**
+ * @struct tlshd_kernel_caps
+ * @brief Kernel capability flags detected at initialization
+ *
+ * This structure records which optional netlink attributes are
+ * supported by the running kernel. Capabilities are probed once at
+ * daemon startup to avoid sending attributes that the kernel will
+ * reject.
+ *
+ * When adding new optional attributes to the handshake netlink
+ * protocol, add corresponding boolean fields here and probe them in
+ * tlshd_detect_kernel_caps().
+ */
+static struct tlshd_kernel_caps {
+	bool done_tag;		/* HANDSHAKE_A_DONE_TAG */
+	bool done_remote_auth;	/* HANDSHAKE_A_DONE_REMOTE_AUTH */
+} tlshd_kernel_caps;
+
+/**
  * @brief Open a netlink socket
  * @param [out]    sock  A netlink socket descriptor
  *
@@ -192,6 +210,92 @@ static void tlshd_genl_sock_close(struct nl_sock *nls)
 
 	nl_close(nls);
 	nl_socket_free(nls);
+}
+
+/**
+ * @brief Probe whether the kernel supports a specific netlink attribute
+ * @param[in]     nls        Netlink socket
+ * @param[in]     cmd        Netlink command (e.g., HANDSHAKE_CMD_DONE)
+ * @param[in]     attr_type  Attribute type to test
+ *
+ * Sends a test message with the specified attribute and minimal
+ * required fields. The kernel rejects the message for having invalid
+ * required fields, but this determines whether it parsed the optional
+ * attribute without error.
+ *
+ * @retval true   Kernel accepts this attribute type
+ * @retval false  Kernel rejected the attribute as unsupported
+ */
+static bool tlshd_probe_attr(struct nl_sock *nls, int cmd, int attr_type)
+{
+	struct nl_msg *msg;
+	int family_id, err;
+	bool supported;
+
+	family_id = genl_ctrl_resolve(nls, HANDSHAKE_FAMILY_NAME);
+	if (family_id < 0)
+		return false;
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return false;
+
+	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, family_id, 0,
+		    NLM_F_REQUEST, cmd, HANDSHAKE_FAMILY_VERSION);
+
+	switch (cmd) {
+	case HANDSHAKE_CMD_DONE:
+		nla_put_u32(msg, HANDSHAKE_A_DONE_STATUS, 0);
+		nla_put_u32(msg, HANDSHAKE_A_DONE_SOCKFD, -1);
+		break;
+	default:
+		nlmsg_free(msg);
+		return false;
+	}
+
+	nla_put_string(msg, attr_type, "__probe__");
+
+	err = nl_send_auto(nls, msg);
+	nlmsg_free(msg);
+
+	/*
+	 * nl_send_auto() returns the number of bytes sent on success,
+	 * or a negative error code on failure. Treat any failure as
+	 * the attribute being unsupported; a positive return indicates
+	 * the kernel accepted the message containing this attribute.
+	 */
+	supported = (err >= 0);
+
+	return supported;
+}
+
+/**
+ * @brief Detect which optional netlink attributes the kernel supports
+ * @param[in]     nls  Netlink socket
+ *
+ * Probes the kernel to determine which optional handshake netlink
+ * attributes are supported. Results are cached in tlshd_kernel_caps
+ * for use throughout the daemon lifetime. Unsupported attributes are
+ * not included in subsequent netlink messages to avoid rejection.
+ *
+ * This function should be called once during initialization, after
+ * connecting to the handshake netlink family but before processing
+ * any handshake requests.
+ */
+static void tlshd_detect_kernel_caps(struct nl_sock *nls)
+{
+	tlshd_kernel_caps.done_tag =
+		tlshd_probe_attr(nls, HANDSHAKE_CMD_DONE,
+				 HANDSHAKE_A_DONE_TAG);
+
+	tlshd_kernel_caps.done_remote_auth =
+		tlshd_probe_attr(nls, HANDSHAKE_CMD_DONE,
+				 HANDSHAKE_A_DONE_REMOTE_AUTH);
+
+	tlshd_log_notice("Kernel capabilities: "
+			 "session_tags=%s remote_peerids=%s",
+			 tlshd_kernel_caps.done_tag ? "supported" : "not available",
+			 tlshd_kernel_caps.done_remote_auth ? "supported" : "not available");
 }
 
 /**
@@ -313,6 +417,9 @@ void tlshd_genl_dispatch(void)
 		tlshd_log_nl_error("nl_socket_add_membership", err);
 		goto out_close;
 	}
+
+	/* Detect which optional netlink attributes the kernel supports */
+	tlshd_detect_kernel_caps(tlshd_notification_nls);
 
 	if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
 		tlshd_log_perror("signal");
@@ -774,14 +881,18 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 	if (parms->session_status)
 		goto sendit;
 
-	err = tlshd_genl_put_remote_peerids(msg, parms);
-	if (err < 0)
-		goto out_free;
+	if (tlshd_kernel_caps.done_remote_auth) {
+		err = tlshd_genl_put_remote_peerids(msg, parms);
+		if (err < 0)
+			goto out_free;
+	}
 
-	err = tlshd_genl_put_tag_list(msg);
-	if (err < 0) {
-		tlshd_log_nl_error("nla_put DONE_TAGs", err);
-		goto out_free;
+	if (tlshd_kernel_caps.done_tag) {
+		err = tlshd_genl_put_tag_list(msg);
+		if (err < 0) {
+			tlshd_log_nl_error("nla_put DONE_TAGs", err);
+			goto out_free;
+		}
 	}
 
 sendit:
