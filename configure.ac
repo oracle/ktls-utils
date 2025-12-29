@@ -47,6 +47,17 @@ AC_ARG_WITH(systemd,
 	AM_CONDITIONAL(INSTALL_SYSTEMD, [test "$use_systemd" = 1])
 	AC_SUBST(unitdir)
 
+AC_ARG_ENABLE(session-tags,
+	[AS_HELP_STRING([--enable-session-tags],
+			[enable TLS session tags support @<:@Default: no@:>@])],
+	[enable_session_tags=$enableval],
+	[enable_session_tags=no])
+AM_CONDITIONAL(HAVE_SESSION_TAGS, [test "x$enable_session_tags" = xyes])
+if test "x$enable_session_tags" = xyes ; then
+	AC_DEFINE([HAVE_SESSION_TAGS], [1],
+		  [Define to 1 to enable TLS session tags support])
+fi
+
 PKG_PROG_PKG_CONFIG([0.9.0])
 PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.3.0])
 AC_SUBST([LIBGNUTLS_CFLAGS])
@@ -63,6 +74,11 @@ AC_SUBST([LIBNL3_LIBS])
 PKG_CHECK_MODULES([LIBNL_GENL3], libnl-genl-3.0 >= 3.1)
 AC_SUBST([LIBNL_GENL3_CFLAGS])
 AC_SUBST([LIBNL_GENL3_LIBS])
+if test "x$enable_session_tags" = xyes ; then
+	PKG_CHECK_MODULES([LIBYAML], [yaml-0.1])
+	AC_SUBST([LIBYAML_CFLAGS])
+	AC_SUBST([LIBYAML_LIBS])
+fi
 
 AC_CHECK_PROG(DOXYGEN, doxygen, doxygen, false)
 if test "$DOXYGEN" = false; then
@@ -88,6 +104,12 @@ AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
 AC_CHECK_LIB([gnutls], [gnutls_record_get_max_send_size],
              [AC_DEFINE([HAVE_GNUTLS_RECORD_GET_MAX_SEND_SIZE], [1],
 			[Define to 1 if you have the gnutls_record_get_max_send_size function.])])
+AC_CHECK_LIB([glib-2.0], [g_pattern_spec_match],
+             [AC_DEFINE([HAVE_GLIB_G_PATTERN_SPEC_MATCH], [1],
+                        [Define to 1 if you have the g_pattern_spec_match function.])])
+AC_CHECK_LIB([glib-2.0], [g_pattern_spec_match_string],
+             [AC_DEFINE([HAVE_GLIB_G_PATTERN_SPEC_MATCH_STRING], [1],
+                        [Define to 1 if you have the g_pattern_spec_match_string function.])])
 
 AC_MSG_CHECKING(for ML-DSA support in gnutls)
 AC_COMPILE_IFELSE(
@@ -120,6 +142,7 @@ AC_CONFIG_FILES([Makefile \
                  etc/tlshd/Makefile \
                  man/Makefile \
                  man/man5/Makefile \
+                 man/man7/Makefile \
                  man/man8/Makefile \
                  src/Makefile \
                  src/tlshd/Makefile \

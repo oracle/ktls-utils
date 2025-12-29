@@ -67,32 +67,23 @@
 static GKeyFile *tlshd_configuration;
 
 /**
- * @brief Parse tlshd's config file
- * @param[in]    pathname  Pathname to config file
- * @param[in]    legacy    Don't generate an error if the specified
- *			   config file doesn't exist
- *
- * @retval true   Config file parsed successfully
- * @retval false  Unable to read config file
+ * @var gchar *tlshd_config_pathname
+ * Path to the configuration file, stored for reloading
  */
-bool tlshd_config_init(const gchar *pathname, bool legacy)
+static gchar *tlshd_config_pathname;
+
+/**
+ * @brief Apply settings from the current configuration
+ *
+ * Updates debug levels and links keyrings based on the current
+ * tlshd_configuration. Called after loading or reloading the
+ * configuration file.
+ */
+static void tlshd_config_apply(void)
 {
 	gchar **keyrings;
 	gsize i, length;
-	GError *error;
 	gint tmp;
-
-	tlshd_configuration = g_key_file_new();
-
-	error = NULL;
-	if (!g_key_file_load_from_file(tlshd_configuration, pathname,
-				       G_KEY_FILE_KEEP_COMMENTS,
-				       &error)) {
-		if (!legacy)
-			tlshd_log_gerror("Failed to load config file", error);
-		g_error_free(error);
-		return false;
-	}
 
 	/*
 	 * These calls return zero if the key isn't present or the
@@ -127,7 +118,38 @@ bool tlshd_config_init(const gchar *pathname, bool legacy)
 	tlshd_keyring_link_session(".nvme");
 	tlshd_keyring_link_session(".nfs");
 	tlshd_keyring_link_session(".nfsd");
+}
 
+/**
+ * @brief Parse tlshd's config file
+ * @param[in]    pathname  Pathname to config file
+ * @param[in]    legacy    Don't generate an error if the specified
+ *			   config file doesn't exist
+ *
+ * @retval true   Config file parsed successfully
+ * @retval false  Unable to read config file
+ */
+bool tlshd_config_init(const gchar *pathname, bool legacy)
+{
+	GError *error;
+
+	tlshd_configuration = g_key_file_new();
+
+	error = NULL;
+	if (!g_key_file_load_from_file(tlshd_configuration, pathname,
+				       G_KEY_FILE_KEEP_COMMENTS,
+				       &error)) {
+		if (!legacy)
+			tlshd_log_gerror("Failed to load config file", error);
+		g_error_free(error);
+		return false;
+	}
+
+	/* Store pathname for later reloading */
+	g_free(tlshd_config_pathname);
+	tlshd_config_pathname = g_strdup(pathname);
+
+	tlshd_config_apply();
 	return true;
 }
 
@@ -137,6 +159,57 @@ bool tlshd_config_init(const gchar *pathname, bool legacy)
 void tlshd_config_shutdown(void)
 {
 	g_key_file_free(tlshd_configuration);
+	g_free(tlshd_config_pathname);
+	tlshd_config_pathname = NULL;
+}
+
+/**
+ * @brief Reload tlshd's config file
+ *
+ * Reloads the configuration file from the path used during
+ * initialization. Debug levels are updated immediately.
+ *
+ * @retval true   Config file reloaded successfully
+ * @retval false  Unable to reload config file
+ */
+bool tlshd_config_reload(void)
+{
+	GKeyFile *new_configuration;
+	GError *error;
+
+	if (!tlshd_config_pathname) {
+		tlshd_log_error("No config file path stored for reload");
+		return false;
+	}
+
+	tlshd_log_notice("Reloading configuration from %s",
+			 tlshd_config_pathname);
+
+	new_configuration = g_key_file_new();
+
+	error = NULL;
+	if (!g_key_file_load_from_file(new_configuration,
+				       tlshd_config_pathname,
+				       G_KEY_FILE_KEEP_COMMENTS,
+				       &error)) {
+		tlshd_log_gerror("Failed to reload config file", error);
+		g_error_free(error);
+		g_key_file_free(new_configuration);
+		return false;
+	}
+
+	g_key_file_free(tlshd_configuration);
+	tlshd_configuration = new_configuration;
+
+	tlshd_config_apply();
+
+	if (!tlshd_tags_config_reload("/etc/tlshd/tags.d")) {
+		tlshd_log_error("Failed to reload tags configuration");
+		return false;
+	}
+
+	tlshd_log_notice("Configuration reloaded successfully");
+	return true;
 }
 
 /**

@@ -33,6 +33,7 @@ following libraries to be installed:
 * keyutils
 * GLib-2.0
 * libnl3
+* libyaml
 
 ## Installation
 

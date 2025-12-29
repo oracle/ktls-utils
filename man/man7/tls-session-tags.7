@@ -1,0 +1,302 @@
+.\"
+.\" Copyright (c) 2025 Oracle and/or its affiliates.
+.\"
+.\" ktls-utils is free software; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; version 2.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+.\" General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+.\" 02110-1301, USA.
+.\"
+.\" tls-session-tags(7)
+.\"
+.TH tls-session-tags 7 "28 Dec 2025"
+.SH NAME
+tls-session-tags \- TLS session tags
+.SH SYNOPSIS
+.B /etc/tlshd/tags.d/
+.SH DESCRIPTION
+The
+.B tlshd
+program implements a user agent that services TLS handshake requests
+on behalf of kernel TLS consumers.
+Its configuration files, found under the
+.I /etc/tlshd
+directory, contain information that the
+.B tlshd
+program reads when it starts up.
+The configuration files direct the
+.B tlshd
+program to information about which trust store and signing
+and encryption algorithms are to be used.
+The configuration files are considered a trusted source of information.
+.P
+When a peer presents an X.509 certificate during a TLS handshake, the
+.B tlshd
+program is responsible for verifying that the certificate was
+issued by a certificate authority that the receiver recognizes and
+trusts.
+Once that verification is successful, the receiver can trust
+the content of that certificate, including information about
+the peer identity presented in that certificate (e.g., a DNS hostname
+or IP address, and so on).
+.P
+Once a peer's certificate is trusted,
+the
+.B tlshd
+program can be configured to scan the fields in the peer's certificate.
+Based on the scan,
+the
+.B tlshd
+program can assign tags to the new TLS session that
+indicate that the server recognizes the peer's identity.
+For example,
+the
+.B tlshd
+program can be configured to look for a specific string in
+.I subject
+fields, and assign tags to TLS sessions where the peer presented
+a certificate with matching content in that field.
+Kernel consumers can use those tags to authorize or deny access
+to resources based on the identity presented in peer certificates.
+.P
+The following sections describe how to configure this facility.
+.SH FORMAT
+TLS session tag definitions are YAML documents stored in files in the
+.I /etc/tlshd/tags.d
+directory.
+When it launches, the
+.B tlshd
+program reads all files in that directory with either the
+.I .yml
+or
+.I .yaml
+extension.
+Modifications to the content of these files take effect only when the
+.B tlshd
+program is restarted.
+.P
+The
+.B tlshd
+program
+populates two dictionaries from the contents of these files:
+.TP
+.B filters
+Each filter defined in this dictionary specifies the name of a
+field in an X.509 certificate, and the conditions under which the
+contents of that field are to be considered a match.
+.TP
+.B tags
+Each tag is a list of one or more filters (defined in the
+.B filters
+dictionary)
+that all must be matched in order for the tag to be assigned to a
+new TLS session.
+.SS Filter types
+A filter's
+.I type
+determines the part of the incoming authentication material that the
+.B tlshd
+program examines to determine if there is a match.
+For example, for the
+.I x509.tbs.subject
+filter type, a string argument specifies a simple wildcard pattern
+that is matched against an incoming X.509 certificate's subject field.
+A complete list of filter types appears in the
+.B FILTER TYPE REFERENCE
+section below.
+
+.SH FILTER TYPE REFERENCE
+The
+.B tlshd
+program currently implements the following filter types:
+.TP
+.B x509.cert.signatureAlgorithm
+Filters of this type examine an incoming X.509 certificate's
+signatureAlgorithm field,
+as defined in RFC 5280, Section 4.1.1.2.
+The filter takes an additional string wildcard pattern that
+can be an algorithm name or an algorithm OID.
+.TP
+.B x509.tbs.version
+Filters of this type examine an incoming X.509 certificate's
+version field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.1.
+The filter takes an additional numeric value that is matched
+against the certificate's version.
+.TP
+.B x509.tbs.serialNumber
+Filters of this type examine an incoming X.509 certificate's
+serialNumber field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.2.
+The filter takes an additional string wildcard pattern that
+matches a hexadecimal number.
+.TP
+.B x509.tbs.issuer
+Filters of this type examine an incoming X.509 certificate's
+issuer field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.4.
+The filter takes an additional string wildcard pattern that
+matches the distinguished name part of the certificate's
+issuer field.
+.TP
+.B x509.tbs.validity.notBefore
+Filters of this type examine an incoming X.509 certificate's
+activation time field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.5.
+The filter takes a date and time string.
+The filter matches when the certificate's activation time
+is equal to or later than the specified threshold.
+Use this filter to accept only certificates issued on or
+after a particular date.
+.TP
+.B x509.tbs.validity.notAfter
+Filters of this type examine an incoming X.509 certificate's
+expiration time field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.5.
+The filter takes a date and time string.
+The filter matches when the certificate's expiration time
+is equal to or earlier than the specified threshold.
+Use this filter to accept only certificates that expire on
+or before a particular date.
+.TP
+.B x509.tbs.subject
+Filters of this type examine an incoming X.509 certificate's
+subject field,
+part of the To-Be-Signed section of the certificate,
+as defined in RFC 5280, Section 4.1.2.6.
+The filter takes an additional string wildcard pattern that
+matches the distinguished name part of the certificate's
+subject field.
+
+.TP
+.B x509.extension.keyUsage
+Filters of this type examine an incoming X.509 certificate's
+keyUsage field,
+one of the standard certificate extensions.
+The filter takes a list of bit names that must be set in the
+field in order for the filter to match.
+This list contains zero or more of the following bit names:
+.IR digitalSignature ,
+.IR nonRepudiation ,
+.IR keyEncipherment ,
+.IR dataEncipherment ,
+.IR keyAgreement ,
+.IR keyCertSign ,
+.IR cRLSign ,
+.IR encipherOnly ", or"
+.IR decipherOnly .
+.TP
+.B x509.extension.extendedKeyUsage
+Filters of this type examine an incoming X.509 certificate's
+extendedKeyUsage field,
+one of the standard certificate extensions.
+This filter type is not yet implemented.
+.TP
+.B x509.derived.fingerprint
+Filters of this type locally compute an incoming X.509 certificate's
+SHA1 and SHA256 fingerprint.
+The filter takes an additional string wildcard pattern that
+matches the hexadecimal value of either the derived SHA1 or
+derived SHA256 fingerprint.
+.TP
+.B x509.derived.selfSigned
+Filters of this type match when an incoming X.509 certificate's
+issuer and subject distinguished names are exactly equal.
+.SS Filters
+The definition of each filter is YAML mapping that specifies
+the unique name of the filter,
+its filter type,
+and
+zero or more specific match arguments to be used.
+For example:
+.P
+.RS
+.nf
+filters:
+  ...
+  monsters-university:
+    type: "x509.tbs.issuer"
+    pattern: "*,O=Monsters University,*"
+  ...
+.fi
+.RE
+.P
+This example defines a filter named "monsters-university".
+The filter performs a wildcard match for "O=Monsters University"
+in the issuer field of each incoming X.509 certificate.
+.SS Tags
+The definition of each tag is a YAML mapping that specifies
+the unique name of the tag
+and
+a list of filters, as defined in the Filters mapping,
+that all must match for the tag to be assigned to
+a TLS session.
+.P
+A filter name can be prefixed with "not " to invert its matching
+behavior.
+When a filter is negated, the tag matches only if that filter does
+not match.
+A tag matches when all non-negated filters match and all negated
+filters do not match.
+.P
+For example:
+.P
+.RS
+.nf
+tags:
+  ...
+  ror-mu-chapter:
+    filter:
+      - monsters-university
+      - not fear-tech
+      - fraternity-ror
+  ...
+.fi
+.RE
+.P
+This example defines a tag named "ror-mu-chapter".
+The peer's certificate must satisfy both the "monsters-university"
+and "fraternity-ror" filter conditions,
+and must fail to satisfy the "fear-tech" filter condition,
+in order for the
+.B tlshd
+program to assign the
+.I ror-mu-chapter
+tag to an incoming TLS session.
+.SS Handshake completion
+Once a TLS handshake is successful, the
+.B tlshd
+program scans the peer's certificate using the configured filter and
+tag definitions.
+For each tag whose filter conditions the certificate satisfies,
+the
+.B tlshd
+program attaches that tag's name to the new TLS session.
+The kernel consumer receives only the list of matching tag names;
+the session's authentication material,
+filter types,
+and filter names remain private to the
+.B tlshd
+program.
+.SH STANDARDS
+.TP
+.B X.509
+RFC 5280, RFC 6125
+.SH SEE ALSO
+.BR tlshd (8),
+.BR tlshd.conf (5)
+.SH AUTHOR
+Chuck Lever

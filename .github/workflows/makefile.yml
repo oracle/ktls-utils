@@ -26,12 +26,13 @@ jobs:
             libkeyutils-dev \
             libnl-3-dev \
             libnl-genl-3-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libyaml-dev
 
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Build
         run: make
@@ -40,7 +41,7 @@ jobs:
         run: make check
 
       - name: Distcheck
-        run: make distcheck
+        run: make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-session-tags"
 
   build-musl:
 
@@ -69,13 +70,14 @@ jobs:
             keyutils-dev \
             libnl3-dev \
             glib-dev \
+            yaml-dev \
             linux-headers \
             tar
 
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Build
         run: make
@@ -84,4 +86,4 @@ jobs:
         run: make check
 
       - name: Distcheck
-        run: make distcheck
+        run: make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-session-tags"

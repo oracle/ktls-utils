@@ -149,7 +149,15 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (!tlshd_tags_config_init("/etc/tlshd/tags.d")) {
+		tlshd_config_shutdown();
+		tlshd_log_shutdown();
+		tlshd_log_close();
+		return EXIT_FAILURE;
+	}
+
 	if (tlshd_gnutls_priority_init()) {
+		tlshd_tags_config_shutdown();
 		tlshd_config_shutdown();
 		tlshd_log_shutdown();
 		tlshd_log_close();
@@ -159,6 +167,7 @@ int main(int argc, char **argv)
 	tlshd_genl_dispatch();
 
 	tlshd_gnutls_priority_deinit();
+	tlshd_tags_config_shutdown();
 	tlshd_config_shutdown();
 	tlshd_log_shutdown();
 	tlshd_log_close();

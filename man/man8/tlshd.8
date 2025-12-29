@@ -82,7 +82,20 @@ Primary configuration file
 .TP
 .I /etc/tlshd.conf
 Legacy configuration file (deprecated)
+.SH SIGNALS
+.TP
+.BR SIGHUP " or " SIGUSR1
+Reload the configuration file.
+Debug verbosity and keyring associations are updated
+without terminating active TLS sessions.
+After reload completes,
+.B tlshd
+continues polling for netlink messages.
+.TP
+.BR SIGINT " or " SIGTERM
+Terminate the daemon cleanly.
 .SH SEE ALSO
+.BR tls-session-tags (7),
 .BR tlshd.conf (5),
 .BR ssl (7)
 .SH AUTHOR

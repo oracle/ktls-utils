@@ -22,7 +22,8 @@ jobs:
             libkeyutils-dev \
             libnl-3-dev \
             libnl-genl-3-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libyaml-dev
 
       - name: Install tools
         run: |
@@ -31,7 +32,7 @@ jobs:
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Generate compile commands
         run: |
@@ -64,7 +65,8 @@ jobs:
             libkeyutils-dev \
             libnl-3-dev \
             libnl-genl-3-dev \
-            libglib2.0-dev
+            libglib2.0-dev \
+            libyaml-dev
 
       - name: Install tools
         run: |
@@ -73,7 +75,7 @@ jobs:
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Run Lizard Complexity Analysis
         run: |

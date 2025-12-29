@@ -56,10 +56,114 @@
 #include "netlink.h"
 
 /**
+ * @page netlinkThreading Threading Model and Process Architecture
+ *
+ * tlshd operates as a single-threaded daemon with a fork-per-request
+ * architecture. The main process runs an event loop that multiplexes
+ * between netlink messages from the kernel and signal notifications
+ * using poll(2). No background threads are created, and all event
+ * processing occurs sequentially in the main thread.
+ *
+ * @section netlinkThreadingEventLoop Event Loop Structure
+ *
+ * The event loop in tlshd_genl_dispatch() waits on two file
+ * descriptors:
+ * - Netlink socket for handshake requests from the kernel
+ * - signalfd for SIGINT, SIGTERM, SIGHUP, and SIGUSR1
+ *
+ * Signals are delivered synchronously through signalfd rather than
+ * asynchronous signal handlers, ensuring that signal processing
+ * integrates cleanly with the event loop without reentrancy concerns.
+ * SIGHUP and SIGUSR1 trigger configuration reload via
+ * tlshd_config_reload(), which updates global data structures
+ * atomically in the main thread.
+ *
+ * @section netlinkThreadingFork Fork-per-Request Model
+ *
+ * When a handshake request arrives via netlink, the parent process
+ * forks a child to service that request. This occurs in
+ * tlshd_genl_accept_handler() at the call to fork(2). The child
+ * process:
+ * - Closes the signalfd and unblocks signals
+ * - Closes the netlink socket
+ * - Calls tlshd_service_socket() to perform the TLS handshake
+ * - Exits after sending the handshake result back to the kernel
+ *
+ * The parent process:
+ * - Continues running the event loop
+ * - Ignores SIGCHLD (children are reaped automatically)
+ * - Remains responsive to new handshake requests
+ * - Handles configuration reload requests
+ *
+ * @section netlinkThreadingCOW Copy-on-Write and Configuration
+ *
+ * Child processes inherit a copy-on-write snapshot of the parent's
+ * address space at the moment of fork. This includes all loaded
+ * configuration data such as TLS session tag definitions, certificate
+ * stores, and GnuTLS priority strings. Because children only read
+ * this configuration data and never modify it, copy-on-write pages
+ * are never faulted, keeping memory usage efficient.
+ *
+ * When the parent reloads configuration in response to SIGHUP, it
+ * constructs new data structures and atomically replaces global
+ * pointers. Children forked before the reload continue using the old
+ * configuration through copy-on-write, while children forked after
+ * the reload see the new configuration. The kernel keeps old pages
+ * resident as long as any child references them, then reclaims the
+ * pages when the last child exits.
+ *
+ * @section netlinkThreadingLocking Locking and Synchronization
+ *
+ * No pthread mutexes, spinlocks, or other synchronization primitives
+ * are required because:
+ * - The parent process is single-threaded
+ * - Signal processing is synchronous via signalfd
+ * - Child processes never communicate with each other
+ * - Child processes never modify global configuration
+ * - Configuration reload occurs atomically in the parent
+ *
+ * Subsystems that maintain global state (such as the TLS session
+ * tagging subsystem in tags.c) rely on this single-threaded event
+ * loop model and do not require internal locking.
+ *
+ * @section netlinkThreadingFuture Future Considerations
+ *
+ * Converting tlshd to a multi-threaded architecture would require:
+ * - Thread-safe reference counting for configuration structures
+ * - Read-write locks around configuration reload operations
+ * - Careful ordering of pointer updates with memory barriers
+ * - Audit of all global state for thread safety
+ * - Conversion of GLib data structures to thread-safe variants
+ *
+ * The current fork-per-request model provides process isolation,
+ * clear failure domains, and simple reasoning about concurrency at
+ * the cost of higher per-request overhead. A thread-per-request
+ * model would reduce overhead but increase complexity.
+ */
+
+/**
  * @var unsigned int tlshd_delay_done
  * Global number of seconds to delay each handshake completion
  */
 unsigned int tlshd_delay_done;
+
+/**
+ * @struct tlshd_kernel_caps
+ * @brief Kernel capability flags detected at initialization
+ *
+ * This structure records which optional netlink attributes are
+ * supported by the running kernel. Capabilities are probed once at
+ * daemon startup to avoid sending attributes that the kernel will
+ * reject.
+ *
+ * When adding new optional attributes to the handshake netlink
+ * protocol, add corresponding boolean fields here and probe them in
+ * tlshd_detect_kernel_caps().
+ */
+static struct tlshd_kernel_caps {
+	bool done_tag;		/* HANDSHAKE_A_DONE_TAG */
+	bool done_remote_auth;	/* HANDSHAKE_A_DONE_REMOTE_AUTH */
+} tlshd_kernel_caps;
 
 /**
  * @brief Open a netlink socket
@@ -106,6 +210,92 @@ static void tlshd_genl_sock_close(struct nl_sock *nls)
 
 	nl_close(nls);
 	nl_socket_free(nls);
+}
+
+/**
+ * @brief Probe whether the kernel supports a specific netlink attribute
+ * @param[in]     nls        Netlink socket
+ * @param[in]     cmd        Netlink command (e.g., HANDSHAKE_CMD_DONE)
+ * @param[in]     attr_type  Attribute type to test
+ *
+ * Sends a test message with the specified attribute and minimal
+ * required fields. The kernel rejects the message for having invalid
+ * required fields, but this determines whether it parsed the optional
+ * attribute without error.
+ *
+ * @retval true   Kernel accepts this attribute type
+ * @retval false  Kernel rejected the attribute as unsupported
+ */
+static bool tlshd_probe_attr(struct nl_sock *nls, int cmd, int attr_type)
+{
+	struct nl_msg *msg;
+	int family_id, err;
+	bool supported;
+
+	family_id = genl_ctrl_resolve(nls, HANDSHAKE_FAMILY_NAME);
+	if (family_id < 0)
+		return false;
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return false;
+
+	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, family_id, 0,
+		    NLM_F_REQUEST, cmd, HANDSHAKE_FAMILY_VERSION);
+
+	switch (cmd) {
+	case HANDSHAKE_CMD_DONE:
+		nla_put_u32(msg, HANDSHAKE_A_DONE_STATUS, 0);
+		nla_put_u32(msg, HANDSHAKE_A_DONE_SOCKFD, -1);
+		break;
+	default:
+		nlmsg_free(msg);
+		return false;
+	}
+
+	nla_put_string(msg, attr_type, "__probe__");
+
+	err = nl_send_auto(nls, msg);
+	nlmsg_free(msg);
+
+	/*
+	 * nl_send_auto() returns the number of bytes sent on success,
+	 * or a negative error code on failure. Treat any failure as
+	 * the attribute being unsupported; a positive return indicates
+	 * the kernel accepted the message containing this attribute.
+	 */
+	supported = (err >= 0);
+
+	return supported;
+}
+
+/**
+ * @brief Detect which optional netlink attributes the kernel supports
+ * @param[in]     nls  Netlink socket
+ *
+ * Probes the kernel to determine which optional handshake netlink
+ * attributes are supported. Results are cached in tlshd_kernel_caps
+ * for use throughout the daemon lifetime. Unsupported attributes are
+ * not included in subsequent netlink messages to avoid rejection.
+ *
+ * This function should be called once during initialization, after
+ * connecting to the handshake netlink family but before processing
+ * any handshake requests.
+ */
+static void tlshd_detect_kernel_caps(struct nl_sock *nls)
+{
+	tlshd_kernel_caps.done_tag =
+		tlshd_probe_attr(nls, HANDSHAKE_CMD_DONE,
+				 HANDSHAKE_A_DONE_TAG);
+
+	tlshd_kernel_caps.done_remote_auth =
+		tlshd_probe_attr(nls, HANDSHAKE_CMD_DONE,
+				 HANDSHAKE_A_DONE_REMOTE_AUTH);
+
+	tlshd_log_notice("Kernel capabilities: "
+			 "session_tags=%s remote_peerids=%s",
+			 tlshd_kernel_caps.done_tag ? "supported" : "not available",
+			 tlshd_kernel_caps.done_remote_auth ? "supported" : "not available");
 }
 
 /**
@@ -205,6 +395,8 @@ void tlshd_genl_dispatch(void)
 	sigemptyset(&tlshd_sig_poll_mask);
 	sigaddset(&tlshd_sig_poll_mask, SIGINT);
 	sigaddset(&tlshd_sig_poll_mask, SIGTERM);
+	sigaddset(&tlshd_sig_poll_mask, SIGHUP);
+	sigaddset(&tlshd_sig_poll_mask, SIGUSR1);
 
 	err = tlshd_genl_sock_open(&tlshd_notification_nls);
 	if (err)
@@ -225,6 +417,9 @@ void tlshd_genl_dispatch(void)
 		tlshd_log_nl_error("nl_socket_add_membership", err);
 		goto out_close;
 	}
+
+	/* Detect which optional netlink attributes the kernel supports */
+	tlshd_detect_kernel_caps(tlshd_notification_nls);
 
 	if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
 		tlshd_log_perror("signal");
@@ -257,9 +452,32 @@ void tlshd_genl_dispatch(void)
 	poll_fds[1].events = POLLIN;
 
 	while (poll(poll_fds, ARRAY_SIZE(poll_fds), -1) >= 0) {
-		if (poll_fds[1].revents)
-			/* exit signal received */
-			break;
+		if (poll_fds[1].revents) {
+			struct signalfd_siginfo siginfo;
+			ssize_t len;
+
+			len = read(tlshd_sig_poll_fd, &siginfo, sizeof(siginfo));
+			if (len < 0) {
+				if (errno == EINTR || errno == EAGAIN)
+					continue;
+				tlshd_log_perror("signalfd read");
+				break;
+			}
+			if (len != sizeof(siginfo)) {
+				tlshd_log_error("signalfd short read: %zd", len);
+				break;
+			}
+
+			switch (siginfo.ssi_signo) {
+			case SIGHUP:
+			case SIGUSR1:
+				tlshd_config_reload();
+				continue;
+			default:
+				/* SIGINT or SIGTERM: exit */
+				goto out_sig;
+			}
+		}
 
 		if (poll_fds[0].revents) {
 			err = nl_recvmsgs_default(tlshd_notification_nls);
@@ -268,7 +486,9 @@ void tlshd_genl_dispatch(void)
 				break;
 			}
 		}
-	};
+	}
+
+out_sig:
 
 	close(tlshd_sig_poll_fd);
 
@@ -575,6 +795,41 @@ static int tlshd_genl_put_remote_peerids(struct nl_msg *msg,
 }
 
 /**
+ * @brief Serialize a matched tag name into the netlink message
+ * @param[in]     name  Tag name to serialize
+ * @param[in]     data  Netlink message buffer
+ *
+ * Callback for tlshd_tags_for_each_matched().
+ *
+ * @retval  0  Tag serialized successfully
+ * @retval -1  Serialization failed
+ */
+static int tlshd_genl_put_tag(const char *name, void *data)
+{
+	struct nl_msg *msg = data;
+	int err;
+
+	err = nla_put_string(msg, HANDSHAKE_A_DONE_TAG, name);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put DONE_TAG", err);
+		return -1;
+	}
+	return 0;
+}
+
+/**
+ * @brief Serialize all matched tags into the netlink message
+ * @param[in]     msg  Netlink message buffer
+ *
+ * @retval  0  All tags serialized successfully
+ * @retval -1  Serialization failed
+ */
+static int tlshd_genl_put_tag_list(struct nl_msg *msg)
+{
+	return tlshd_tags_for_each_matched(tlshd_genl_put_tag, (void *)msg);
+}
+
+/**
  * @brief Indicate handshake has completed successfully
  * @param[in]     parms  Buffer filled in with parameters
  */
@@ -626,9 +881,19 @@ void tlshd_genl_done(struct tlshd_handshake_parms *parms)
 	if (parms->session_status)
 		goto sendit;
 
-	err = tlshd_genl_put_remote_peerids(msg, parms);
-	if (err < 0)
-		goto out_free;
+	if (tlshd_kernel_caps.done_remote_auth) {
+		err = tlshd_genl_put_remote_peerids(msg, parms);
+		if (err < 0)
+			goto out_free;
+	}
+
+	if (tlshd_kernel_caps.done_tag) {
+		err = tlshd_genl_put_tag_list(msg);
+		if (err < 0) {
+			tlshd_log_nl_error("nla_put DONE_TAGs", err);
+			goto out_free;
+		}
+	}
 
 sendit:
 	if (tlshd_delay_done) {

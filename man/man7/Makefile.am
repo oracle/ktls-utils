@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 Oracle and/or its affiliates.
+# Copyright (c) 2025 Oracle and/or its affiliates.
 #
 # ktls-utils is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -16,13 +16,7 @@
 # 02110-1301, USA.
 #
 
-unit_files		= tlshd.service
+man7_MANS		= tls-session-tags.7
+EXTRA_DIST		= $(man7_MANS)
 
-EXTRA_DIST		= $(unit_files)
 MAINTAINERCLEANFILES	= Makefile.in
-
-if INSTALL_SYSTEMD
-install-data-hook: $(unit_files)
-	mkdir -p $(DESTDIR)/$(unitdir)
-	for f in $(unit_files); do cp $(srcdir)/$$f $(DESTDIR)/$(unitdir); done
-endif

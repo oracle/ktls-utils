@@ -16,6 +16,6 @@
 # 02110-1301, USA.
 #
 
-SUBDIRS			= man5 man8
+SUBDIRS			= man5 man7 man8
 
 MAINTAINERCLEANFILES	= Makefile.in

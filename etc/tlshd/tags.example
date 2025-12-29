@@ -1,0 +1,43 @@
+---
+filters:
+  monsters-university:
+    type: "x509.tbs.issuer"
+    pattern: "*,O=Monsters University,*"
+  fear-tech:
+    type: "x509.tbs.issuer"
+    pattern: "*,O=Fear Technology Institute,*"
+  school-scaring:
+    type: "x509.tbs.subject"
+    pattern: "*,OU=School of Scaring,*"
+  school-can-design:
+    type: "x509.tbs.subject"
+    pattern: "*,OU=School of Scream Can Design,*"
+  sorority-hss:
+    type: "x509.tbs.subject"
+    pattern: "*,OU=Eta Hiss Hiss,*"
+  fraternity-ror:
+    type: "x509.tbs.subject"
+    pattern: "*,OU=Roar Omega Roar,*"
+  fraternity-ok:
+    type: "x509.tbs.subject"
+    pattern: "*,OU=Oozma Kappa,*"
+  valid-keyusage:
+    type: "x509.extension.keyUsage"
+    purpose:
+      - "digitalSignature"
+      - "nonRepudiation"
+
+tags:
+  ror-mu-chapter:
+    filter:
+      - "monsters-university"
+      - "fraternity-ror"
+      - "valid-keyusage"
+  ror-ft-chapter:
+    filter:
+      - "fear-tech"
+      - "fraternity-ror"
+      - "valid-keyusage"
+  can-design-student-materials:
+    filter:
+      - "school-can-design"
