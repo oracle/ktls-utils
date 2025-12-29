@@ -136,12 +136,39 @@ extern void tlshd_tls13_serverhello_handshake(struct tlshd_handshake_parms *parm
 extern void tlshd_quic_serverhello_handshake(struct tlshd_handshake_parms *parms);
 
 /* tags.c */
+#ifdef HAVE_SESSION_TAGS
 extern bool tlshd_tags_config_init(const char *tagsdir);
 extern void tlshd_tags_config_shutdown(void);
 extern bool tlshd_tags_config_reload(const char *tagsdir);
 extern void tlshd_tags_match_session(gnutls_session_t session);
 extern int tlshd_tags_for_each_matched(int (*cb)(const char *name, void *data),
 				       void *data);
+#else
+static inline bool
+tlshd_tags_config_init(__attribute__ ((unused)) const char *tagsdir)
+{
+	return true;
+}
+static inline void tlshd_tags_config_shutdown(void)
+{
+}
+static inline bool
+tlshd_tags_config_reload(__attribute__ ((unused)) const char *tagsdir)
+{
+	return true;
+}
+static inline void
+tlshd_tags_match_session(__attribute__ ((unused)) gnutls_session_t session)
+{
+}
+static inline int
+tlshd_tags_for_each_matched(__attribute__ ((unused)) int (*cb)(const char *name,
+							       void *data),
+			    __attribute__ ((unused)) void *data)
+{
+	return 0;
+}
+#endif
 
 #ifdef HAVE_GNUTLS_QUIC
 #include "quic.h"

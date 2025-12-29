@@ -17,13 +17,17 @@
 #
 
 tlshdconfigdir		= $(sysconfdir)/tlshd
-tlshdtagsdir		= $(tlshdconfigdir)/tags.d
-
 dist_tlshdconfig_DATA	= config
+
+if HAVE_SESSION_TAGS
+tlshdtagsdir		= $(tlshdconfigdir)/tags.d
 dist_tlshdtags_DATA	= tags.example
+endif
 
 MAINTAINERCLEANFILES	= Makefile.in
 
 install-exec-hook:
 	mkdir -p $(DESTDIR)$(tlshdconfigdir)
+if HAVE_SESSION_TAGS
 	mkdir -p $(DESTDIR)$(tlshdtagsdir)
+endif

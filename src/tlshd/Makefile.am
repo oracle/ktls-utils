@@ -22,7 +22,10 @@ tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
 			  $(LIBNL_GENL3_CFLAGS) $(LIBYAML_CFLAGS)
 tlshd_SOURCES		= client.c config.c handshake.c keyring.c ktls.c \
 			  log.c main.c netlink.c netlink.h quic.c quic.h \
-			  server.c tags.c tlshd.h
+			  server.c tlshd.h
+if HAVE_SESSION_TAGS
+tlshd_SOURCES		+= tags.c
+endif
 tlshd_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS) $(GLIB_LIBS) \
 			  $(LIBNL3_LIBS) $(LIBNL_GENL3_LIBS) $(LIBYAML_LIBS)
 

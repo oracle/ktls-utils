@@ -55,7 +55,7 @@ jobs:
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Generate HTML man pages
         run: |

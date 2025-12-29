@@ -10,6 +10,19 @@ Normal instructions for building ktls-utils
  # systemctl enable --now tlshd
 
 
+Configure options
+-----------------
+
+  --with-systemd[=DIR]     Install systemd unit files. If DIR is
+                           specified, unit files are installed there;
+                           otherwise /usr/lib/systemd/system is used.
+
+  --enable-session-tags    Build with TLS session tags support. When
+                           enabled, tlshd can match incoming peer
+                           certificates against policy files in
+                           /etc/tlshd/tags.d/.
+
+
 Additional configuration information is provided in the generic
 instructions below.
 

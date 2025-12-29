@@ -32,7 +32,7 @@ jobs:
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Generate compile commands
         run: |
@@ -75,7 +75,7 @@ jobs:
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Run Lizard Complexity Analysis
         run: |

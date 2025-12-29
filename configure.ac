@@ -47,6 +47,17 @@ AC_ARG_WITH(systemd,
 	AM_CONDITIONAL(INSTALL_SYSTEMD, [test "$use_systemd" = 1])
 	AC_SUBST(unitdir)
 
+AC_ARG_ENABLE(session-tags,
+	[AS_HELP_STRING([--enable-session-tags],
+			[enable TLS session tags support @<:@Default: no@:>@])],
+	[enable_session_tags=$enableval],
+	[enable_session_tags=no])
+AM_CONDITIONAL(HAVE_SESSION_TAGS, [test "x$enable_session_tags" = xyes])
+if test "x$enable_session_tags" = xyes ; then
+	AC_DEFINE([HAVE_SESSION_TAGS], [1],
+		  [Define to 1 to enable TLS session tags support])
+fi
+
 PKG_PROG_PKG_CONFIG([0.9.0])
 PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.3.0])
 AC_SUBST([LIBGNUTLS_CFLAGS])
@@ -63,9 +74,11 @@ AC_SUBST([LIBNL3_LIBS])
 PKG_CHECK_MODULES([LIBNL_GENL3], libnl-genl-3.0 >= 3.1)
 AC_SUBST([LIBNL_GENL3_CFLAGS])
 AC_SUBST([LIBNL_GENL3_LIBS])
-PKG_CHECK_MODULES([LIBYAML], [yaml-0.1])
-AC_SUBST([LIBYAML_CFLAGS])
-AC_SUBST([LIBYAML_LIBS])
+if test "x$enable_session_tags" = xyes ; then
+	PKG_CHECK_MODULES([LIBYAML], [yaml-0.1])
+	AC_SUBST([LIBYAML_CFLAGS])
+	AC_SUBST([LIBYAML_LIBS])
+fi
 
 AC_CHECK_PROG(DOXYGEN, doxygen, doxygen, false)
 if test "$DOXYGEN" = false; then

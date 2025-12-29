@@ -32,7 +32,7 @@ jobs:
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Build
         run: make
@@ -41,7 +41,7 @@ jobs:
         run: make check
 
       - name: Distcheck
-        run: make distcheck
+        run: make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-session-tags"
 
   build-musl:
 
@@ -77,7 +77,7 @@ jobs:
       - name: Configure
         run: |
           ./autogen.sh
-          ./configure --with-systemd
+          ./configure --with-systemd --enable-session-tags
 
       - name: Build
         run: make
@@ -86,4 +86,4 @@ jobs:
         run: make check
 
       - name: Distcheck
-        run: make distcheck
+        run: make distcheck DISTCHECK_CONFIGURE_FLAGS="--enable-session-tags"
