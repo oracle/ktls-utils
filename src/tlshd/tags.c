@@ -37,6 +37,46 @@
 
 #include "tlshd.h"
 
+/**
+ * @page tagsThreading Thread Safety and Locking
+ *
+ * The TLS session tagging subsystem maintains global hash tables
+ * (tlshd_tags_filter_hash and tlshd_tags_tag_hash) that are shared
+ * between the parent process and forked children. No internal locking
+ * is required because these data structures are never accessed
+ * concurrently.
+ *
+ * See @ref netlinkThreading for a detailed description of tlshd's
+ * fork-per-request process model and event loop architecture.
+ *
+ * @section tagsThreadingSafety Safety Properties
+ *
+ * Global hash tables in this subsystem are safe from concurrent
+ * modification because:
+ *
+ * - Configuration initialization occurs at daemon startup before the
+ *   event loop begins and before any children are forked
+ *
+ * - Configuration reload (tlshd_tags_config_reload) executes in the
+ *   parent process during signal handling within the event loop,
+ *   where no other operations can be in progress
+ *
+ * - Tag matching (tlshd_tags_match_session) executes only in child
+ *   processes and performs only read operations on hash tables
+ *
+ * - Configuration shutdown occurs after the event loop terminates
+ *   and all children have exited
+ *
+ * @section tagsThreadingReload Configuration Reload Atomicity
+ *
+ * When configuration is reloaded, new hash tables are constructed and
+ * populated before replacing the global pointers. This ensures that
+ * children forked during reload see either the complete old
+ * configuration or the complete new configuration, never a partial
+ * state. Children inherit a copy-on-write snapshot at fork time and
+ * are unaffected by subsequent reloads in the parent.
+ */
+
 /** @name tagsNameValidation
  *
  * Filter & tag name validation
