@@ -205,6 +205,8 @@ void tlshd_genl_dispatch(void)
 	sigemptyset(&tlshd_sig_poll_mask);
 	sigaddset(&tlshd_sig_poll_mask, SIGINT);
 	sigaddset(&tlshd_sig_poll_mask, SIGTERM);
+	sigaddset(&tlshd_sig_poll_mask, SIGHUP);
+	sigaddset(&tlshd_sig_poll_mask, SIGUSR1);
 
 	err = tlshd_genl_sock_open(&tlshd_notification_nls);
 	if (err)
@@ -257,9 +259,32 @@ void tlshd_genl_dispatch(void)
 	poll_fds[1].events = POLLIN;
 
 	while (poll(poll_fds, ARRAY_SIZE(poll_fds), -1) >= 0) {
-		if (poll_fds[1].revents)
-			/* exit signal received */
-			break;
+		if (poll_fds[1].revents) {
+			struct signalfd_siginfo siginfo;
+			ssize_t len;
+
+			len = read(tlshd_sig_poll_fd, &siginfo, sizeof(siginfo));
+			if (len < 0) {
+				if (errno == EINTR || errno == EAGAIN)
+					continue;
+				tlshd_log_perror("signalfd read");
+				break;
+			}
+			if (len != sizeof(siginfo)) {
+				tlshd_log_error("signalfd short read: %zd", len);
+				break;
+			}
+
+			switch (siginfo.ssi_signo) {
+			case SIGHUP:
+			case SIGUSR1:
+				tlshd_config_reload();
+				continue;
+			default:
+				/* SIGINT or SIGTERM: exit */
+				goto out_sig;
+			}
+		}
 
 		if (poll_fds[0].revents) {
 			err = nl_recvmsgs_default(tlshd_notification_nls);
@@ -268,7 +293,9 @@ void tlshd_genl_dispatch(void)
 				break;
 			}
 		}
-	};
+	}
+
+out_sig:
 
 	close(tlshd_sig_poll_fd);
 
