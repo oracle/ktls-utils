@@ -24,5 +24,5 @@ MAINTAINERCLEANFILES	= Makefile.in
 if INSTALL_SYSTEMD
 install-data-hook: $(unit_files)
 	mkdir -p $(DESTDIR)/$(unitdir)
-	cp $(addprefix $(srcdir)/,$(unit_files)) $(DESTDIR)/$(unitdir)
+	for f in $(unit_files); do cp $(srcdir)/$$f $(DESTDIR)/$(unitdir); done
 endif
