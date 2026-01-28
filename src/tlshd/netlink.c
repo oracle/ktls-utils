@@ -265,6 +265,8 @@ static bool tlshd_probe_attr(struct nl_sock *nls, int cmd, int attr_type)
 	 * the kernel accepted the message containing this attribute.
 	 */
 	supported = (err >= 0);
+	/* Drain kernel response to prevent stale data on socket reuse */
+	nl_recvmsgs_default(nls);
 
 	return supported;
 }
