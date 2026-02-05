@@ -397,29 +397,46 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 	gnutls_session_t session;
 	int ret;
 
-	ret = gnutls_certificate_allocate_credentials(&xcred);
+	ret = gnutls_init(&session, GNUTLS_SERVER);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		return;
 	}
-	ret = tlshd_server_get_truststore(xcred);
-	if (ret != GNUTLS_E_SUCCESS)
-		goto out_free_creds;
-
-	if (!tlshd_x509_server_get_certs(parms))
-		goto out_free_creds;
-	if (!tlshd_x509_server_get_privkey(parms))
-		goto out_free_certs;
-	gnutls_certificate_set_retrieve_function2(xcred,
-						  tlshd_x509_retrieve_key_cb);
-
-	ret = gnutls_init(&session, GNUTLS_SERVER);
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		goto out_free_certs;
-	}
 	gnutls_transport_set_int(session, parms->sockfd);
 	gnutls_session_set_ptr(session, parms);
+
+	ret = tlshd_gnutls_priority_set(session, parms, 0);
+	if (ret) {
+		tlshd_log_gnutls_error(ret);
+		gnutls_deinit(session);
+		return;
+	}
+
+	ret = gnutls_certificate_allocate_credentials(&xcred);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		gnutls_deinit(session);
+		return;
+	}
+	ret = tlshd_server_get_truststore(xcred);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_error("Failed to initialize server trust store - check the configuration");
+		gnutls_alert_send(session, GNUTLS_AL_FATAL, GNUTLS_A_ACCESS_DENIED);
+		goto out_deinit_session;
+	}
+
+	if (!tlshd_x509_server_get_certs(parms)) {
+		tlshd_log_error("No usable server certificates were found - check the configuration");
+		gnutls_alert_send(session, GNUTLS_AL_FATAL, GNUTLS_A_ACCESS_DENIED);
+		goto out_deinit_session;
+	}
+	if (!tlshd_x509_server_get_privkey(parms)) {
+		tlshd_log_error("No usable private keys were found - check the configuration");
+		gnutls_alert_send(session, GNUTLS_AL_FATAL, GNUTLS_A_ACCESS_DENIED);
+		goto out_deinit_session;
+	}
+	gnutls_certificate_set_retrieve_function2(xcred,
+						  tlshd_x509_retrieve_key_cb);
 
 	ret = gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -429,12 +446,6 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 	gnutls_certificate_set_verify_function(xcred,
 					       tlshd_tls13_server_x509_verify_function);
 	gnutls_certificate_server_set_request(session, GNUTLS_CERT_REQUEST);
-
-	ret = tlshd_gnutls_priority_set(session, parms, 0);
-	if (ret) {
-		tlshd_log_gnutls_error(ret);
-		goto out_deinit_session;
-	}
 
 	tlshd_start_tls_handshake(session, parms);
 
@@ -464,12 +475,8 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 
 out_deinit_session:
 	gnutls_deinit(session);
-
-out_free_certs:
 	tlshd_x509_server_put_privkey();
 	tlshd_x509_server_put_certs();
-
-out_free_creds:
 	gnutls_certificate_free_credentials(xcred);
 }
 
