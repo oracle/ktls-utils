@@ -424,7 +424,7 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 	ret = gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
-		goto out_free_certs;
+		goto out_deinit_session;
 	}
 	gnutls_certificate_set_verify_function(xcred,
 					       tlshd_tls13_server_x509_verify_function);
@@ -433,7 +433,7 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 	ret = tlshd_gnutls_priority_set(session, parms, 0);
 	if (ret) {
 		tlshd_log_gnutls_error(ret);
-		goto out_free_certs;
+		goto out_deinit_session;
 	}
 
 	tlshd_start_tls_handshake(session, parms);
@@ -462,6 +462,7 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 
 	tlshd_tags_match_session(session);
 
+out_deinit_session:
 	gnutls_deinit(session);
 
 out_free_certs:
