@@ -189,6 +189,21 @@ void tlshd_log_cert_verification_error(gnutls_session_t session)
 }
 
 /**
+ * @brief Report a TLS alert
+ * @param[in]     session  Controlling GnuTLS session
+ */
+void tlshd_log_alert(gnutls_session_t session)
+{
+	gnutls_alert_description_t alert;
+
+	if (!tlshd_debug)
+		return;
+
+	alert = gnutls_alert_get(session);
+	tlshd_log_notice("Received alert: %s", gnutls_alert_get_name(alert));
+}
+
+/**
  * @brief Emit "library call failed" notification
  * @param[in]     error  GnuTLS error code to log
  */
