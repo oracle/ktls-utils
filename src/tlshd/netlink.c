@@ -253,7 +253,18 @@ static bool tlshd_probe_attr(struct nl_sock *nls, int cmd, int attr_type)
 		return false;
 	}
 
-	nla_put_string(msg, attr_type, "__probe__");
+	switch (attr_type) {
+	case HANDSHAKE_A_DONE_TAG:
+		nla_put_string(msg, attr_type, "__probe__");
+		break;
+	case HANDSHAKE_A_DONE_REMOTE_AUTH:
+		nla_put_s32(msg, attr_type, 0);
+		break;
+	default:
+		tlshd_log_error("Attribute %d not supported", attr_type);
+		nlmsg_free(msg);
+		return false;
+	}
 
 	err = nl_send_auto(nls, msg);
 	nlmsg_free(msg);
