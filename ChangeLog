@@ -1,5 +1,12 @@
 Change Log - In newest-release-first order
 
+ktls-utils 1.4.0 2026-04-08
+ * Implement support for TLS record size limits
+ * Implement support for QUIC session tickets
+ * Implement support for session tags (kernel support still needed)
+ * Add extensible kernel capability detection
+ * Add SIGHUP handler for live configuration reload
+
 ktls-utils 1.3.0 2025-10-20
  * Implement support for certificates using post-quantum encryption
  * Add several new GitHub Action workflows, including a gh-pages generator
