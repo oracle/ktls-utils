@@ -379,11 +379,27 @@ bool tlshd_config_get_crl(int peer_type, char **result)
 }
 
 #ifdef HAVE_GNUTLS_MLDSA
+static gnutls_sign_algorithm_t tlshd_pk_to_sign(gnutls_pk_algorithm_t pk)
+{
+	switch (pk) {
+	case GNUTLS_PK_MLDSA44:
+		return GNUTLS_SIGN_MLDSA44;
+	case GNUTLS_PK_MLDSA65:
+		return GNUTLS_SIGN_MLDSA65;
+	case GNUTLS_PK_MLDSA87:
+		return GNUTLS_SIGN_MLDSA87;
+	default:
+		return GNUTLS_SIGN_UNKNOWN;
+	}
+}
+
 static bool tlshd_cert_check_pk_alg(gnutls_datum_t *data,
 				    gnutls_pk_algorithm_t *pkalg)
 {
+	gnutls_sign_algorithm_t sign_alg;
 	gnutls_x509_crt_t cert;
 	gnutls_pk_algorithm_t pk_alg;
+	bool result = false;
 	int ret;
 
 	ret = gnutls_x509_crt_init(&cert);
@@ -391,27 +407,29 @@ static bool tlshd_cert_check_pk_alg(gnutls_datum_t *data,
 		return false;
 
 	ret = gnutls_x509_crt_import(cert, data, GNUTLS_X509_FMT_PEM);
-	if (ret < 0) {
-		gnutls_x509_crt_deinit(cert);
-		return false;
-	}
+	if (ret < 0)
+		goto out;
 
 	pk_alg = gnutls_x509_crt_get_pk_algorithm(cert, NULL);
 	tlshd_log_debug("%s: certificate pk algorithm %s", __func__,
 			gnutls_pk_algorithm_get_name(pk_alg));
-	switch (pk_alg) {
-	case GNUTLS_PK_MLDSA44:
-	case GNUTLS_PK_MLDSA65:
-	case GNUTLS_PK_MLDSA87:
-		*pkalg = pk_alg;
-		break;
-	default:
-		gnutls_x509_crt_deinit(cert);
-		return false;
-	}
 
+	sign_alg = tlshd_pk_to_sign(pk_alg);
+	if (sign_alg == GNUTLS_SIGN_UNKNOWN)
+		goto out;
+	if (!tlshd_gnutls_priority_have_sign(sign_alg)) {
+		tlshd_log_notice("%s: %s is not in the GnuTLS priority list; "
+				 "check crypto-policies configuration",
+				 __func__,
+				 gnutls_sign_get_name(sign_alg));
+		goto out;
+	}
+	*pkalg = pk_alg;
+	result = true;
+
+out:
 	gnutls_x509_crt_deinit(cert);
-	return true;
+	return result;
 }
 #else
 static bool tlshd_cert_check_pk_alg(__attribute__ ((unused)) gnutls_datum_t *data,
