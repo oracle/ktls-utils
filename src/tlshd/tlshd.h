@@ -103,6 +103,7 @@ extern int tlshd_gnutls_priority_init(void);
 extern int tlshd_gnutls_priority_set(gnutls_session_t session,
 				     const struct tlshd_handshake_parms *parms,
 				     unsigned int psk_len);
+extern bool tlshd_gnutls_priority_have_sign(unsigned int sign);
 extern void tlshd_gnutls_priority_deinit(void);
 
 /* log.c */

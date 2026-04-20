@@ -674,6 +674,24 @@ int tlshd_gnutls_priority_set(gnutls_session_t session,
 }
 
 /**
+ * @brief Check whether a sign algorithm is in the x.509 priority list
+ * @param[in]     sign  GnuTLS sign algorithm constant
+ *
+ * @retval true if the algorithm is present; false otherwise
+ */
+bool tlshd_gnutls_priority_have_sign(unsigned int sign)
+{
+	const unsigned int *list;
+	int i, n;
+
+	n = gnutls_priority_sign_list(tlshd_gnutls_priority_x509, &list);
+	for (i = 0; i < n; i++)
+		if (list[i] == sign)
+			return true;
+	return false;
+}
+
+/**
  * @brief Free GnuTLS priority caches
  */
 void tlshd_gnutls_priority_deinit(void)
