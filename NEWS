@@ -1,4 +1,4 @@
-ktls-utils 1.4.0 2026-04-08
+ktls-utils 1.4.0 2026-04-27
  * Implement support for TLS record size limits
  * Implement support for QUIC session tickets
  * Implement support for session tags (kernel support still needed)
