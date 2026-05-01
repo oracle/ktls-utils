@@ -195,9 +195,11 @@ static gnutls_pk_algorithm_t tlshd_pq_pkalg = GNUTLS_PK_UNKNOWN;
  */
 static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 {
-	if (parms->x509_cert != TLS_NO_CERT)
+	if (parms->x509_cert != TLS_NO_CERT) {
+		tlshd_pq_certs_len = 0;
 		return tlshd_keyring_get_certs(parms->x509_cert, tlshd_certs,
 					       &tlshd_certs_len);
+	}
 	return tlshd_config_get_certs(PEER_TYPE_CLIENT, tlshd_certs,
 				      &tlshd_pq_certs_len, &tlshd_certs_len,
 				      &tlshd_pq_pkalg);
