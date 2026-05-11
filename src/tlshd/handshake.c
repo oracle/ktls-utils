@@ -119,6 +119,10 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 		case GNUTLS_E_WARNING_ALERT_RECEIVED:
 		case GNUTLS_E_FATAL_ALERT_RECEIVED:
 			tlshd_log_alert(session);
+			if (gnutls_alert_get(session) ==
+			    GNUTLS_A_UNKNOWN_PSK_IDENTITY) {
+				parms->session_status = EKEYREJECTED;
+			}
 			break;
 		default:
 			tlshd_log_gnutls_error(ret);
