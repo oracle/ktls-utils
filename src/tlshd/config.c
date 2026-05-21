@@ -357,7 +357,7 @@ bool tlshd_config_get_mutual_tls_required(void)
 /**
  * @brief Get list of allowed SANs from configuration
  * @param[out] sans   Array of allowed SANs
- * @param[in,out] length  Number of allowed SANs
+ * @param[out] length  Number of allowed SANs
  * @retval true   SANs retrieved successfully
  * @retval false  SANs not retrieved
  */

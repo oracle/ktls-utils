@@ -325,7 +325,7 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 					    __attribute__ ((unused)) struct tlshd_handshake_parms *parms)
 {
 	const gnutls_datum_t *peercerts;
-	unsigned int i, status, num_peercerts;
+	unsigned int status, num_peercerts;
 	int ret;
 
 	ret = gnutls_certificate_verify_peers3(session, NULL, &status);
@@ -363,86 +363,83 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 			num_peercerts);
 
 	if (tlshd_config_get_mutual_tls_required()) {
-		for (i = 0; i < num_peercerts; i++) {
-			gnutls_x509_crt_t cert;
-			gchar **permitted_sans = NULL;
-			gsize permitted_sans_length;
-			bool matched = false;
-			unsigned int san_id = 0;
+		gchar **permitted_sans = NULL;
+		gsize permitted_sans_length;
+		gnutls_x509_crt_t cert;
+		bool matched = false;
+		unsigned int san_id = 0;
 
-			gnutls_x509_crt_init(&cert);
-			ret = gnutls_x509_crt_import(cert, &peercerts[i], GNUTLS_X509_FMT_DER);
-			if (ret != GNUTLS_E_SUCCESS) {
-				tlshd_log_gnutls_error(ret);
-				gnutls_x509_crt_deinit(cert);
-				g_strfreev(permitted_sans);
-				goto certificate_error;
-			}
-
-			if (!tlshd_config_get_allowed_sans(&permitted_sans, &permitted_sans_length)) {
-				tlshd_log_debug("No allowed SANs configured. Rejecting request, review configuration.");
-				gnutls_x509_crt_deinit(cert);
-				g_strfreev(permitted_sans);
-				goto certificate_error;
-			}
-
-			while (!matched) {
-				char san[256];
-				size_t san_length = sizeof(san);
-				int san_type; 
-
-				san_type = gnutls_x509_crt_get_subject_alt_name(cert, san_id, san, &san_length, NULL);
-
-				if (san_type == GNUTLS_E_REQUESTED_DATA_NOT_AVAILABLE) 
-					break;
-				if (san_type < 0) {
-					tlshd_log_gnutls_error(san_type);
-					break;
-				}
-				if (san_type == GNUTLS_SAN_DNSNAME) {
-					tlshd_log_debug("Peer certificate SAN: %s", san);
-					for (gsize j = 0; j < permitted_sans_length; j++) {
-						if (strcmp(san, permitted_sans[j]) == 0) {
-							tlshd_log_debug("Peer certificate SAN %s matches an allowed SAN.", san);
-							matched = true;
-							break;
-						}
-					}
-				}
-				if (san_type == GNUTLS_SAN_IPADDRESS) {
-					char ip[INET6_ADDRSTRLEN];
-
-					if (san_length == 4) {
-						inet_ntop(AF_INET, san, ip, sizeof(ip)); 
-					} else if (san_length == 16) {
-						inet_ntop(AF_INET6, san, ip, sizeof(ip));
-					} else {
-						tlshd_log_debug("Unexpected IP SAN.");
-					}
-
-					tlshd_log_debug("Peer certificate IP SAN: %s", ip);
-					for (gsize k = 0; k < permitted_sans_length; k++) {
-						if (strcmp(ip, permitted_sans[k]) == 0) {
-							tlshd_log_debug("Peer certificate IP SAN %s matches an allowed SAN.", ip);
-							matched = true;
-							break;
-						}
-					}
-				}
-
-				san_id++;
-			}
-
+		if (!tlshd_config_get_allowed_sans(&permitted_sans, &permitted_sans_length)) {
+			tlshd_log_debug("Mutual TLS is required but no allowed SANs are configured. Rejecting request, review configuration.");
 			g_strfreev(permitted_sans);
-			gnutls_x509_crt_deinit(cert);
+			goto certificate_error;
+		}
 
-			if (!matched) {
-				tlshd_log_debug("Peer certificate did not contain an allowed SAN. Rejecting request.");
-				goto certificate_error;
+		gnutls_x509_crt_init(&cert);
+		ret = gnutls_x509_crt_import(cert, &peercerts[0], GNUTLS_X509_FMT_DER);
+		if (ret != GNUTLS_E_SUCCESS) {
+			tlshd_log_gnutls_error(ret);
+			gnutls_x509_crt_deinit(cert);
+			g_strfreev(permitted_sans);
+			goto certificate_error;
+		}
+
+		while (!matched) {
+			char san[256];
+			size_t san_length = sizeof(san);
+			int san_type; 
+
+			san_type = gnutls_x509_crt_get_subject_alt_name(cert, san_id, san, &san_length, NULL);
+
+			if (san_type == GNUTLS_E_REQUESTED_DATA_NOT_AVAILABLE) 
+				break;
+			if (san_type < 0) {
+				tlshd_log_gnutls_error(san_type);
+				break;
 			}
+			if (san_type == GNUTLS_SAN_DNSNAME) {
+				tlshd_log_debug("Peer certificate SAN: %s", san);
+				for (gsize j = 0; j < permitted_sans_length; j++) {
+					if (strcmp(san, permitted_sans[j]) == 0) {
+						tlshd_log_debug("Peer certificate SAN %s matches an allowed SAN.", san);
+						matched = true;
+						break;
+					}
+				}
+			}
+			if (san_type == GNUTLS_SAN_IPADDRESS) {
+				char ip[INET6_ADDRSTRLEN];
+
+				if (san_length == 4) {
+					inet_ntop(AF_INET, san, ip, sizeof(ip)); 
+				} else if (san_length == 16) {
+					inet_ntop(AF_INET6, san, ip, sizeof(ip));
+				} else {
+					tlshd_log_debug("Unexpected IP SAN.");
+				}
+
+				tlshd_log_debug("Peer certificate IP SAN: %s", ip);
+				for (gsize k = 0; k < permitted_sans_length; k++) {
+					if (strcmp(ip, permitted_sans[k]) == 0) {
+						tlshd_log_debug("Peer certificate IP SAN %s matches an allowed SAN.", ip);
+						matched = true;
+						break;
+					}
+				}
+			}
+
+			san_id++;
+		}
+
+		g_strfreev(permitted_sans);
+		gnutls_x509_crt_deinit(cert);
+
+		if (!matched) {
+			tlshd_log_debug("Peer certificate did not contain an allowed SAN. Rejecting request.");
+			goto certificate_error;
 		}
 	}
-
+	
 	return GNUTLS_E_SUCCESS;
 
 certificate_error:

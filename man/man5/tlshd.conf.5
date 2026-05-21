@@ -129,6 +129,13 @@ a handshake request when no other certificate is available.
 This option specifies the pathname of a file containing
 a PEM-encoded private key associated with the above certificate.
 .TP
+.B x509.client_auth
+This option enables client certificate validation through mutual TLS.
+.TP
+.B x509.client_allowed_sans 
+This option provides a list of Subject Alternative Names (SANs) which
+are to be accepted by the server as valid and allowed to connect.
+.TP
 .B x509.pq.certificate
 This option specifies the pathname of a file containing
 a PEM-encoded x.509 certificate that is to be presented during
