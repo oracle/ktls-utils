@@ -181,6 +181,11 @@ void tlshd_log_cert_verification_error(gnutls_session_t session)
 	int i;
 
 	status = gnutls_session_get_verify_cert_status(session);
+	
+	if (status == 0xffffffff) {
+        tlshd_log_debug("Certificate rejected by configuration (check previous error message).");
+        return;
+    }
 
 	for (i = 0; tlshd_cert_status_names[i].name; i++)
 		if (status & tlshd_cert_status_names[i].bit)

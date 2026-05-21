@@ -41,5 +41,7 @@ nl=0
 #x509.crl= <pathname>
 #x509.certificate= <pathname>
 #x509.private_key= <pathname>
+#x509.client_auth= <0|1>
+#x509.client_allowed_sans= <client1.example.com;client2.example.com>
 #x509.pq.certificate= <pathname>
 #x509.pq.private_key= <pathname>

@@ -41,6 +41,8 @@
 #include <gnutls/x509.h>
 #include <linux/tls.h>
 
+#include <arpa/inet.h>
+
 #include <glib.h>
 
 #include "tlshd.h"
@@ -315,10 +317,12 @@ static int tlshd_server_get_truststore(gnutls_certificate_credentials_t cred)
  * based on this information.
  *
  * A return value of %GNUTLS_E_CERTIFICATE_ERROR means that certificate
- * verification failed. The server sends an ALERT to the client.
+ * verification failed, or that mutual TLS was configured and the certificate
+ * presented was not trusted or issued to a SAN not in the configured allowlist. 
+ * The server sends an ALERT to the client.
  */
 static int tlshd_server_x509_verify_function(gnutls_session_t session,
-					     struct tlshd_handshake_parms *parms)
+					    __attribute__ ((unused)) struct tlshd_handshake_parms *parms)
 {
 	const gnutls_datum_t *peercerts;
 	unsigned int i, status, num_peercerts;
@@ -330,13 +334,20 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 		break;
 	case GNUTLS_E_NO_CERTIFICATE_FOUND:
 		tlshd_log_debug("The peer offered no certificate.");
+		if (tlshd_config_get_mutual_tls_required())
+			goto certificate_error;
 		return GNUTLS_E_SUCCESS;
 	default:
 		tlshd_log_gnutls_error(ret);
 		goto certificate_error;
 	}
-	if (status)
+	if (status) {
+		gnutls_datum_t gnutls_output;
+		gnutls_certificate_verification_status_print(status, GNUTLS_CRT_X509, &gnutls_output, 0);
+		tlshd_log_debug("Certificate verification failed due to: %s", gnutls_output.data);
+		gnutls_free(gnutls_output.data);
 		goto certificate_error;
+	}
 
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for
@@ -351,21 +362,85 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 	tlshd_log_debug("The peer offered %u certificate(s).",
 			num_peercerts);
 
-	for (i = 0; i < num_peercerts; i++) {
-		gnutls_x509_crt_t cert;
-		key_serial_t peerid;
+	if (tlshd_config_get_mutual_tls_required()) {
+		for (i = 0; i < num_peercerts; i++) {
+			gnutls_x509_crt_t cert;
+			gchar **permitted_sans = NULL;
+			gsize permitted_sans_length;
+			bool matched = false;
+			unsigned int san_id = 0;
 
-		gnutls_x509_crt_init(&cert);
-		ret = gnutls_x509_crt_import(cert, &peercerts[i],
-					     GNUTLS_X509_FMT_DER);
-		if (ret != GNUTLS_E_SUCCESS) {
-			tlshd_log_gnutls_error(ret);
+			gnutls_x509_crt_init(&cert);
+			ret = gnutls_x509_crt_import(cert, &peercerts[i], GNUTLS_X509_FMT_DER);
+			if (ret != GNUTLS_E_SUCCESS) {
+				tlshd_log_gnutls_error(ret);
+				gnutls_x509_crt_deinit(cert);
+				g_strfreev(permitted_sans);
+				goto certificate_error;
+			}
+
+			if (!tlshd_config_get_allowed_sans(&permitted_sans, &permitted_sans_length)) {
+				tlshd_log_debug("No allowed SANs configured. Rejecting request, review configuration.");
+				gnutls_x509_crt_deinit(cert);
+				g_strfreev(permitted_sans);
+				goto certificate_error;
+			}
+
+			while (!matched) {
+				char san[256];
+				size_t san_length = sizeof(san);
+				int san_type; 
+
+				san_type = gnutls_x509_crt_get_subject_alt_name(cert, san_id, san, &san_length, NULL);
+
+				if (san_type == GNUTLS_E_REQUESTED_DATA_NOT_AVAILABLE) 
+					break;
+				if (san_type < 0) {
+					tlshd_log_gnutls_error(san_type);
+					break;
+				}
+				if (san_type == GNUTLS_SAN_DNSNAME) {
+					tlshd_log_debug("Peer certificate SAN: %s", san);
+					for (gsize j = 0; j < permitted_sans_length; j++) {
+						if (strcmp(san, permitted_sans[j]) == 0) {
+							tlshd_log_debug("Peer certificate SAN %s matches an allowed SAN.", san);
+							matched = true;
+							break;
+						}
+					}
+				}
+				if (san_type == GNUTLS_SAN_IPADDRESS) {
+					char ip[INET6_ADDRSTRLEN];
+
+					if (san_length == 4) {
+						inet_ntop(AF_INET, san, ip, sizeof(ip)); 
+					} else if (san_length == 16) {
+						inet_ntop(AF_INET6, san, ip, sizeof(ip));
+					} else {
+						tlshd_log_debug("Unexpected IP SAN.");
+					}
+
+					tlshd_log_debug("Peer certificate IP SAN: %s", ip);
+					for (gsize k = 0; k < permitted_sans_length; k++) {
+						if (strcmp(ip, permitted_sans[k]) == 0) {
+							tlshd_log_debug("Peer certificate IP SAN %s matches an allowed SAN.", ip);
+							matched = true;
+							break;
+						}
+					}
+				}
+
+				san_id++;
+			}
+
+			g_strfreev(permitted_sans);
 			gnutls_x509_crt_deinit(cert);
-			return GNUTLS_E_CERTIFICATE_ERROR;
+
+			if (!matched) {
+				tlshd_log_debug("Peer certificate did not contain an allowed SAN. Rejecting request.");
+				goto certificate_error;
+			}
 		}
-		peerid = UINT_MAX;
-		g_array_append_val(parms->remote_peerids, peerid);
-		gnutls_x509_crt_deinit(cert);
 	}
 
 	return GNUTLS_E_SUCCESS;
@@ -447,6 +522,7 @@ static void tlshd_tls13_server_x509_handshake(struct tlshd_handshake_parms *parm
 	}
 	gnutls_certificate_set_verify_function(xcred,
 					       tlshd_tls13_server_x509_verify_function);
+						   
 	gnutls_certificate_server_set_request(session, GNUTLS_CERT_REQUEST);
 
 	tlshd_start_tls_handshake(session, parms);

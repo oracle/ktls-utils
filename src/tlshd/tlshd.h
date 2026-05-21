@@ -71,6 +71,8 @@ bool tlshd_config_init(const gchar *pathname, bool legacy);
 void tlshd_config_shutdown(void);
 bool tlshd_config_reload(void);
 bool tlshd_config_get_truststore(int peer_type, char **bundle);
+bool tlshd_config_get_mutual_tls_required(void);
+bool tlshd_config_get_allowed_sans(gchar ***sans, gsize *length);
 bool tlshd_config_get_crl(int peer_type, char **result);
 bool tlshd_config_get_certs(int peer_type, gnutls_pcert_st *certs,
 			    unsigned int *pq_certs_len,

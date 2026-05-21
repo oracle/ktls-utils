@@ -342,6 +342,42 @@ bool tlshd_config_get_truststore(int peer_type, char **bundle)
 }
 
 /**
+ * @brief Get whether mutual TLS is required
+ * @retval true   Mutual TLS is required
+ * @retval false  Mutual TLS is not required
+ */
+bool tlshd_config_get_mutual_tls_required(void)
+{
+	return g_key_file_get_boolean(tlshd_configuration,
+					       "authenticate.server",
+					       "x509.client_auth", NULL);
+	
+}	
+
+/**
+ * @brief Get list of allowed SANs from configuration
+ * @param[out] sans   Array of allowed SANs
+ * @param[in,out] length  Number of allowed SANs
+ * @retval true   SANs retrieved successfully
+ * @retval false  SANs not retrieved
+ */
+bool tlshd_config_get_allowed_sans(gchar ***sans, gsize *length)
+{
+	gchar **result;
+	result = g_key_file_get_string_list(tlshd_configuration,
+					      "authenticate.server",
+					      "x509.client_allowed_sans", length, NULL);
+
+	if (!result || *length == 0) {
+		g_strfreev(result);
+		return false;
+	}
+
+	*sans = result;
+	return true;
+}
+
+/**
  * @brief Get CRL for {Client,Server}Hello from .conf
  * @param[in]     peer_type  peer type
  * @param[out]    result     pathname to CRL
