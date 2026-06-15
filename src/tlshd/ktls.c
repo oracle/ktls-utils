@@ -478,6 +478,28 @@ static int tlshd_gnutls_priority_init_list(const unsigned int *ciphers,
 	if (!pstring)
 		return -ENOMEM;
 
+	/* Enable post-quantum ECDHE + ML-KEM hybrid groups. */
+	if (gnutls_group_get_id("X25519-MLKEM768")) {
+		pstring = tlshd_string_concat(pstring,
+			":+GROUP-X25519-MLKEM768");
+		if (!pstring)
+			return -ENOMEM;
+	}
+
+	if (gnutls_group_get_id("SECP256R1-MLKEM768")) {
+		pstring = tlshd_string_concat(pstring,
+			":+GROUP-SECP256R1-MLKEM768");
+		if (!pstring)
+			return -ENOMEM;
+	}
+
+	if (gnutls_group_get_id("SECP384R1-MLKEM1024")) {
+		pstring = tlshd_string_concat(pstring,
+			":+GROUP-SECP384R1-MLKEM1024");
+		if (!pstring)
+			return -ENOMEM;
+	}
+
 	/*
 	 * Handshakes must negotiate only ciphers that are supported
 	 * by kTLS. The list below contains the ciphers that are
