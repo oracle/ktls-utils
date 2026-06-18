@@ -126,8 +126,10 @@ a PEM-encoded x.509 certificate that is to be presented during
 a handshake request when no other certificate is available.
 .TP
 .B x509.private_key
-This option specifies the pathname of a file containing
-a PEM-encoded private key associated with the above certificate.
+This option specifies the private key associated with the above
+certificate, either in the pathname of a key file in PEM encoding,
+or a GnuTLS-compatible key URL. In case of ambiguity where a relative
+path may be interpreted as a URL, prefix the path with "./".
 .TP
 .B x509.pq.certificate
 This option specifies the pathname of a file containing
@@ -141,8 +143,10 @@ certificate configured in the
 option will be presented instead.
 .TP
 .B x509.pq.private_key
-This option specifies the pathname of a file containing
-a PEM-encoded private key associated with the above certificate.
+This option specifies the private key associated with the above
+certificate, either in the pathname of a key file in PEM encoding,
+or a GnuTLS-compatible key URL. In case of ambiguity where a relative
+path may be interpreted as a URL, prefix the path with "./".
 .SH SEE ALSO
 .BR tlshd (8),
 .BR tls-session-tags (7)
