@@ -475,6 +475,7 @@ bool tlshd_config_get_certs(int peer_type, gnutls_pcert_st *certs,
  */
 static bool __tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *privkey, bool pq)
 {
+	gnutls_privkey_t privkey_out = NULL;
 	gnutls_datum_t data;
 	gchar *pathname;
 	int ret;
@@ -496,7 +497,7 @@ static bool __tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *privkey,
 		return false;
 	}
 
-	ret = gnutls_privkey_init(privkey);
+	ret = gnutls_privkey_init(&privkey_out);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		free(data.data);
@@ -505,17 +506,19 @@ static bool __tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *privkey,
 	}
 
 	/* Config file supports only PEM-encoded keys */
-	ret = gnutls_privkey_import_x509_raw(*privkey, &data,
+	ret = gnutls_privkey_import_x509_raw(privkey_out, &data,
 					     GNUTLS_X509_FMT_PEM, NULL, 0);
 	free(data.data);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
+		gnutls_privkey_deinit(privkey_out);
 		g_free(pathname);
 		return false;
 	}
 
 	tlshd_log_debug("Retrieved private key from %s", pathname);
 	g_free(pathname);
+	*privkey = privkey_out;
 	return true;
 }
 

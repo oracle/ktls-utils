@@ -113,6 +113,7 @@ static void tlshd_x509_server_put_certs(void)
 
 	for (i = 0; i < TLSHD_MAX_CERTS; i++)
 		gnutls_pcert_deinit(&tlshd_server_certs[i]);
+	memset(tlshd_server_certs, 0, sizeof(tlshd_server_certs));
 }
 
 /**
@@ -139,7 +140,9 @@ static bool tlshd_x509_server_get_privkey(struct tlshd_handshake_parms *parms)
 static void tlshd_x509_server_put_privkey(void)
 {
 	gnutls_privkey_deinit(tlshd_server_pq_privkey);
+	tlshd_server_pq_privkey = NULL;
 	gnutls_privkey_deinit(tlshd_server_privkey);
+	tlshd_server_privkey = NULL;
 }
 
 /**
@@ -726,7 +729,7 @@ static void tlshd_quic_server_set_x509_session(struct tlshd_quic_conn *conn)
 
 	if (!tlshd_x509_server_get_certs(parms) || !tlshd_x509_server_get_privkey(parms)) {
 		tlshd_log_error("Failed to get cert or privkey");
-		return;
+		goto err_config;
 	}
 
 	ret = gnutls_certificate_allocate_credentials(&cred);
@@ -780,9 +783,10 @@ err_session:
 err_cred:
 	gnutls_certificate_free_credentials(cred);
 err:
+	tlshd_log_gnutls_error(ret);
+err_config:
 	tlshd_x509_server_put_privkey();
 	tlshd_x509_server_put_certs();
-	tlshd_log_gnutls_error(ret);
 }
 
 /**
