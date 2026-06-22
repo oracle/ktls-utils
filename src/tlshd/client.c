@@ -649,7 +649,7 @@ static void tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 	if (conn->cert_req != TLSHD_QUIC_NO_CERT_AUTH) {
 		if (!tlshd_x509_client_get_certs(parms) || !tlshd_x509_client_get_privkey(parms)) {
 			tlshd_log_error("Failed to get cert or privkey");
-			return;
+			goto err_config;
 		}
 	}
 	ret = gnutls_certificate_allocate_credentials(&cred);
@@ -697,9 +697,10 @@ err_session:
 err_cred:
 	gnutls_certificate_free_credentials(cred);
 err:
+	tlshd_log_gnutls_error(ret);
+err_config:
 	tlshd_x509_client_put_privkey();
 	tlshd_x509_client_put_certs();
-	tlshd_log_gnutls_error(ret);
 }
 
 /**
