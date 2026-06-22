@@ -104,6 +104,9 @@ AC_CHECK_LIB([gnutls], [gnutls_psk_allocate_client_credentials2],
 AC_CHECK_LIB([gnutls], [gnutls_record_get_max_send_size],
              [AC_DEFINE([HAVE_GNUTLS_RECORD_GET_MAX_SEND_SIZE], [1],
 			[Define to 1 if you have the gnutls_record_get_max_send_size function.])])
+AC_CHECK_LIB([gnutls], [gnutls_privkey_import_url],
+             [AC_DEFINE([HAVE_GNUTLS_PRIVKEY_IMPORT_URL], [1],
+                        [Define to 1 if you have gnutls_privkey_import_url.])])
 AC_CHECK_LIB([glib-2.0], [g_pattern_spec_match],
              [AC_DEFINE([HAVE_GLIB_G_PATTERN_SPEC_MATCH], [1],
                         [Define to 1 if you have the g_pattern_spec_match function.])])

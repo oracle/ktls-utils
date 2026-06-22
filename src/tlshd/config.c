@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 
+#include <ctype.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -538,6 +539,76 @@ bool tlshd_config_get_certs(int peer_type, gnutls_pcert_st *certs,
 }
 
 /**
+ * @brief Determine if a string looks like a URL by checking for a RFC 3986 scheme prefix
+ * @param[in]      str URL or file path
+ * @retval true  str looks like a URL (has a scheme prefix)
+ * @retval false str does not have a URL scheme prefix
+ */
+static bool __tlshd_is_url(const char *str)
+{
+	if (!isalpha(*str))
+		return false;
+	for (str++; *str; str++) {
+		if (*str == ':')
+			return true;
+		if (!isalnum(*str) && *str != '+' && *str != '-' && *str != '.')
+			return false;
+	}
+	return false;
+}
+
+#ifdef HAVE_GNUTLS_PRIVKEY_IMPORT_URL
+/**
+ * @brief Copy the scheme portion of a URL, colon included.
+ * @param[in]      str URL string
+ * @returns a newly allocated string containing the URL scheme, or an empty string
+ * if no colon is found. Caller must free the returned string using free().
+ */
+static char *__tlshd_copy_url_scheme(const char *url)
+{
+	const char *colon = strchr(url, ':');
+	if (!colon)
+		return strdup("");
+	return strndup(url, colon + 1 - url);
+}
+
+/**
+ * @brief Helper to retrieve URL-based private keys
+ * @param[in]      url        URL to load private key from
+ * @param[out]     privkey    in-memory private key
+ *
+ * @retval true   Private key retrieved successfully
+ * @retval false  Private key not retrieved
+ */
+static bool __tlshd_config_get_url_privkey(const char *url, gnutls_privkey_t *privkey)
+{
+	gnutls_privkey_t privkey_out;
+	int ret;
+
+	ret = gnutls_privkey_init(&privkey_out);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return false;
+	}
+
+	ret = gnutls_privkey_import_url(privkey_out, url, 0);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		gnutls_privkey_deinit(privkey_out);
+		return false;
+	}
+
+	if (tlshd_debug > 0) {
+		char *url_scheme = __tlshd_copy_url_scheme(url);
+		tlshd_log_debug("Retrieved private key from %s<redacted>", url_scheme);
+		free(url_scheme);
+	}
+	*privkey = privkey_out;
+	return true;
+}
+#endif
+
+/**
  * @brief Helper for tlshd_config_get_privkey()
  * @param[in]      peer_type  peer type
  * @param[out]     privkey    in-memory private key
@@ -562,6 +633,28 @@ static bool __tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *privkey,
 					 NULL);
 	if (!pathname)
 		return false;
+
+	if (__tlshd_is_url(pathname)) {
+#ifdef HAVE_GNUTLS_PRIVKEY_IMPORT_URL
+		if (!gnutls_url_is_supported(pathname)) {
+			if (tlshd_debug > 0) {
+				char *url_scheme = __tlshd_copy_url_scheme(pathname);
+				tlshd_log_debug("Failed to retrieve private key. "
+				                "GnuTLS does not support %s<redacted> URL.", url_scheme);
+				free(url_scheme);
+			}
+			g_free(pathname);
+			return false;
+		}
+		ret = __tlshd_config_get_url_privkey(pathname, privkey);
+#else
+		tlshd_log_debug("Failed to retrieve private key. "
+		                "GnuTLS does not support URL-based private keys.");
+		ret = false;
+#endif
+		g_free(pathname);
+		return ret;
+	}
 
 	if (!tlshd_config_read_datum(pathname, &data, TLSHD_OWNER,
 				     TLSHD_PRIVKEY_MODE)) {
