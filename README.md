@@ -35,6 +35,10 @@ following libraries to be installed:
 * libnl3
 * libyaml
 
+The Linux UAPI headers must be v5.10 or later. tlshd reads the
+kernel's generic netlink attribute policy to detect optional
+handshake features, and the definitions for that arrived in v5.10.
+
 ## Installation
 
 See [NEWS](NEWS) to see what has changed in the latest release,

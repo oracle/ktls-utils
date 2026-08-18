@@ -136,6 +136,17 @@ if test "x$have_tls_tx_max_payload_len" = xyes ; then
 	AC_DEFINE([HAVE_TLS_TX_MAX_PAYLOAD_LEN], [1], [Define to 1 if linux/tls.h defines TLS_TX_MAX_PAYLOAD_LEN])
 fi
 
+AC_MSG_CHECKING(for CTRL_ATTR_OP_POLICY in linux/genetlink.h)
+AC_COMPILE_IFELSE(
+	[AC_LANG_PROGRAM([[ #include <linux/genetlink.h> ]],
+		[[ (void) CTRL_ATTR_OP_POLICY; ]])],
+	[ have_ctrl_attr_op_policy=yes ],
+	[ have_ctrl_attr_op_policy=no ])
+AC_MSG_RESULT([$have_ctrl_attr_op_policy])
+if test "x$have_ctrl_attr_op_policy" = xno ; then
+	AC_MSG_ERROR([Linux UAPI headers v5.10 or later are required])
+fi
+
 AC_SUBST([AM_CPPFLAGS])
 
 AC_CONFIG_FILES([Makefile \

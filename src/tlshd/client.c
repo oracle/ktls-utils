@@ -96,6 +96,16 @@ static void tlshd_tls13_client_anon_handshake(struct tlshd_handshake_parms *parm
 	unsigned int flags;
 	int ret;
 
+	/*
+	 * Without a peer name, GnuTLS verifies the certificate chain
+	 * but not who presented it. session_status is already EIO, so
+	 * the early return fails the kernel's request.
+	 */
+	if (!parms->peername) {
+		tlshd_log_error("No peer name: cannot verify the server's identity");
+		return;
+	}
+
 	ret = gnutls_certificate_allocate_credentials(&xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -417,6 +427,11 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 	unsigned int flags;
 	int ret;
 
+	if (!parms->peername) {
+		tlshd_log_error("No peer name: cannot verify the server's identity");
+		return;
+	}
+
 	ret = gnutls_certificate_allocate_credentials(&xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
@@ -646,6 +661,11 @@ static void tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 	gnutls_session_t session;
 	int ret;
 
+	if (!parms->peername) {
+		tlshd_log_error("No peer name: cannot verify the server's identity");
+		return;
+	}
+
 	if (conn->cert_req != TLSHD_QUIC_NO_CERT_AUTH) {
 		if (!tlshd_x509_client_get_certs(parms) || !tlshd_x509_client_get_privkey(parms)) {
 			tlshd_log_error("Failed to get cert or privkey");
@@ -683,12 +703,10 @@ static void tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 	ret = gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, cred);
 	if (ret)
 		goto err_session;
-	if (parms->peername) {
-		ret = gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-					     parms->peername, strlen(parms->peername));
-		if (ret)
-			goto err_session;
-	}
+	ret = gnutls_server_name_set(session, GNUTLS_NAME_DNS,
+				     parms->peername, strlen(parms->peername));
+	if (ret)
+		goto err_session;
 	conn->session = session;
 	return;
 
