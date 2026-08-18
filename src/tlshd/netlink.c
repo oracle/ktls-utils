@@ -652,13 +652,13 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	else if (sap) {
 		char buf[NI_MAXHOST];
 
+		/* A peer name is optional: leave it unset and proceed. */
 		err = getnameinfo(sap, salen, buf, sizeof(buf),
 				  NULL, 0, NI_NAMEREQD);
-		if (err) {
+		if (err)
 			tlshd_log_gai_error(err);
-			return -NLE_FAILURE;
-		}
-		parms->peername = strdup(buf);
+		else
+			parms->peername = strdup(buf);
 	}
 
 	return NL_SKIP;
