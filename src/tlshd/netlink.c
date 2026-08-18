@@ -42,6 +42,7 @@
 #include <gnutls/gnutls.h>
 #include <gnutls/abstract.h>
 #include <gnutls/x509.h>
+#include <linux/genetlink.h>
 #include <linux/tls.h>
 
 #include <netlink/netlink.h>
@@ -213,97 +214,191 @@ static void tlshd_genl_sock_close(struct nl_sock *nls)
 }
 
 /**
- * @brief Probe whether the kernel supports a specific netlink attribute
- * @param[in]     nls        Netlink socket
- * @param[in]     cmd        Netlink command (e.g., HANDSHAKE_CMD_DONE)
- * @param[in]     attr_type  Attribute type to test
- *
- * Sends a test message with the specified attribute and minimal
- * required fields. The kernel rejects the message for having invalid
- * required fields, but this determines whether it parsed the optional
- * attribute without error.
- *
- * @retval true   Kernel accepts this attribute type
- * @retval false  Kernel rejected the attribute as unsupported
+ * @struct tlshd_op_policy
+ * @brief The attribute types a kernel accepts for one netlink command
  */
-static bool tlshd_probe_attr(struct nl_sock *nls, int cmd, int attr_type)
+struct tlshd_op_policy {
+	int		cmd;		/**< Command being probed */
+	uint32_t	policy_id;	/**< Policy index the kernel assigned */
+	bool		have_id;	/**< policy_id has been read */
+	uint32_t	attrs;		/**< Accepted attribute types */
+};
+
+/**
+ * @def TLSHD_OP_POLICY_ATTRS
+ * Number of attribute types that fit in tlshd_op_policy::attrs
+ */
+#define TLSHD_OP_POLICY_ATTRS	(32)
+
+/*
+ * A DONE attribute numbered past the width of that bitmask gives this
+ * typedef a negative size. The build then fails where the attribute is
+ * added, rather than the daemon quietly reporting it unsupported.
+ */
+typedef char tlshd_done_attrs_fit
+	[HANDSHAKE_A_DONE_MAX < TLSHD_OP_POLICY_ATTRS ? 1 : -1];
+
+/**
+ * @var struct nla_policy tlshd_ctrl_op_policy
+ * Netlink policy for the per-command nests in CTRL_ATTR_OP_POLICY
+ */
+#if LIBNL_VER_NUM >= LIBNL_VER(3,5)
+static const struct nla_policy
+#else
+static struct nla_policy
+#endif
+tlshd_ctrl_op_policy[CTRL_ATTR_POLICY_MAX + 1] = {
+	[CTRL_ATTR_POLICY_DO]		= { .type = NLA_U32, },
+	[CTRL_ATTR_POLICY_DUMP]		= { .type = NLA_U32, },
+};
+
+/**
+ * @brief Collect one command's attribute policy from a dump message
+ * @param[in]     msg  Message to be processed
+ * @param[in,out] arg  struct tlshd_op_policy to be filled in
+ *
+ * The kernel reports a policy in two parts. A CTRL_ATTR_OP_POLICY
+ * message maps the command to a policy index, and the CTRL_ATTR_POLICY
+ * messages that follow carry one attribute apiece, nested under that
+ * index. An attribute the policy rejects is left out of the dump, so
+ * the presence of a nest is the answer this probe wants.
+ *
+ * @retval NL_SKIP  Skip this message.
+ */
+static int tlshd_policy_valid_handler(struct nl_msg *msg, void *arg)
 {
-	struct nl_msg *msg;
-	int family_id, err;
-	bool supported;
+	struct tlshd_op_policy *policy = arg;
+	struct nlattr *tb[CTRL_ATTR_MAX + 1];
+	struct nlattr *pol, *attr;
+	int rem, rem2;
 
-	family_id = genl_ctrl_resolve(nls, HANDSHAKE_FAMILY_NAME);
-	if (family_id < 0)
-		return false;
+	if (genlmsg_parse(nlmsg_hdr(msg), 0, tb, CTRL_ATTR_MAX, NULL) < 0)
+		return NL_SKIP;
 
-	msg = nlmsg_alloc();
-	if (!msg)
-		return false;
+	if (tb[CTRL_ATTR_OP_POLICY]) {
+		nla_for_each_nested(pol, tb[CTRL_ATTR_OP_POLICY], rem) {
+			struct nlattr *op[CTRL_ATTR_POLICY_MAX + 1];
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, family_id, 0,
-		    NLM_F_REQUEST, cmd, HANDSHAKE_FAMILY_VERSION);
-
-	switch (cmd) {
-	case HANDSHAKE_CMD_DONE:
-		nla_put_u32(msg, HANDSHAKE_A_DONE_STATUS, 0);
-		nla_put_u32(msg, HANDSHAKE_A_DONE_SOCKFD, -1);
-		break;
-	default:
-		nlmsg_free(msg);
-		return false;
+			if (nla_type(pol) != policy->cmd)
+				continue;
+			if (nla_parse_nested(op, CTRL_ATTR_POLICY_MAX, pol,
+					     tlshd_ctrl_op_policy) < 0)
+				continue;
+			if (op[CTRL_ATTR_POLICY_DO]) {
+				policy->policy_id =
+					nla_get_u32(op[CTRL_ATTR_POLICY_DO]);
+				policy->have_id = true;
+			}
+		}
 	}
 
-	switch (attr_type) {
-	case HANDSHAKE_A_DONE_TAG:
-		nla_put_string(msg, attr_type, "__probe__");
-		break;
-	case HANDSHAKE_A_DONE_REMOTE_AUTH:
-		nla_put_s32(msg, attr_type, 0);
-		break;
-	default:
-		tlshd_log_error("Attribute %d not supported", attr_type);
-		nlmsg_free(msg);
+	if (tb[CTRL_ATTR_POLICY] && policy->have_id) {
+		nla_for_each_nested(pol, tb[CTRL_ATTR_POLICY], rem) {
+			if ((uint32_t)nla_type(pol) != policy->policy_id)
+				continue;
+			nla_for_each_nested(attr, pol, rem2) {
+				int type = nla_type(attr);
+
+				if (type > 0 && type < TLSHD_OP_POLICY_ATTRS)
+					policy->attrs |= 1U << type;
+			}
+		}
+	}
+
+	return NL_SKIP;
+}
+
+/**
+ * @brief Retrieve the attribute policy the kernel applies to a command
+ * @param[in]     cmd     Netlink command (e.g., HANDSHAKE_CMD_DONE)
+ * @param[out]    policy  Filled in with the accepted attribute types
+ *
+ * @retval true   The kernel reported a policy for this command
+ * @retval false  No policy could be retrieved
+ */
+static bool tlshd_get_op_policy(int cmd, struct tlshd_op_policy *policy)
+{
+	struct nl_sock *nls;
+	struct nl_msg *msg;
+	bool ret = false;
+	int err;
+
+	memset(policy, 0, sizeof(*policy));
+	policy->cmd = cmd;
+
+	if (tlshd_genl_sock_open(&nls))
 		return false;
+
+	nl_socket_modify_cb(nls, NL_CB_VALID, NL_CB_CUSTOM,
+			    tlshd_policy_valid_handler, policy);
+
+	msg = nlmsg_alloc();
+	if (!msg) {
+		tlshd_log_error("Failed to allocate message buffer.");
+		goto out_close;
+	}
+
+	if (!genlmsg_put(msg, NL_AUTO_PORT, NL_AUTO_SEQ, GENL_ID_CTRL, 0,
+			 NLM_F_DUMP, CTRL_CMD_GETPOLICY, 1)) {
+		tlshd_log_error("Failed to set up message header.");
+		goto out_msgfree;
+	}
+
+	err = nla_put_string(msg, CTRL_ATTR_FAMILY_NAME,
+			     HANDSHAKE_FAMILY_NAME);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put family name", err);
+		goto out_msgfree;
+	}
+	err = nla_put_u32(msg, CTRL_ATTR_OP, cmd);
+	if (err < 0) {
+		tlshd_log_nl_error("nla_put op", err);
+		goto out_msgfree;
 	}
 
 	err = nl_send_auto(nls, msg);
+	if (err < 0) {
+		tlshd_log_nl_error("nl_send_auto", err);
+		goto out_msgfree;
+	}
+
+	err = nl_recvmsgs_default(nls);
+	if (err < 0) {
+		tlshd_log_nl_error("CTRL_CMD_GETPOLICY", err);
+		goto out_msgfree;
+	}
+
+	ret = policy->have_id;
+
+out_msgfree:
 	nlmsg_free(msg);
-
-	/*
-	 * nl_send_auto() returns the number of bytes sent on success,
-	 * or a negative error code on failure. Treat any failure as
-	 * the attribute being unsupported; a positive return indicates
-	 * the kernel accepted the message containing this attribute.
-	 */
-	supported = (err >= 0);
-	/* Drain kernel response to prevent stale data on socket reuse */
-	nl_recvmsgs_default(nls);
-
-	return supported;
+out_close:
+	tlshd_genl_sock_close(nls);
+	return ret;
 }
 
 /**
  * @brief Detect which optional netlink attributes the kernel supports
- * @param[in]     nls  Netlink socket
  *
- * Probes the kernel to determine which optional handshake netlink
- * attributes are supported. Results are cached in tlshd_kernel_caps
- * for use throughout the daemon lifetime. Unsupported attributes are
- * not included in subsequent netlink messages to avoid rejection.
+ * Reads the kernel's attribute policy for HANDSHAKE_CMD_DONE. Results
+ * are cached in tlshd_kernel_caps for use throughout the daemon
+ * lifetime. Unsupported attributes are not included in subsequent
+ * netlink messages to avoid rejection. A kernel that reports no policy
+ * leaves every capability off, which is the conservative choice.
  *
- * This function should be called once during initialization, after
- * connecting to the handshake netlink family but before processing
- * any handshake requests.
+ * This function should be called once during initialization, before
+ * processing any handshake requests.
  */
-static void tlshd_detect_kernel_caps(struct nl_sock *nls)
+static void tlshd_detect_kernel_caps(void)
 {
-	tlshd_kernel_caps.done_tag =
-		tlshd_probe_attr(nls, HANDSHAKE_CMD_DONE,
-				 HANDSHAKE_A_DONE_TAG);
+	struct tlshd_op_policy policy;
 
-	tlshd_kernel_caps.done_remote_auth =
-		tlshd_probe_attr(nls, HANDSHAKE_CMD_DONE,
-				 HANDSHAKE_A_DONE_REMOTE_AUTH);
+	if (tlshd_get_op_policy(HANDSHAKE_CMD_DONE, &policy)) {
+		tlshd_kernel_caps.done_tag =
+			policy.attrs & (1U << HANDSHAKE_A_DONE_TAG);
+		tlshd_kernel_caps.done_remote_auth =
+			policy.attrs & (1U << HANDSHAKE_A_DONE_REMOTE_AUTH);
+	}
 
 	tlshd_log_notice("Kernel capabilities: "
 			 "session_tags=%s remote_peerids=%s",
@@ -430,7 +525,7 @@ void tlshd_genl_dispatch(void)
 	}
 
 	/* Detect which optional netlink attributes the kernel supports */
-	tlshd_detect_kernel_caps(tlshd_notification_nls);
+	tlshd_detect_kernel_caps();
 
 	if (signal(SIGCHLD, SIG_IGN) == SIG_ERR) {
 		tlshd_log_perror("signal");
