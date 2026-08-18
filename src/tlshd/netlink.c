@@ -355,9 +355,7 @@ static int tlshd_sig_poll_fd;
  * @param[in]     msg  A netlink event to be handled
  * @param[in]     arg  Additional arguments
  *
- * @retval NL_OK    Proceed with the next message
  * @retval NL_SKIP  Skip this message.
- * @retval NL_STOP  Stop and discard remaining messages.
  */
 static int tlshd_genl_event_handler(struct nl_msg *msg,
 				    __attribute__ ((unused)) void *arg)
@@ -574,9 +572,11 @@ static void tlshd_parse_certificate(struct tlshd_handshake_parms *parms,
  * @param[in]     msg  Message to be processed
  * @param[out]    arg  Handshake parms to be filled in
  *
- * @retval NL_OK    Proceed with the next message
+ * libnl reports NL_STOP to its caller as success, so a failure to
+ * parse the message has to return a negative libnl error code.
+ *
  * @retval NL_SKIP  Skip this message.
- * @retval NL_STOP  Stop and discard remaining messages.
+ * @retval <0       Negative libnl error code
  */
 static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 {
@@ -594,7 +594,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 			    tlshd_accept_nl_policy);
 	if (err < 0) {
 		tlshd_log_nl_error("genlmsg_parse", err);
-		return NL_STOP;
+		return -NLE_FAILURE;
 	}
 
 	if (tb[HANDSHAKE_A_ACCEPT_SOCKFD]) {
@@ -607,13 +607,13 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		sap = (struct sockaddr *)&addr;
 		if (getpeername(parms->sockfd, sap, &salen) == -1) {
 			tlshd_log_perror("getpeername");
-			return NL_STOP;
+			return -NLE_FAILURE;
 		}
 		err = getnameinfo(sap, salen, buf, sizeof(buf),
 				  NULL, 0, NI_NUMERICHOST);
 		if (err) {
 			tlshd_log_gai_error(err);
-			return NL_STOP;
+			return -NLE_FAILURE;
 		}
 		parms->peeraddr = strdup(buf);
 
@@ -621,7 +621,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		if (getsockopt(parms->sockfd, SOL_SOCKET, SO_PROTOCOL,
 			       &proto, &optlen) == -1) {
 			tlshd_log_perror("getsockopt (SO_PROTOCOL)");
-			return NL_STOP;
+			return -NLE_FAILURE;
 		}
 		parms->ip_proto = proto;
 	}
@@ -656,7 +656,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 				  NULL, 0, NI_NAMEREQD);
 		if (err) {
 			tlshd_log_gai_error(err);
-			return NL_STOP;
+			return -NLE_FAILURE;
 		}
 		parms->peername = strdup(buf);
 	}
