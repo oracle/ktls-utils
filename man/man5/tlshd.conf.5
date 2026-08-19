@@ -74,7 +74,7 @@ The
 .I [authenticate]
 section specifies default authentication material when establishing
 TLS sessions.
-In this section, there is one available option:
+In this section, there are four available options:
 .TP
 .B keyrings
 This option specifies a semicolon-separated list of auxiliary keyrings
@@ -89,6 +89,62 @@ always includes the
 and
 .I .nfsd
 keyrings on its session keyring.
+.TP
+.B dane
+This option specifies the DANE policy for client handshakes
+that authenticate a server certificate.
+.I off
+is the default, and means
+.B tlshd
+performs no TLSA lookup.
+.I opportunistic
+means a DNSSEC-validated TLSA RRset authenticates the server when one
+is published, and PKIX authentication applies when one is not.
+.I require
+means the handshake fails unless DANE governs it.
+The setting applies to every client handshake: the handshake
+protocol does not yet carry a per-handshake policy, so a kernel
+consumer cannot name one of its own.
+.IP
+This option is available only when
+.B tlshd
+was built with DANE support.
+A build without it accepts
+.I off
+and refuses to start with any other setting.
+.TP
+.B dane.trust_anchor
+This option specifies the pathname of a file containing the DNSSEC
+root trust anchor, in the format
+.BR unbound\-anchor (8)
+writes.
+If this option is not specified,
+.B tlshd
+tries
+.IR /var/lib/unbound/root.key ,
+.IR /usr/share/dns/root.key ,
+.IR /etc/unbound/root.key ,
+.IR /etc/dnssec\-trust\-anchors.d/root.key ,
+and
+.IR /etc/trusted\-key.key ,
+in that order, and uses the first one it can read.
+.B tlshd
+reads the anchor but does not maintain it: RFC 5011 key rollover is
+the job of whatever wrote the file.
+A trust anchor that is missing, unreadable, or malformed makes every
+DANE evaluation an error, which fails the handshake.
+It never silently downgrades to no DANE.
+.TP
+.B dane.resolver
+This option specifies a semicolon-separated list of IP addresses of
+DNS resolvers to forward queries to.
+If this option is not specified,
+.B tlshd
+uses the resolvers named in
+.BR resolv.conf (5).
+Whichever resolvers are used, they must return DNSSEC records:
+.B tlshd
+validates the answers itself.
 .P
 And, in this section, there are two subsections:
 .I [client]
