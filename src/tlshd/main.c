@@ -134,15 +134,25 @@ int main(int argc, char **argv)
 	tlshd_log_init(progname);
 
 	if (config_file[0] != '\0') {
-		if (!tlshd_config_init(config_file, false)) {
+		if (!tlshd_config_init(config_file)) {
 			tlshd_log_shutdown();
 			tlshd_log_close();
 			return EXIT_FAILURE;
 		}
+	} else if (access("/etc/tlshd.conf", F_OK) == 0) {
+		/*
+		 * A legacy file that fails to parse or validate must not
+		 * fall through to /etc/tlshd/config: that would start the
+		 * daemon with settings the administrator did not write.
+		 */
+		if (!tlshd_config_init("/etc/tlshd.conf")) {
+			tlshd_log_shutdown();
+			tlshd_log_close();
+			return EXIT_FAILURE;
+		}
+		tlshd_log_notice("Please relocate /etc/tlshd.conf to /etc/tlshd/config");
 	} else {
-		if (tlshd_config_init("/etc/tlshd.conf", true)) {
-			tlshd_log_notice("Please relocate /etc/tlshd.conf to /etc/tlshd/config");
-		} else if (!tlshd_config_init("/etc/tlshd/config", false)) {
+		if (!tlshd_config_init("/etc/tlshd/config")) {
 			tlshd_log_shutdown();
 			tlshd_log_close();
 			return EXIT_FAILURE;

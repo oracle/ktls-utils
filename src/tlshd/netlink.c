@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/signalfd.h>
+#include <netinet/in.h>
 
 #include <stdbool.h>
 #include <unistd.h>
@@ -712,6 +713,17 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 		}
 		parms->peeraddr = strdup(buf);
 
+		switch (sap->sa_family) {
+		case AF_INET:
+			parms->peerport =
+				ntohs(((struct sockaddr_in *)sap)->sin_port);
+			break;
+		case AF_INET6:
+			parms->peerport =
+				ntohs(((struct sockaddr_in6 *)sap)->sin6_port);
+			break;
+		}
+
 		optlen = sizeof(proto);
 		if (getsockopt(parms->sockfd, SOL_SOCKET, SO_PROTOCOL,
 			       &proto, &optlen) == -1) {
@@ -742,9 +754,10 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	tlshd_parse_peer_identity(parms, tb[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]);
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);
 
-	if (peername)
+	if (peername) {
 		parms->peername = strdup(peername);
-	else if (sap && parms->auth_mode != HANDSHAKE_AUTH_PSK) {
+		parms->peername_explicit = true;
+	} else if (sap && parms->auth_mode != HANDSHAKE_AUTH_PSK) {
 		char buf[NI_MAXHOST];
 
 		/* A peer name is optional: leave it unset and proceed. */
@@ -765,7 +778,9 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
  */
 static const struct tlshd_handshake_parms tlshd_default_handshake_parms = {
 	.peername		= NULL,
+	.peername_explicit	= false,
 	.peeraddr		= NULL,
+	.peerport		= 0,
 	.sockfd			= -1,
 	.ip_proto		= -1,
 	.handshake_type		= HANDSHAKE_MSG_TYPE_UNSPEC,
@@ -871,6 +886,7 @@ void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 		keyctl_unlink(parms->keyring, KEY_SPEC_SESSION_KEYRING);
 	g_array_free(parms->peerids, TRUE);
 	g_array_free(parms->remote_peerids, TRUE);
+	tlshd_dane_release(parms);
 	free(parms->peername);
 	free(parms->peeraddr);
 }

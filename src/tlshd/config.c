@@ -122,15 +122,142 @@ static void tlshd_config_apply(void)
 }
 
 /**
+ * @brief Interpret a DANE policy mode setting
+ * @param[in]     value  Setting read from the config file
+ * @param[out]    mode   Mode the setting names
+ *
+ * @retval true   The setting names a mode
+ * @retval false  The setting is not recognized
+ */
+static bool tlshd_config_parse_dane_mode(const gchar *value,
+					 enum tlshd_dane_mode *mode)
+{
+	if (!g_ascii_strcasecmp(value, "off")) {
+		*mode = TLSHD_DANE_MODE_OFF;
+		return true;
+	}
+	if (!g_ascii_strcasecmp(value, "opportunistic")) {
+		*mode = TLSHD_DANE_MODE_OPPORTUNISTIC;
+		return true;
+	}
+	if (!g_ascii_strcasecmp(value, "require")) {
+		*mode = TLSHD_DANE_MODE_REQUIRE;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * @brief Check a parsed config file for settings tlshd cannot honor
+ * @param[in]     conf  Parsed config file to check
+ *
+ * A build without DANE accepts dane=off and refuses any other setting.
+ *
+ * @retval true   The config file can be applied
+ * @retval false  The config file names something tlshd cannot do
+ */
+static bool tlshd_config_validate(GKeyFile *conf)
+{
+	enum tlshd_dane_mode mode = TLSHD_DANE_MODE_OFF;
+	bool valid = true;
+	gchar *value;
+
+	value = g_key_file_get_string(conf, "authenticate", "dane", NULL);
+	if (value) {
+		if (!tlshd_config_parse_dane_mode(value, &mode)) {
+			tlshd_log_error("Unrecognized authenticate.dane setting \"%s\"",
+					value);
+			valid = false;
+		}
+#ifndef HAVE_DANE
+		/* Accept dane=off so packaged config files stay portable. */
+		else if (mode != TLSHD_DANE_MODE_OFF) {
+			tlshd_log_error("authenticate.dane=%s needs a build with DANE support",
+					value);
+			valid = false;
+		}
+#endif
+		g_free(value);
+	}
+
+	if (mode == TLSHD_DANE_MODE_OFF &&
+	    (g_key_file_has_key(conf, "authenticate", "dane.trust_anchor", NULL) ||
+	     g_key_file_has_key(conf, "authenticate", "dane.resolver", NULL)))
+		tlshd_log_notice("DANE is off: dane.trust_anchor and dane.resolver are ignored");
+
+	return valid;
+}
+
+/**
+ * @brief Report the default DANE policy mode
+ *
+ * @returns the mode for handshakes that name no policy of their own,
+ * or TLSHD_DANE_MODE_OFF
+ */
+enum tlshd_dane_mode tlshd_config_get_dane_mode(void)
+{
+	enum tlshd_dane_mode mode = TLSHD_DANE_MODE_OFF;
+	gchar *value;
+
+	value = g_key_file_get_string(tlshd_configuration, "authenticate",
+				      "dane", NULL);
+	if (!value)
+		return TLSHD_DANE_MODE_OFF;
+	if (!tlshd_config_parse_dane_mode(value, &mode))
+		mode = TLSHD_DANE_MODE_OFF;
+	g_free(value);
+	return mode;
+}
+
+/**
+ * @brief Report the configured DNSSEC trust anchor file
+ *
+ * @returns a pathname, or NULL to search the built-in list. Caller
+ * must release the pathname using g_free().
+ */
+gchar *tlshd_config_get_dane_trust_anchor(void)
+{
+	return g_key_file_get_string(tlshd_configuration, "authenticate",
+				     "dane.trust_anchor", NULL);
+}
+
+/**
+ * @brief Report the configured DNS resolvers
+ * @param[out]    count  Number of resolvers returned
+ *
+ * @returns a list of resolver addresses, or NULL to use the
+ * forwarders named in resolv.conf(5). Caller must release the list
+ * using g_strfreev().
+ */
+gchar **tlshd_config_get_dane_resolvers(gsize *count)
+{
+	gchar **resolvers;
+	gsize i;
+
+	resolvers = g_key_file_get_string_list(tlshd_configuration,
+					       "authenticate", "dane.resolver",
+					       count, NULL);
+	if (!resolvers)
+		return NULL;
+
+	/*
+	 * GKeyFile strips whitespace only at the ends of the whole
+	 * value, so "a; b" yields " b", which ub_ctx_set_fwd()
+	 * rejects and every handshake then fails with EACCES.
+	 */
+	for (i = 0; i < *count; i++)
+		g_strstrip(resolvers[i]);
+	return resolvers;
+}
+
+/**
  * @brief Parse tlshd's config file
  * @param[in]    pathname  Pathname to config file
- * @param[in]    legacy    Don't generate an error if the specified
- *			   config file doesn't exist
  *
  * @retval true   Config file parsed successfully
- * @retval false  Unable to read config file
+ * @retval false  Unable to read or apply the config file
  */
-bool tlshd_config_init(const gchar *pathname, bool legacy)
+bool tlshd_config_init(const gchar *pathname)
 {
 	GError *error;
 
@@ -140,9 +267,14 @@ bool tlshd_config_init(const gchar *pathname, bool legacy)
 	if (!g_key_file_load_from_file(tlshd_configuration, pathname,
 				       G_KEY_FILE_KEEP_COMMENTS,
 				       &error)) {
-		if (!legacy)
-			tlshd_log_gerror("Failed to load config file", error);
+		tlshd_log_gerror("Failed to load config file", error);
 		g_error_free(error);
+		return false;
+	}
+
+	if (!tlshd_config_validate(tlshd_configuration)) {
+		g_key_file_free(tlshd_configuration);
+		tlshd_configuration = NULL;
 		return false;
 	}
 
@@ -195,6 +327,12 @@ bool tlshd_config_reload(void)
 				       &error)) {
 		tlshd_log_gerror("Failed to reload config file", error);
 		g_error_free(error);
+		g_key_file_free(new_configuration);
+		return false;
+	}
+
+	if (!tlshd_config_validate(new_configuration)) {
+		tlshd_log_error("Keeping the previous configuration");
 		g_key_file_free(new_configuration);
 		return false;
 	}

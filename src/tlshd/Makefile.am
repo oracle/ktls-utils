@@ -19,14 +19,19 @@
 sbin_PROGRAMS		= tlshd
 tlshd_CFLAGS		= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
 			  $(LIBKEYUTILS_CFLAGS) $(GLIB_CFLAGS) $(LIBNL3_CFLAGS) \
-			  $(LIBNL_GENL3_CFLAGS) $(LIBYAML_CFLAGS)
-tlshd_SOURCES		= client.c config.c handshake.c keyring.c ktls.c \
-			  log.c main.c netlink.c netlink.h quic.c quic.h \
-			  server.c tlshd.h
+			  $(LIBNL_GENL3_CFLAGS) $(LIBYAML_CFLAGS) \
+			  $(LIBDANE_CFLAGS) $(LIBUNBOUND_CFLAGS)
+tlshd_SOURCES		= client.c config.c dane.h handshake.c keyring.c \
+			  ktls.c log.c main.c netlink.c netlink.h quic.c \
+			  quic.h server.c tlshd.h
 if HAVE_SESSION_TAGS
 tlshd_SOURCES		+= tags.c
 endif
+if HAVE_DANE
+tlshd_SOURCES		+= dane.c
+endif
 tlshd_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS) $(GLIB_LIBS) \
-			  $(LIBNL3_LIBS) $(LIBNL_GENL3_LIBS) $(LIBYAML_LIBS)
+			  $(LIBNL3_LIBS) $(LIBNL_GENL3_LIBS) $(LIBYAML_LIBS) \
+			  $(LIBDANE_LIBS) $(LIBUNBOUND_LIBS)
 
 MAINTAINERCLEANFILES	= Makefile.in cscope.out

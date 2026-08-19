@@ -118,6 +118,23 @@ void tlshd_log_error(const char *fmt, ...)
 }
 
 /**
+ * @brief Emit an authentication audit record
+ * @param[in]     priority  syslog priority to record it at
+ * @param[in]     fmt       printf-style format string
+ *
+ * RFC 9289 Section 5.3 requires a log of security mode selection.
+ * Emitted regardless of tlshd_debug.
+ */
+void tlshd_log_audit(int priority, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vsyslog(priority, fmt, args);
+	va_end(args);
+}
+
+/**
  * @brief Emit a generic warning
  * @param[in]     fmt  printf-style format string
  */

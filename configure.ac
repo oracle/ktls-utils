@@ -47,6 +47,12 @@ AC_ARG_WITH(systemd,
 	AM_CONDITIONAL(INSTALL_SYSTEMD, [test "$use_systemd" = 1])
 	AC_SUBST(unitdir)
 
+AC_ARG_WITH(dane,
+	[AS_HELP_STRING([--with-dane],
+			[enable DANE server authentication @<:@Default: auto@:>@])],
+	[with_dane=$withval],
+	[with_dane=auto])
+
 AC_ARG_ENABLE(session-tags,
 	[AS_HELP_STRING([--enable-session-tags],
 			[enable TLS session tags support @<:@Default: no@:>@])],
@@ -80,6 +86,33 @@ if test "x$enable_session_tags" = xyes ; then
 	AC_SUBST([LIBYAML_LIBS])
 fi
 
+dnl DANE needs libgnutls-dane for TLSA record matching and libunbound
+dnl for the DNSSEC-validating lookup. tlshd does not use libgnutls-dane's
+dnl own resolver, so both are required.
+enable_dane=no
+if test "x$with_dane" != xno ; then
+	PKG_CHECK_MODULES([LIBDANE], [gnutls-dane],
+			  [have_gnutls_dane=yes], [have_gnutls_dane=no])
+	PKG_CHECK_MODULES([LIBUNBOUND], [libunbound],
+			  [have_libunbound=yes], [have_libunbound=no])
+	if test "x$have_gnutls_dane" = xyes && test "x$have_libunbound" = xyes ; then
+		enable_dane=yes
+	elif test "x$with_dane" = xyes ; then
+		AC_MSG_ERROR([--with-dane requires the gnutls-dane and libunbound development packages])
+	else
+		AC_MSG_WARN([DANE support disabled: gnutls-dane or libunbound not found])
+	fi
+fi
+AM_CONDITIONAL(HAVE_DANE, [test "x$enable_dane" = xyes])
+if test "x$enable_dane" = xyes ; then
+	AC_DEFINE([HAVE_DANE], [1],
+		  [Define to 1 to enable DANE server authentication])
+	AC_SUBST([LIBDANE_CFLAGS])
+	AC_SUBST([LIBDANE_LIBS])
+	AC_SUBST([LIBUNBOUND_CFLAGS])
+	AC_SUBST([LIBUNBOUND_LIBS])
+fi
+
 AC_CHECK_PROG(DOXYGEN, doxygen, doxygen, false)
 if test "$DOXYGEN" = false; then
    AC_MSG_WARN([Doxygen not found - documentation will not be built])
@@ -107,6 +140,9 @@ AC_CHECK_LIB([gnutls], [gnutls_record_get_max_send_size],
 AC_CHECK_LIB([gnutls], [gnutls_privkey_import_url],
              [AC_DEFINE([HAVE_GNUTLS_PRIVKEY_IMPORT_URL], [1],
                         [Define to 1 if you have gnutls_privkey_import_url.])])
+AC_CHECK_LIB([gnutls], [gnutls_idna_map],
+             [AC_DEFINE([HAVE_GNUTLS_IDNA_MAP], [1],
+                        [Define to 1 if you have the gnutls_idna_map function.])])
 AC_CHECK_LIB([glib-2.0], [g_pattern_spec_match],
              [AC_DEFINE([HAVE_GLIB_G_PATTERN_SPEC_MATCH], [1],
                         [Define to 1 if you have the g_pattern_spec_match function.])])
