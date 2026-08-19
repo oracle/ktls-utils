@@ -338,8 +338,10 @@ static int tlshd_server_x509_verify_function(gnutls_session_t session,
 		tlshd_log_gnutls_error(ret);
 		goto certificate_error;
 	}
-	if (status)
+	if (status) {
+		tlshd_log_cert_verification_status(status);
 		goto certificate_error;
+	}
 
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for

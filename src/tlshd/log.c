@@ -192,15 +192,12 @@ static const struct tlshd_cert_status_bit tlshd_cert_status_names[] = {
 };
 
 /**
- * @brief Report a failed certificate verification
- * @param[in]     session  Session with a failed handshake
+ * @brief Report the reason certificate verification failed
+ * @param[in]     status  Status word from gnutls_certificate_verify_peers3()
  */
-void tlshd_log_cert_verification_error(gnutls_session_t session)
+void tlshd_log_cert_verification_status(unsigned int status)
 {
-	unsigned int status;
 	int i;
-
-	status = gnutls_session_get_verify_cert_status(session);
 
 	for (i = 0; tlshd_cert_status_names[i].name; i++)
 		if (status & tlshd_cert_status_names[i].bit)

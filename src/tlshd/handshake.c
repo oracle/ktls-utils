@@ -107,10 +107,6 @@ void tlshd_start_tls_handshake(gnutls_session_t session,
 		/* Any errors here should default to blocking access: */
 		parms->session_status = EACCES;
 		switch (ret) {
-		case GNUTLS_E_CERTIFICATE_ERROR:
-		case GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR:
-			tlshd_log_cert_verification_error(session);
-			break;
 		case GNUTLS_E_PREMATURE_TERMINATION:
 			tlshd_log_error("Connection terminated prematurely");
 			/* Ask the kernel to retry */

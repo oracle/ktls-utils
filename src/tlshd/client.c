@@ -85,6 +85,8 @@ static int tlshd_client_get_truststore(gnutls_certificate_credentials_t cred)
 	return GNUTLS_E_SUCCESS;
 }
 
+static int tlshd_tls13_client_anon_verify_function(gnutls_session_t session);
+
 /**
  * @brief Initiate an x.509-based TLS handshake without a client certificate
  * @param[in]     parms  Handshake parameters
@@ -94,6 +96,7 @@ static void tlshd_tls13_client_anon_handshake(struct tlshd_handshake_parms *parm
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
 	unsigned int flags;
+	const char *sni;
 	int ret;
 
 	/*
@@ -105,6 +108,9 @@ static void tlshd_tls13_client_anon_handshake(struct tlshd_handshake_parms *parm
 		tlshd_log_error("No peer name: cannot verify the server's identity");
 		return;
 	}
+
+	if (!tlshd_dane_evaluate(parms))
+		return;
 
 	ret = gnutls_certificate_allocate_credentials(&xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -131,9 +137,10 @@ static void tlshd_tls13_client_anon_handshake(struct tlshd_handshake_parms *parm
 		goto out_free_creds;
 	}
 	gnutls_transport_set_int(session, parms->sockfd);
+	gnutls_session_set_ptr(session, parms);
 
-	gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-			       parms->peername, strlen(parms->peername));
+	sni = tlshd_dane_sni_name(parms);
+	gnutls_server_name_set(session, GNUTLS_NAME_DNS, sni, strlen(sni));
 
 	gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, xcred);
 
@@ -149,7 +156,9 @@ static void tlshd_tls13_client_anon_handshake(struct tlshd_handshake_parms *parm
 		goto out_free_creds;
 	}
 
-	gnutls_session_set_verify_cert(session, parms->peername, 0);
+	/* gnutls_session_set_verify_cert() would bypass the DANE step. */
+	gnutls_certificate_set_verify_function(xcred,
+					       tlshd_tls13_client_anon_verify_function);
 
 	tlshd_start_tls_handshake(session, parms);
 
@@ -346,6 +355,45 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 }
 
 /**
+ * @brief Authenticate the server's certificate via DANE, then PKIX
+ * @param[in]     session  session in the midst of a handshake
+ * @param[in]     parms  Handshake parameters
+ *
+ * A DANE-EE match authenticates the peer by itself, so PKIX path
+ * validation and DNS-ID matching are not consulted after one
+ * (RFC 7671 Section 5.1).
+ *
+ * @retval GNUTLS_E_SUCCESS            The server has been authenticated
+ * @retval GNUTLS_E_CERTIFICATE_ERROR  Authentication failed
+ */
+static int tlshd_client_verify_peer(gnutls_session_t session,
+				    struct tlshd_handshake_parms *parms)
+{
+	unsigned int status;
+	int ret, dane;
+
+	dane = tlshd_dane_verify(parms, session);
+	if (dane < 0)
+		return GNUTLS_E_CERTIFICATE_ERROR;
+	if (dane > 0)
+		return GNUTLS_E_SUCCESS;
+
+	ret = gnutls_certificate_verify_peers3(session, parms->peername,
+					       &status);
+	if (ret != GNUTLS_E_SUCCESS) {
+		tlshd_log_gnutls_error(ret);
+		return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+	if (status) {
+		tlshd_log_cert_verification_status(status);
+		return GNUTLS_E_CERTIFICATE_ERROR;
+	}
+
+	tlshd_dane_record_pkix(parms, true);
+	return GNUTLS_E_SUCCESS;
+}
+
+/**
  * @brief Verify the remote peer's x.509 certificate
  * @param[in]     session  session in the midst of a handshake
  * @param[in]     parms  Handshake parameters
@@ -357,17 +405,12 @@ static int tlshd_client_x509_verify_function(gnutls_session_t session,
 					     struct tlshd_handshake_parms *parms)
 {
 	const gnutls_datum_t *peercerts;
-	unsigned int i, status, num_peercerts;
+	unsigned int i, num_peercerts;
 	int ret;
 
-	ret = gnutls_certificate_verify_peers3(session, parms->peername,
-					       &status);
-	if (ret != GNUTLS_E_SUCCESS) {
-		tlshd_log_gnutls_error(ret);
-		return GNUTLS_E_CERTIFICATE_ERROR;
-	}
-        if (status)
-                return GNUTLS_E_CERTIFICATE_ERROR;
+	ret = tlshd_client_verify_peer(session, parms);
+	if (ret != GNUTLS_E_SUCCESS)
+		return ret;
 
 	/* To do: Examine extended key usage information here, if we want
 	 * to get picky. Kernel would have to tell us what to look for
@@ -417,6 +460,20 @@ static int tlshd_tls13_client_x509_verify_function(gnutls_session_t session)
 }
 
 /**
+ * @brief Verify the server's x.509 certificate (anonymous client)
+ * @param[in]     session  session in the midst of a handshake
+ *
+ * @retval GNUTLS_E_SUCCESS            Certificate has been successfully verified
+ * @retval GNUTLS_E_CERTIFICATE_ERROR  Certificate verification failed
+ */
+static int tlshd_tls13_client_anon_verify_function(gnutls_session_t session)
+{
+	struct tlshd_handshake_parms *parms = gnutls_session_get_ptr(session);
+
+	return tlshd_client_verify_peer(session, parms);
+}
+
+/**
  * @brief Initiate an x.509-based TLS handshake with a client certificate
  * @param[in]     parms  Handshake parameters
  */
@@ -425,12 +482,16 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 	gnutls_certificate_credentials_t xcred;
 	gnutls_session_t session;
 	unsigned int flags;
+	const char *sni;
 	int ret;
 
 	if (!parms->peername) {
 		tlshd_log_error("No peer name: cannot verify the server's identity");
 		return;
 	}
+
+	if (!tlshd_dane_evaluate(parms))
+		return;
 
 	ret = gnutls_certificate_allocate_credentials(&xcred);
 	if (ret != GNUTLS_E_SUCCESS) {
@@ -458,8 +519,9 @@ static void tlshd_tls13_client_x509_handshake(struct tlshd_handshake_parms *parm
 	gnutls_transport_set_int(session, parms->sockfd);
 	gnutls_session_set_ptr(session, parms);
 
-	ret = gnutls_server_name_set(session, GNUTLS_NAME_DNS,
-				     parms->peername, strlen(parms->peername));
+	sni = tlshd_dane_sni_name(parms);
+	ret = gnutls_server_name_set(session, GNUTLS_NAME_DNS, sni,
+				     strlen(sni));
 	if (ret != GNUTLS_E_SUCCESS) {
 		tlshd_log_gnutls_error(ret);
 		goto out_free_certs;
@@ -631,6 +693,8 @@ void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parms)
 		tlshd_log_debug("Unrecognized auth mode (%d)",
 				parms->auth_mode);
 	}
+
+	tlshd_dane_audit(parms);
 }
 
 #ifdef HAVE_GNUTLS_QUIC
@@ -666,6 +730,14 @@ static void tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 		return;
 	}
 
+	/*
+	 * The DANE lookup covers TCP only. Evaluate anyway so that a
+	 * policy requiring DANE refuses the handshake rather than
+	 * being bypassed.
+	 */
+	if (!tlshd_dane_evaluate(parms))
+		return;
+
 	if (conn->cert_req != TLSHD_QUIC_NO_CERT_AUTH) {
 		if (!tlshd_x509_client_get_certs(parms) || !tlshd_x509_client_get_privkey(parms)) {
 			tlshd_log_error("Failed to get cert or privkey");
@@ -680,6 +752,11 @@ static void tlshd_quic_client_set_x509_session(struct tlshd_quic_conn *conn)
 		goto err_cred;
 
 	if (conn->cert_req == TLSHD_QUIC_NO_CERT_AUTH) {
+		/*
+		 * No verify callback runs on this path. Without this mark,
+		 * the audit reports an authentication failure.
+		 */
+		tlshd_dane_record_unauth(parms);
 		gnutls_certificate_set_verify_flags(cred, GNUTLS_VERIFY_ALLOW_SIGN_RSA_MD2 |
 							  GNUTLS_VERIFY_ALLOW_SIGN_RSA_MD5);
 		gnutls_certificate_set_flags(cred, GNUTLS_CERTIFICATE_SKIP_KEY_CERT_MATCH |
@@ -811,7 +888,10 @@ void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms)
 
 	tlshd_quic_start_handshake(conn);
 	parms->session_status = conn->errcode;
+	if (!parms->session_status && gnutls_session_is_resumed(conn->session))
+		tlshd_dane_record_resumed(parms);
 out:
+	tlshd_dane_audit(parms);
 	tlshd_quic_conn_destroy(conn);
 }
 #else
