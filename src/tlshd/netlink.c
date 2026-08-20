@@ -744,7 +744,7 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 
 	if (peername)
 		parms->peername = strdup(peername);
-	else if (sap) {
+	else if (sap && parms->auth_mode != HANDSHAKE_AUTH_PSK) {
 		char buf[NI_MAXHOST];
 
 		/* A peer name is optional: leave it unset and proceed. */

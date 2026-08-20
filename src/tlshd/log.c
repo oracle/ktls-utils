@@ -81,6 +81,9 @@ void tlshd_log_completion(struct tlshd_handshake_parms *parms)
 	if (parms->peername && parms->peeraddr)
 		syslog(priority, "Handshake with '%s' (%s) %s\n",
 		       parms->peername, parms->peeraddr, status);
+	else if (parms->peeraddr)
+		syslog(priority, "Handshake with %s %s\n",
+		       parms->peeraddr, status);
 	else
 		syslog(priority, "Handshake request %s\n", status);
 }
