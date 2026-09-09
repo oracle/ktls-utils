@@ -39,6 +39,13 @@ The Linux UAPI headers must be v5.10 or later. tlshd reads the
 kernel's generic netlink attribute policy to detect optional
 handshake features, and the definitions for that arrived in v5.10.
 
+DANE server authentication additionally needs gnutls-dane and
+libunbound. `configure` looks for both and enables DANE when it finds
+them; `--with-dane` makes a missing one a configuration failure, and
+`--without-dane` skips the check. On Fedora the packages are
+`gnutls-dane` and `unbound-devel`; on Debian, `libgnutls-dane0` and
+`libunbound-dev`.
+
 ## Installation
 
 See [NEWS](NEWS) to see what has changed in the latest release,

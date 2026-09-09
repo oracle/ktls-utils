@@ -118,6 +118,23 @@ void tlshd_log_error(const char *fmt, ...)
 }
 
 /**
+ * @brief Emit an authentication audit record
+ * @param[in]     priority  syslog priority to record it at
+ * @param[in]     fmt       printf-style format string
+ *
+ * RFC 9289 Section 5.3 requires a log of security mode selection.
+ * Emitted regardless of tlshd_debug.
+ */
+void tlshd_log_audit(int priority, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vsyslog(priority, fmt, args);
+	va_end(args);
+}
+
+/**
  * @brief Emit a generic warning
  * @param[in]     fmt  printf-style format string
  */
@@ -175,15 +192,12 @@ static const struct tlshd_cert_status_bit tlshd_cert_status_names[] = {
 };
 
 /**
- * @brief Report a failed certificate verification
- * @param[in]     session  Session with a failed handshake
+ * @brief Report the reason certificate verification failed
+ * @param[in]     status  Status word from gnutls_certificate_verify_peers3()
  */
-void tlshd_log_cert_verification_error(gnutls_session_t session)
+void tlshd_log_cert_verification_status(unsigned int status)
 {
-	unsigned int status;
 	int i;
-
-	status = gnutls_session_get_verify_cert_status(session);
 
 	for (i = 0; tlshd_cert_status_names[i].name; i++)
 		if (status & tlshd_cert_status_names[i].bit)

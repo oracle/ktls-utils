@@ -27,6 +27,9 @@ nl=0
 
 [authenticate]
 #keyrings= <keyring>;<keyring>;<keyring>
+#dane= off | opportunistic | require
+#dane.trust_anchor= <pathname>
+#dane.resolver= <address>;<address>
 
 [authenticate.client]
 #x509.truststore= <pathname>

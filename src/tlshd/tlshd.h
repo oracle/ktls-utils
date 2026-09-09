@@ -21,6 +21,8 @@
 
 #include <linux/netlink.h>
 
+#include "dane.h"
+
 /**
  * @def ARRAY_SIZE
  * @brief Generate the number of elements in an array
@@ -41,7 +43,9 @@ struct nl_sock;
 struct tlshd_handshake_parms {
 	/*@{*/
 	char		*peername;	/**< Remote's DNS label */
+	bool		peername_explicit; /**< Peer name came from the kernel */
 	char		*peeraddr;	/**< Remote's IP address */
+	unsigned short	peerport;	/**< Remote's port number */
 	int		sockfd;		/**< Socket on which to perform the handshake */
 	int		ip_proto;	/**< Transport protocol number */
 	uint32_t	handshake_type;	/**< Handshake interaction to perform */
@@ -52,6 +56,7 @@ struct tlshd_handshake_parms {
 	key_serial_t	x509_privkey;	/**< Key serial of our x.509 private key */
 	GArray		*peerids;	/**< Peer identities to present to servers */
 	GArray		*remote_peerids; /**< Peer identities presented by clients */
+	struct tlshd_dane_result *dane;	/**< Retained DANE evaluation */
 
 	unsigned int	session_status;	/**< Handshake completion status */
 	/*@}*/
@@ -62,12 +67,20 @@ enum peer_type {
 	PEER_TYPE_SERVER,
 };
 
+#ifndef HAVE_DANE
+static inline const char *
+tlshd_dane_sni_name(const struct tlshd_handshake_parms *parms)
+{
+	return parms->peername;
+}
+#endif
+
 /* client.c */
 extern void tlshd_tls13_clienthello_handshake(struct tlshd_handshake_parms *parms);
 extern void tlshd_quic_clienthello_handshake(struct tlshd_handshake_parms *parms);
 
 /* config.c */
-bool tlshd_config_init(const gchar *pathname, bool legacy);
+bool tlshd_config_init(const gchar *pathname);
 void tlshd_config_shutdown(void);
 bool tlshd_config_reload(void);
 bool tlshd_config_get_truststore(int peer_type, char **bundle);
@@ -78,6 +91,9 @@ bool tlshd_config_get_certs(int peer_type, gnutls_pcert_st *certs,
 			    gnutls_pk_algorithm_t *pkalg);
 bool tlshd_config_get_privkey(int peer_type, gnutls_privkey_t *pq_privkey,
 			      gnutls_privkey_t *privkey);
+enum tlshd_dane_mode tlshd_config_get_dane_mode(void);
+gchar *tlshd_config_get_dane_trust_anchor(void);
+gchar **tlshd_config_get_dane_resolvers(gsize *count);
 
 /* handshake.c */
 extern void tlshd_start_tls_handshake(gnutls_session_t session,
@@ -112,13 +128,14 @@ extern void tlshd_log_shutdown(void);
 extern void tlshd_log_close(void);
 
 extern void tlshd_log_completion(struct tlshd_handshake_parms *parms);
+extern void tlshd_log_audit(int priority, const char *fmt, ...);
 extern void tlshd_log_debug(const char *fmt, ...);
 extern void tlshd_log_notice(const char *fmt, ...);
 extern void tlshd_log_error(const char *fmt, ...);
 extern void tlshd_log_perror(const char *prefix);
 extern void tlshd_log_gai_error(int error);
 
-extern void tlshd_log_cert_verification_error(gnutls_session_t session);
+extern void tlshd_log_cert_verification_status(unsigned int status);
 extern void tlshd_log_alert(gnutls_session_t session);
 extern void tlshd_log_gnutls_error(int error);
 extern void tlshd_gnutls_log_func(int level, const char *msg);
