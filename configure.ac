@@ -65,7 +65,7 @@ if test "x$enable_session_tags" = xyes ; then
 fi
 
 PKG_PROG_PKG_CONFIG([0.9.0])
-PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.3.0])
+PKG_CHECK_MODULES([LIBGNUTLS], [gnutls >= 3.4.0])
 AC_SUBST([LIBGNUTLS_CFLAGS])
 AC_SUBST([LIBGNUTLS_LIBS])
 PKG_CHECK_MODULES([LIBKEYUTILS], [libkeyutils])
@@ -196,6 +196,7 @@ AC_CONFIG_FILES([Makefile \
                  man/man8/Makefile \
                  src/Makefile \
                  src/tlshd/Makefile \
+                 src/nfstlskey/Makefile \
                  systemd/Makefile])
 
 AC_OUTPUT
