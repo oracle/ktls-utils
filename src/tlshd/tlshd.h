@@ -111,7 +111,7 @@ extern bool tlshd_keyring_get_certs(key_serial_t serial, gnutls_pcert_st *certs,
 				    unsigned int *certs_len);
 extern key_serial_t tlshd_keyring_create_cert(gnutls_x509_crt_t cert,
 					      const char *peername);
-extern int tlshd_keyring_link_session(const char *keyring);
+extern int tlshd_keyring_link(const char *keyring, key_serial_t dest);
 
 /* ktls.c */
 extern unsigned int tlshd_initialize_ktls(gnutls_session_t session);

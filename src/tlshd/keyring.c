@@ -246,13 +246,18 @@ out:
 }
 
 /**
- * @brief Link a keyring into the session keyring
- * @param[in]     keyring  keyring to be linked
+ * @brief Link a named keyring into one of the caller's keyrings
+ * @param[in]     keyring  name of the keyring to be linked
+ * @param[in]     dest     KEY_SPEC_SESSION_KEYRING or KEY_SPEC_PROCESS_KEYRING
+ *
+ * A link into the session keyring is shared with every process that
+ * shares the session. A link into the process keyring is private to
+ * the calling process and is released when the process exits.
  *
  * @retval 0   Success
  * @retval -1  Failure
  */
-int tlshd_keyring_link_session(const char *keyring)
+int tlshd_keyring_link(const char *keyring, key_serial_t dest)
 {
 	key_serial_t serial;
 	long ret;
@@ -268,13 +273,14 @@ int tlshd_keyring_link_session(const char *keyring)
 		return -1;
 	}
 
-	ret = keyctl_link(serial, KEY_SPEC_SESSION_KEYRING);
+	ret = keyctl_link(serial, dest);
 	if (ret < 0) {
 		tlshd_log_debug("Failed to link keyring '%s' (%lx): %s\n",
 				keyring, serial, strerror(errno));
 		return -1;
 	}
 
-	tlshd_log_debug("Keyring '%s' linked into our session keyring.\n", keyring);
+	tlshd_log_debug("Keyring '%s' linked into our %s keyring.\n", keyring,
+			dest == KEY_SPEC_SESSION_KEYRING ? "session" : "process");
 	return 0;
 }

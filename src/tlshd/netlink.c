@@ -743,14 +743,6 @@ static int tlshd_genl_valid_handler(struct nl_msg *msg, void *arg)
 	if (tb[HANDSHAKE_A_ACCEPT_AUTH_MODE])
 		parms->auth_mode = nla_get_u32(tb[HANDSHAKE_A_ACCEPT_AUTH_MODE]);
 
-	if (parms->keyring) {
-		err = keyctl_link(parms->keyring, KEY_SPEC_SESSION_KEYRING);
-		if (err < 0) {
-			tlshd_log_debug("Failed to link keyring %lx error %d\n",
-					parms->keyring, errno);
-		}
-	}
-
 	tlshd_parse_peer_identity(parms, tb[HANDSHAKE_A_ACCEPT_PEER_IDENTITY]);
 	tlshd_parse_certificate(parms, tb[HANDSHAKE_A_ACCEPT_CERTIFICATE]);
 
@@ -882,8 +874,6 @@ out_close:
  */
 void tlshd_genl_put_handshake_parms(struct tlshd_handshake_parms *parms)
 {
-	if (parms->keyring)
-		keyctl_unlink(parms->keyring, KEY_SPEC_SESSION_KEYRING);
 	g_array_free(parms->peerids, TRUE);
 	g_array_free(parms->remote_peerids, TRUE);
 	tlshd_dane_release(parms);
