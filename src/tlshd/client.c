@@ -353,7 +353,7 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 		*pcert = tlshd_certs;
 		*privkey = tlshd_pq_privkey;
 	} else {
-		tlshd_log_debug("%s: Selecting x509.certificate from conf file", __func__);
+		tlshd_log_debug("%s: Selecting the non-PQ certificate", __func__);
 		*pcert_length = tlshd_certs_len;
 		*pcert = tlshd_certs + tlshd_pq_certs_len;
 		*privkey = tlshd_privkey;
