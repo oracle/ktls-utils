@@ -1,0 +1,286 @@
+.\"
+.\" Copyright (c) 2026 Oracle and/or its affiliates.
+.\"
+.\" ktls-utils is free software; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; version 2.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+.\" General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+.\" 02110-1301, USA.
+.\"
+.\" nfstlskey(8)
+.\"
+.TH nfstlskey 8 "11 Sep 2026"
+.SH NAME
+nfstlskey \- manage x.509 client identities for NFS mutual TLS
+.SH SYNOPSIS
+.B nfstlskey add
+.I identity
+.BI \-\-cert " certfile"
+.BI \-\-key " keyfile"
+.br
+.B nfstlskey list
+.br
+.B nfstlskey remove
+.I identity
+.br
+.B nfstlskey show
+.I identity
+.br
+.B nfstlskey update
+.I identity
+.BI \-\-cert " certfile"
+.BI \-\-key " keyfile"
+.SH DESCRIPTION
+An NFS mount with
+.B xprtsec=mtls
+presents an x.509 certificate to the server and proves possession
+of the matching private key.
+The kernel names both by keyring serial number, through the
+.B cert_serial=
+and
+.B privkey_serial=
+mount options, and
+.BR tlshd (8)
+reads the key material from the kernel keyring when it performs
+the handshake.
+.PP
+.B nfstlskey
+stores a certificate and private key under a name, the
+.IR identity ,
+so that an administrator provisions the pair once and refers to it
+by name afterwards.
+Each identity lives on the
+.B .nfs
+keyring of the network namespace in which
+.B nfstlskey
+runs.
+A kernel that implements the
+.B nfs_keyring
+key type creates one such keyring for every network namespace
+and hands out its serial only to a requester in that namespace,
+so mounts and handshakes in other namespaces do not find
+the identities provisioned here.
+An older kernel has a single
+.B .nfs
+keyring that every network namespace shares,
+and mounts in any namespace find the identities on it.
+.PP
+The certificate and private key are stored as two keys of type
+.BR user ,
+described as
+.BI nfs:x509: identity :cert
+and
+.BI nfs:x509: identity :privkey
+respectively.
+Each holds the DER encoding of the certificate or key.
+.BR tlshd (8)
+presents only the one certificate it reads from the key, so
+.I certfile
+has to hold a single certificate.
+A file that carries a chain is rejected.
+The keys grant read access to possessors only.
+A root process becomes a possessor by linking the
+.B .nfs
+keyring into one of its own keyrings, as
+.BR tlshd (8)
+does for each handshake.
+Without that link it can see and search the keys
+but cannot read the key material.
+.SH COMMANDS
+.TP
+.B add
+Provisions a new identity.
+.I certfile
+is a PEM-encoded x.509 certificate and
+.I keyfile
+is the matching PEM-encoded private key, unencrypted.
+The command fails if either file cannot be parsed,
+if the private key does not match the public key in the certificate,
+or if an identity of the same name already exists.
+On success it prints the serial numbers of the two keys it created.
+.TP
+.B list
+Prints the name of every identity on the calling namespace's
+.B .nfs
+keyring, one per line.
+.TP
+.B remove
+Unlinks the certificate and private key of the named identity
+from the keyring.
+A handshake that
+.BR tlshd (8)
+has already begun completes with the material it has read.
+Mounts that name the identity's serials fail to reconnect
+once the keys are gone.
+To replace the key material of an identity that mounts still
+use, see
+.B update
+instead.
+.TP
+.B show
+Prints the mount options that select the named identity,
+in the form
+.BI cert_serial= N ,privkey_serial= M \fR.
+The output is suitable for pasting into the
+.B \-o
+argument of
+.BR mount (8).
+The command fails if the identity has only one of its two keys,
+which happens when something other than
+.B nfstlskey
+has unlinked the other.
+Such an identity still appears in
+.B list
+output and can be removed.
+.TP
+.B update
+Replaces the certificate and private key of an existing identity
+with the contents of
+.I certfile
+and
+.IR keyfile ,
+which are checked as for
+.BR add .
+The serial numbers of the two keys do not change, so mounts that
+name them use the new material at their next handshake without
+being remounted.
+The certificate is replaced before the private key, so a handshake
+that
+.BR tlshd (8)
+performs while the command runs can read the new certificate with
+the old private key and fail; the next handshake succeeds.
+If the command fails after replacing only the certificate, the
+identity holds mismatched material until
+.B update
+is run again.
+The command fails if the identity does not exist or is incomplete.
+.SH IDENTITY NAMES
+An identity name is a non-empty string of printable ASCII
+characters other than space, colon, semicolon, and comma.
+Colons and semicolons delimit the key description
+and commas delimit mount options.
+.SH NOTES
+.B nfstlskey
+locates the namespace keyring by requesting a key of the kernel's
+.B nfs_keyring
+type with the description
+.BR .nfs .
+The kernel answers with the serial number of the keyring
+that belongs to the caller's network namespace.
+The request searches the session keyring before the kernel
+instantiates a key, and a session keyring inherited through
+.BR sudo (8)
+is writable by the user who logged in.
+The command joins a new session keyring first so that no key
+planted there can answer the request.
+The key type is registered by the
+.B nfs
+module, so the command loads that module with
+.BR modprobe (8)
+when the request reports that the type is missing.
+A kernel that does not implement the type fails the request again
+after the module loads.
+The command then searches
+.I /proc/keys
+for the single
+.B .nfs
+keyring such a kernel creates when the
+.B nfs
+module loads, and reports on standard error that it is using
+the keyring shared by all network namespaces.
+Only the kernel can create a keyring whose name begins with a
+period, so no other process can plant a keyring that this search
+finds.
+The command then links the keyring into its own process keyring
+so that it possesses the keys it creates and searches.
+The link lasts only as long as the command runs.
+.PP
+.BR tlshd (8)
+links the
+.B .nfs
+keyring into the process keyring of each client handshake
+whose request names no keyring of its own, just before it reads
+the certificate.
+A
+.B tlshd
+that started before the
+.B nfs
+module loaded therefore reads an identity provisioned here
+without being restarted.
+.PP
+Serial numbers are assigned when a key is created and differ
+from boot to boot.
+An identity has to be provisioned again after every reboot,
+and the serials that
+.B show
+prints are valid only until then.
+Within a boot,
+.B update
+keeps them stable across a certificate renewal.
+.PP
+.B nfstlskey
+must run as root.
+Adding, removing, and searching keys on the
+.B .nfs
+keyring require the permissions the kernel grants to its owner.
+.SH EXAMPLES
+Provision an identity from a certificate and key issued for this
+client, then mount with it:
+.PP
+.RS
+.nf
+# nfstlskey add lab \-\-cert /etc/pki/nfs/lab.crt \\
+      \-\-key /etc/pki/nfs/lab.key
+lab: cert_serial=723847 privkey_serial=723848
+# nfstlskey show lab
+cert_serial=723847,privkey_serial=723848
+# mount \-o xprtsec=mtls,cert_serial=723847,privkey_serial=723848 \\
+      server:/export /mnt
+.fi
+.RE
+.PP
+Provision an identity inside a network namespace, where it is
+visible only to mounts made in that namespace:
+.PP
+.RS
+.nf
+# ip netns exec blue nfstlskey add blue\-client \\
+      \-\-cert blue.crt \-\-key blue.key
+# ip netns exec blue nfstlskey list
+blue\-client
+# nfstlskey list
+#
+.fi
+.RE
+.PP
+The kernel delivers handshake requests for mounts made in
+.B blue
+only to a
+.BR tlshd (8)
+that runs in that namespace.
+The instance the
+.B tlshd
+service starts at boot serves the initial namespace alone,
+so start another one in
+.B blue
+before mounting there.
+.SH EXIT STATUS
+.B nfstlskey
+exits 0 on success and 1 on any failure,
+after printing a diagnostic to standard error.
+.SH SEE ALSO
+.BR tlshd (8),
+.BR mount.nfs (8),
+.BR nfs (5),
+.BR keyctl (1),
+.BR keyrings (7)
+.SH AUTHOR
+Chuck Lever

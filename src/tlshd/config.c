@@ -111,14 +111,16 @@ static void tlshd_config_apply(void)
 				continue;
 			if (!strcmp(keyrings[i], ".nfsd"))
 				continue;
-			tlshd_keyring_link_session(keyrings[i]);
+			tlshd_keyring_link(keyrings[i],
+					   KEY_SPEC_SESSION_KEYRING);
 		}
 		g_strfreev(keyrings);
 	}
-	/* The ".nvme", ".nfs", and ".nfsd" keyrings cannot be disabled. */
-	tlshd_keyring_link_session(".nvme");
-	tlshd_keyring_link_session(".nfs");
-	tlshd_keyring_link_session(".nfsd");
+	/*
+	 * The ".nvme" keyring cannot be disabled. The ".nfs" and ".nfsd"
+	 * keyrings are linked by each handshake child that needs them.
+	 */
+	tlshd_keyring_link(".nvme", KEY_SPEC_SESSION_KEYRING);
 }
 
 /**

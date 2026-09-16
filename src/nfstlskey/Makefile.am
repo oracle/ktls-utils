@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2025 Oracle and/or its affiliates.
+# Copyright (c) 2026 Oracle and/or its affiliates.
 #
 # ktls-utils is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -16,6 +16,10 @@
 # 02110-1301, USA.
 #
 
-dist_man8_MANS		= nfstlskey.8 tlshd.8
+sbin_PROGRAMS		= nfstlskey
+nfstlskey_CFLAGS	= -Werror -Wall -Wextra $(LIBGNUTLS_CFLAGS) \
+			  $(LIBKEYUTILS_CFLAGS)
+nfstlskey_SOURCES	= main.c
+nfstlskey_LDADD		= $(LIBGNUTLS_LIBS) $(LIBKEYUTILS_LIBS)
 
-MAINTAINERCLEANFILES	= Makefile.in
+MAINTAINERCLEANFILES	= Makefile.in cscope.out

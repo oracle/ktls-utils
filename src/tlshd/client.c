@@ -215,6 +215,13 @@ static gnutls_pk_algorithm_t tlshd_pq_pkalg = GNUTLS_PK_UNKNOWN;
 static bool tlshd_x509_client_get_certs(struct tlshd_handshake_parms *parms)
 {
 	if (parms->x509_cert != TLS_NO_CERT) {
+		/*
+		 * A handshake request that names no keyring leaves the
+		 * NFS client's credentials on the .nfs keyring without a
+		 * possessor. The process keyring dies with this child.
+		 */
+		if (!parms->keyring)
+			tlshd_keyring_link(".nfs", KEY_SPEC_PROCESS_KEYRING);
 		tlshd_pq_certs_len = 0;
 		return tlshd_keyring_get_certs(parms->x509_cert, tlshd_certs,
 					       &tlshd_certs_len);
@@ -346,7 +353,7 @@ tlshd_x509_retrieve_key_cb(gnutls_session_t session,
 		*pcert = tlshd_certs;
 		*privkey = tlshd_pq_privkey;
 	} else {
-		tlshd_log_debug("%s: Selecting x509.certificate from conf file", __func__);
+		tlshd_log_debug("%s: Selecting the non-PQ certificate", __func__);
 		*pcert_length = tlshd_certs_len;
 		*pcert = tlshd_certs + tlshd_pq_certs_len;
 		*privkey = tlshd_privkey;

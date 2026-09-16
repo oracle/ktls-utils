@@ -18,5 +18,5 @@
 
 EXTRA_DIST		= mainpage.c
 
-SUBDIRS			= tlshd
+SUBDIRS			= tlshd nfstlskey
 MAINTAINERCLEANFILES	= Makefile.in

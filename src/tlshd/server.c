@@ -93,6 +93,13 @@ static gnutls_pk_algorithm_t tlshd_server_pq_pkalg = GNUTLS_PK_UNKNOWN;
 static bool tlshd_x509_server_get_certs(struct tlshd_handshake_parms *parms)
 {
 	if (parms->x509_cert != TLS_NO_CERT) {
+		/*
+		 * A handshake request that names no keyring leaves NFSD's
+		 * credentials on the .nfsd keyring without a possessor.
+		 * The process keyring dies with this child.
+		 */
+		if (!parms->keyring)
+			tlshd_keyring_link(".nfsd", KEY_SPEC_PROCESS_KEYRING);
 		tlshd_server_pq_certs_len = 0;
 		return tlshd_keyring_get_certs(parms->x509_cert,
 					       tlshd_server_certs,
@@ -488,13 +495,35 @@ out_deinit_session:
 }
 
 /**
+ * @brief Find a server PSK by its description
+ * @param[in]     type      Key type to search for
+ * @param[in]     username  Key description to search for
+ *
+ * The kernel links the keyring named by a handshake request into
+ * this process's process keyring. Keyrings linked at startup, such
+ * as .nvme, are on the session keyring.
+ *
+ * @retval >= 0  Serial number of the matching key
+ * @retval < 0   No matching key, errno is set
+ */
+static long tlshd_server_psk_search(const char *type, const char *username)
+{
+	long ret;
+
+	ret = keyctl_search(KEY_SPEC_PROCESS_KEYRING, type, username, 0);
+	if (ret >= 0)
+		return ret;
+	return keyctl_search(KEY_SPEC_SESSION_KEYRING, type, username, 0);
+}
+
+/**
  * @brief Validate the remote peer's username
  * @param[in]     session   Session in the midst of a handshake
  * @param[in]     username  Remote peer's username
  * @param[in]     key       PSK matching "username"
  *
- * Searches for a key with description "username" in the session
- * keyring, and stores the PSK data in "key" if found.
+ * Searches for a key with description "username" in the process
+ * and session keyrings, and stores the PSK data in "key" if found.
  *
  * @retval 0  Matching key has been stored in "key"
  * @retval -1 Error during lookup, "key" is not updated
@@ -508,8 +537,7 @@ static int tlshd_server_psk_cb(gnutls_session_t session,
 
 	parms = gnutls_session_get_ptr(session);
 
-	ret = keyctl_search(KEY_SPEC_SESSION_KEYRING,
-			    TLS_DEFAULT_PSK_TYPE, username, 0);
+	ret = tlshd_server_psk_search(TLS_DEFAULT_PSK_TYPE, username);
 	if (ret < 0) {
 		tlshd_log_error("failed to search '%s' key '%s'",
 				TLS_DEFAULT_PSK_TYPE, username);
@@ -683,8 +711,8 @@ static int tlshd_quic_server_x509_verify_function(gnutls_session_t session)
  * @param[in]     username  Remote peer's username
  * @param[in]     key       PSK matching "username"
  *
- * Searches for a key with description "username" in the session
- * keyring, and stores the PSK data in "key" if found.
+ * Searches for a key with description "username" in the process
+ * and session keyrings, and stores the PSK data in "key" if found.
  *
  * @retval 0  Matching key has been stored in "key"
  * @retval -1 Error during lookup, "key" is not updated
@@ -697,11 +725,11 @@ static int tlshd_quic_server_psk_cb(gnutls_session_t session, const char *userna
 	key_serial_t psk;
 	long ret;
 
-	ret = keyctl_search(KEY_SPEC_SESSION_KEYRING, "psk", username, 0);
+	ret = tlshd_server_psk_search("psk", username);
 	if (ret >= 0)
 		goto found;
 
-	ret = keyctl_search(KEY_SPEC_SESSION_KEYRING, "user", username, 0);
+	ret = tlshd_server_psk_search("user", username);
 	if (ret < 0) {
 		tlshd_log_error("key search error %d %s", errno, username);
 		return -1;

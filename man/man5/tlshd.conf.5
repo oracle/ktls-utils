@@ -84,11 +84,16 @@ links these keyrings into its session keyring.
 The configuration file may specify either a keyring's name or serial number.
 .B tlshd
 always includes the
-.IR .nvme ,
-.IR .nfs ,
-and
+.I .nvme
+keyring on its session keyring.
+When a handshake request names no keyring of its own,
+the process that performs a client handshake links the
+.I .nfs
+keyring, and the process that performs a server handshake
+links the
 .I .nfsd
-keyrings on its session keyring.
+keyring, into its process keyring for the duration of that
+handshake.
 .TP
 .B dane
 This option specifies the DANE policy for client handshakes
