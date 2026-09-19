@@ -367,6 +367,10 @@ static int quic_session_set_alpns(gnutls_session_t session, char *alpn_data)
 	while (alpn) {
 		while (*alpn == ' ')
 			alpn++;
+		if (count == TLSHD_QUIC_MAX_ALPNS_LEN / 2) {
+			tlshd_log_error("Too many ALPNs configured");
+			return -1;
+		}
 		alpns[count].data = (unsigned char *)alpn;
 		alpns[count].size = strlen(alpn);
 		count++;
