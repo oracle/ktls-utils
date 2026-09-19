@@ -1433,7 +1433,7 @@ tlshd_tags_filter_type_match_x509_tbs_version(struct tlshd_tags_filter *filter,
 		goto deinit;
 	}
 
-	snprintf(version, sizeof(version), "%u", ret);
+	snprintf(version, sizeof(version), "%d", ret);
 	res = tlshd_tags_filter_type_match_string(filter, version);
 	tlshd_log_debug("Filter '%s' %s version '%s'",
 			filter->fi_name,
